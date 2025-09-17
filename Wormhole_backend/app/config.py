@@ -1,7 +1,12 @@
-from pydantic import BaseModel
-from pathlib import Path
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
-class Settings(BaseModel):
+
+class Settings(BaseSettings):
+    # Server
+    HOST: str = "0.0.0.0"
+    PORT: int = 8000
+
+    # Database / Storage
     DATABASE_PATH: str = "wormhole.db"
     COS_SECRET_ID: str = ""
     COS_SECRET_KEY: str = ""
@@ -10,7 +15,7 @@ class Settings(BaseModel):
     WECHAT_APP_ID: str = ""
     WECHAT_APP_SECRET: str = ""
 
-    class Config:
-        env_file = ".env"
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
-settings = Settings() 
+
+settings = Settings()
