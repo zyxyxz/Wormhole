@@ -1,0 +1,5 @@
+<view class="empty">
+  <image class="empty-img" src="/assets/icons/notes.png" mode="aspectFit" />
+  <view class="empty-text">{{text}}</view>
+</view>
+

@@ -1,0 +1,50 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/space/space",
+    "pages/chat/chat",
+    "pages/notes/notes",
+    "pages/note-edit/note-edit",
+    "pages/post-create/post-create",
+    "pages/wallet/wallet",
+    "pages/recharge/recharge",
+    "pages/join/join",
+    "pages/settings/settings"
+  ],
+  "window": {
+    "backgroundTextStyle": "light",
+    "navigationBarBackgroundColor": "#FFFFFF",
+    "navigationBarTitleText": "虫洞私密共享空间",
+    "navigationBarTextStyle": "black"
+  },
+  "tabBar": {
+    "color": "#64748B",
+    "selectedColor": "#14B8A6",
+    "list": [
+      {
+        "pagePath": "pages/chat/chat",
+        "text": "聊天",
+        "iconPath": "/assets/icons/chat.png",
+        "selectedIconPath": "/assets/icons/chat-active.png"
+      },
+      {
+        "pagePath": "pages/notes/notes",
+        "text": "笔记",
+        "iconPath": "/assets/icons/notes.png",
+        "selectedIconPath": "/assets/icons/notes-active.png"
+      },
+      {
+        "pagePath": "pages/wallet/wallet",
+        "text": "钱包",
+        "iconPath": "/assets/icons/wallet.png",
+        "selectedIconPath": "/assets/icons/wallet-active.png"
+      },
+      {
+        "pagePath": "pages/settings/settings",
+        "text": "设置",
+        "iconPath": "/assets/icons/settings.png",
+        "selectedIconPath": "/assets/icons/settings-active.png"
+      }
+    ]
+  }
+}

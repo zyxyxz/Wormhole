@@ -1,0 +1,10 @@
+<view class="container">
+  <input class="title" placeholder="标题" value="{{title}}" bindinput="onTitleInput" />
+  <textarea class="content" placeholder="内容" value="{{content}}" bindinput="onContentInput" />
+  <view class="row">
+    <text class="label">允许房间共享编辑</text>
+    <switch checked="{{allowEdit}}" bindchange="onToggleEdit" />
+  </view>
+  <button class="save" bindtap="saveNote">保存</button>
+  
+</view>

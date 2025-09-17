@@ -1,0 +1,87 @@
+<view class="home-fab" bindtap="goHome">主页</view>
+<view class="settings-container">
+  <view class="settings-group">
+    <view class="settings-item" bindtap="modifySpaceCode">
+      <text>修改空间号</text>
+      <text class="space-code">{{spaceCode}}</text>
+    </view>
+    
+    <view class="settings-item" bindtap="shareSpace">
+      <text>分享空间</text>
+      <text class="arrow">></text>
+    </view>
+
+    <view class="settings-item" bindtap="openAliasModal">
+      <text>设置房间内别名</text>
+      <text class="space-code">{{alias || '未设置'}}</text>
+    </view>
+    
+    <view class="settings-item" bindtap="deleteSpace">
+      <text>删除空间</text>
+      <text class="arrow">></text>
+    </view>
+  </view>
+
+  <view class="settings-group" wx:if="{{isOwner}}">
+    <view class="settings-item">
+      <text>成员管理（房主）</text>
+    </view>
+    <view class="member-item" wx:for="{{members}}" wx:key="user_id">
+      <text>{{item.alias || item.user_id}}</text>
+      <view>
+        <button size="mini" bindtap="removeMember" data-userid="{{item.user_id}}">移除</button>
+        <button size="mini" type="warn" bindtap="blockMember" data-userid="{{item.user_id}}">拉黑</button>
+      </view>
+    </view>
+  </view>
+
+  <view class="settings-group" wx:if="{{isOwner}}">
+    <view class="settings-item">
+      <text>黑名单（房主）</text>
+    </view>
+    <view class="member-item" wx:for="{{blocks}}" wx:key="user_id">
+      <text>{{item.alias || item.user_id}}</text>
+      <button size="mini" bindtap="unblockMember" data-userid="{{item.user_id}}">取消拉黑</button>
+    </view>
+  </view>
+</view>
+
+<!-- 修改空间号弹窗 -->
+<view class="modal" wx:if="{{showModifyModal}}">
+  <view class="modal-content">
+    <view class="modal-title">修改空间号</view>
+    <input class="space-input" 
+           type="number" 
+           maxlength="6" 
+           value="{{newSpaceCode}}"
+           bindinput="onSpaceCodeInput"
+           placeholder="请输入6位数字"/>
+    <view class="modal-buttons">
+      <button class="cancel-button" bindtap="cancelModify">取消</button>
+      <button class="confirm-button" bindtap="confirmModify">确定</button>
+    </view>
+  </view>
+</view>
+
+<!-- 分享弹窗 -->
+<view class="modal" wx:if="{{showShareModal}}">
+  <view class="modal-content">
+    <view class="modal-title">分享口令</view>
+    <view class="share-code">{{shareCode}}</view>
+    <button class="copy-button" bindtap="copyShareCode">复制口令</button>
+    <button class="close-button" bindtap="closeShareModal">关闭</button>
+  </view>
+</view> 
+
+<!-- 别名弹窗 -->
+<view class="modal" wx:if="{{showAliasModal}}">
+  <view class="modal-content">
+    <view class="modal-title">设置房间内别名</view>
+    <input class="space-input" maxlength="20" value="{{newAlias}}" bindinput="onAliasInput" placeholder="输入别名"/>
+    <view class="modal-buttons">
+      <button class="cancel-button" bindtap="closeAliasModal">取消</button>
+      <button class="confirm-button" bindtap="confirmAlias">确定</button>
+    </view>
+  </view>
+  
+</view>

@@ -1,0 +1,21 @@
+<view class="home-fab" bindtap="goHome">主页</view>
+<view class="chat-container">
+  <scroll-view class="message-list" scroll-y scroll-into-view="{{lastMessageId}}">
+    <view wx:for="{{messages}}" wx:key="id" class="message-item {{item.isSelf ? 'self' : ''}}" id="msg-{{item.id}}">
+      <image class="avatar" src="{{item.avatar}}"/>
+      <view class="message-content">
+        <view class="nickname">{{item.nickname}}</view>
+        <view class="message-bubble">{{item.content}}</view>
+        <view class="message-time">{{item.time}}</view>
+      </view>
+    </view>
+  </scroll-view>
+
+  <view class="input-area">
+    <input class="message-input" 
+           value="{{inputMessage}}"
+           bindinput="onInputChange"
+           placeholder="输入消息..."/>
+    <button class="send-button" bindtap="sendMessage">发送</button>
+  </view>
+</view> 

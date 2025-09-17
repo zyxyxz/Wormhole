@@ -1,0 +1,7 @@
+.skeleton-wrap { padding: 16rpx; }
+.skeleton-row { display: flex; gap: 16rpx; margin-bottom: 20rpx; }
+.skeleton-row .avatar { width: 80rpx; height: 80rpx; border-radius: 50%; }
+.skeleton-row .content { flex: 1; }
+.skeleton-row .line { height: 28rpx; border-radius: 8rpx; margin: 10rpx 0; }
+.skeleton-row .short { width: 50%; }
+

@@ -1,0 +1,12 @@
+<view class="container">
+  <textarea class="content" placeholder="这一刻的想法..." bindinput="onContentInput" />
+  <view class="media-actions">
+    <button class="btn btn-ghost" bindtap="chooseImage">选择图片</button>
+    <button class="btn btn-ghost" bindtap="chooseVideo">选择视频</button>
+  </view>
+  <view wx:if="{{mediaType==='image'}}" class="images">
+    <image wx:for="{{mediaUrls}}" wx:key="*this" class="image" src="{{item}}" mode="aspectFill" />
+  </view>
+  <video wx:if="{{mediaType==='video'}}" class="video" src="{{mediaUrls[0]}}" controls />
+  <button class="btn btn-primary submit" bindtap="submit" loading="{{uploading}}">发布</button>
+</view>

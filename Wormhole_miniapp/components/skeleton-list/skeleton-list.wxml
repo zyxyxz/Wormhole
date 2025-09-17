@@ -1,0 +1,12 @@
+<view wx:if="{{show}}" class="skeleton-wrap">
+  <block wx:for="{{rows}}" wx:key="index">
+    <view class="skeleton-row">
+      <view class="avatar skeleton"></view>
+      <view class="content">
+        <view class="line skeleton"></view>
+        <view class="line short skeleton"></view>
+      </view>
+    </view>
+  </block>
+</view>
+

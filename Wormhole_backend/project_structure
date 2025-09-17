@@ -1,0 +1,27 @@
+wormhole/
+├── app/
+│   ├── __init__.py
+│   ├── main.py
+│   ├── database.py
+│   ├── config.py
+│   └── api/
+│       ├── __init__.py
+│       ├── space.py
+│       ├── chat.py
+│       ├── notes.py
+│       ├── wallet.py
+│       └── settings.py
+├── models/
+│   ├── __init__.py
+│   ├── space.py
+│   ├── chat.py
+│   ├── notes.py
+│   └── wallet.py
+├── schemas/
+│   ├── __init__.py
+│   ├── space.py
+│   ├── chat.py
+│   ├── notes.py
+│   └── wallet.py
+├── requirements.txt
+└── README.md 

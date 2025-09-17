@@ -1,0 +1,5 @@
+<view class="container">
+  <view class="label">充值金额</view>
+  <input class="amount" type="digit" placeholder="请输入金额" bindinput="onAmountInput" />
+  <button class="submit" bindtap="submit">确认充值</button>
+</view>

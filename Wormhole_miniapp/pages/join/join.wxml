@@ -1,0 +1,8 @@
+<view class="container">
+  <view class="label">分享口令</view>
+  <input class="input" placeholder="输入8位口令" maxlength="16" bindinput="onShareCodeInput" />
+  <view class="label">为该空间设置你的6位空间号</view>
+  <input class="input" type="number" maxlength="6" placeholder="6位数字" bindinput="onNewCodeInput" />
+  <button class="submit" bindtap="submit">加入</button>
+</view>
+

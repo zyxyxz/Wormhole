@@ -1,0 +1,30 @@
+<view class="home-fab" bindtap="goHome">主页</view>
+<view class="notes-container">
+  <skeleton-list show="{{loading}}" rows="6" />
+  <view class="notes-list" wx:if="{{!loading}}">
+    <view wx:for="{{posts}}" wx:key="id" class="post card">
+      <view class="post-header">
+        <image class="avatar" src="/assets/icons/chat.png"></image>
+        <view class="user-info">
+          <view class="name">{{item.alias || item.user_id || '匿名'}}</view>
+          <view class="time muted">{{item.created_at}}</view>
+        </view>
+      </view>
+      <view wx:if="{{item.content}}" class="post-content">{{item.content}}</view>
+      <view wx:if="{{item.media_type==='image'}}" class="images">
+        <image wx:for="{{item.media_urls}}" wx:key="*this" class="image" mode="aspectFill" src="{{item}}" />
+      </view>
+      <video wx:if="{{item.media_type==='video'}}" class="video" src="{{item.media_urls[0]}}" controls></video>
+
+      <view class="comment-box">
+        <input class="comment-input" placeholder="评论..." value="{{commentInputs[item.id]}}" data-id="{{item.id}}" bindinput="onCommentInput" />
+        <button class="btn btn-primary" size="mini" data-id="{{item.id}}" bindtap="submitComment">发送</button>
+      </view>
+    </view>
+    <empty wx:if="{{!posts.length}}" text="暂无动态，点击下方 + 发布" />
+  </view>
+
+  <view class="add-button" bindtap="createPost">
+    <text class="add-icon">+</text>
+  </view>
+</view> 

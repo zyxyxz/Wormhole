@@ -1,0 +1,28 @@
+# OS
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Env
+.env
+Wormhole_backend/.env
+
+# SQLite DB
+Wormhole_backend/wormhole.db
+
+# Uploads / static artifacts
+Wormhole_backend/static/uploads/
+
+# Bytecode caches
+Wormhole_backend/app/__pycache__/
+Wormhole_backend/app/api/__pycache__/
+Wormhole_backend/models/__pycache__/
+Wormhole_backend/schemas/__pycache__/
+
+# WeChat build artifacts (if any)
+Wormhole_miniapp/.idea/
+Wormhole_miniapp/.vscode/
+

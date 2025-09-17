@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "动态",
+  "usingComponents": {
+    "empty": "/components/empty/empty",
+    "skeleton-list": "/components/skeleton-list/skeleton-list"
+  }
+}
