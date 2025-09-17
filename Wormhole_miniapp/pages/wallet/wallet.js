@@ -21,6 +21,11 @@ Page({
     this.getWalletInfo();
     this.getTransactions();
   },
+  onShow() {
+    // 返回本页时刷新余额与交易
+    this.getWalletInfo();
+    this.getTransactions();
+  },
 
   getWalletInfo() {
     wx.request({

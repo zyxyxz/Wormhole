@@ -34,16 +34,23 @@ Page({
     // 获取历史消息
     this.getHistoryMessages();
   },
+  onShow() {
+    // 若昵称更新，刷新历史以展示新昵称
+    const updated = wx.getStorageSync('aliasUpdatedAt');
+    if (updated) {
+      this.getHistoryMessages();
+    }
+  },
   onBack() {
     wx.reLaunch({ url: '/pages/index/index' });
   },
 
   initWebSocket() {
-    const ws = wx.connectSocket({
-      url: `${WS_URL}/ws/chat/${this.data.spaceId}`,
-      success: () => {
-        console.log('WebSocket连接成功');
-      }
+    const url = `${WS_URL}/ws/chat/${this.data.spaceId}`;
+    const ws = wx.connectSocket({ url });
+
+    ws.onOpen(() => {
+      console.log('WebSocket 已连接:', url);
     });
 
     ws.onMessage((res) => {
@@ -63,6 +70,15 @@ Page({
         nickname: message.alias || message.user_id || '匿名',
       };
       this.addMessage(displayed);
+    });
+
+    ws.onClose(() => {
+      console.log('WebSocket 已关闭，3秒后重连...');
+      setTimeout(() => this.initWebSocket(), 3000);
+    });
+
+    ws.onError(() => {
+      console.log('WebSocket 连接错误');
     });
 
     this.ws = ws;
@@ -89,6 +105,9 @@ Page({
       },
       fail: () => {
         wx.showToast({ title: '加载失败', icon: 'none' });
+      },
+      complete: () => {
+        try { wx.removeStorageSync('aliasUpdatedAt'); } catch (e) {}
       }
     });
   },

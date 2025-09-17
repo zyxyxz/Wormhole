@@ -11,6 +11,7 @@ from sqlalchemy.orm import sessionmaker
 from app.database import AsyncSessionLocal
 from models.chat import Message
 from models.user import UserAlias
+from app.ws import chat_manager, event_manager
 from sqlalchemy import select
 from datetime import datetime
 
@@ -51,34 +52,9 @@ async def root():
     return {"message": "欢迎使用虫洞私密共享空间"}
 
 
-class ConnectionManager:
-    def __init__(self):
-        self.active: dict[int, set[WebSocket]] = {}
-
-    async def connect(self, space_id: int, websocket: WebSocket):
-        await websocket.accept()
-        self.active.setdefault(space_id, set()).add(websocket)
-
-    def disconnect(self, space_id: int, websocket: WebSocket):
-        try:
-            self.active.get(space_id, set()).discard(websocket)
-        except Exception:
-            pass
-
-    async def broadcast(self, space_id: int, message: dict):
-        for ws in list(self.active.get(space_id, set())):
-            try:
-                await ws.send_json(message)
-            except Exception:
-                self.disconnect(space_id, ws)
-
-
-manager = ConnectionManager()
-
-
 @app.websocket("/ws/chat/{space_id}")
 async def websocket_endpoint(websocket: WebSocket, space_id: int):
-    await manager.connect(space_id, websocket)
+    await chat_manager.connect(space_id, websocket)
     try:
         while True:
             data = await websocket.receive_json()
@@ -106,6 +82,21 @@ async def websocket_endpoint(websocket: WebSocket, space_id: int):
                     "created_at": msg.created_at.isoformat() if msg.created_at else datetime.utcnow().isoformat(),
                     "alias": alias,
                 }
-                await manager.broadcast(space_id, payload)
+                await chat_manager.broadcast(space_id, payload)
     except WebSocketDisconnect:
-        manager.disconnect(space_id, websocket)
+        chat_manager.disconnect(space_id, websocket)
+
+
+@app.websocket("/ws/space/{space_id}")
+async def websocket_space_events(websocket: WebSocket, space_id: int):
+    # 仅用于事件广播（钱包、别名等），客户端可选择发送心跳，服务端忽略内容
+    await event_manager.connect(space_id, websocket)
+    try:
+        while True:
+            try:
+                await websocket.receive_text()
+            except Exception:
+                # 忽略非文本帧或无意义数据
+                pass
+    except WebSocketDisconnect:
+        event_manager.disconnect(space_id, websocket)

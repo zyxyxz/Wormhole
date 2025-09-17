@@ -1,5 +1,5 @@
-const BASE_URL = 'http://127.0.0.1:8000';
-const WS_URL = 'ws://127.0.0.1:8000';
+const BASE_URL = 'https://wormhole.z33.fun';
+const WS_URL = 'wss://wormhole.z33.fun/';
 
 module.exports = {
   BASE_URL,

@@ -1,5 +1,5 @@
 <!--index.wxml-->
-<scroll-view class="scrollarea" scroll-y type="list">
+<scroll-view class="scrollarea" scroll-y="false" type="list">
   <view class="aurora-bg">
     <view class="blob cyan" style="width: 320rpx; height: 320rpx; top: -80rpx; left: -40rpx;"></view>
     <view class="blob purple" style="width: 420rpx; height: 420rpx; top: 220rpx; right: -160rpx;"></view>
@@ -11,22 +11,22 @@
     </view>
     <view class="title-neo">虫洞私密共享空间</view>
     <view class="subtitle-neo">输入6位空间号，进入你的共享空间</view>
-    
-    <view class="keypad-container">
+
+    <view class="spacer"></view>
+
+    <view class="enter-area">
       <view class="input-display">
         <text wx:for="{{spaceCode}}" wx:key="index" class="code-digit">{{item}}</text>
       </view>
-      
       <view class="keypad">
         <view wx:for="{{[1,2,3,4,5,6,7,8,9,'',0,'删除']}}" 
               wx:key="index" 
-              class="key-button glass {{item === '' ? 'key-empty' : ''}}"
+              class="key-button {{item === '' ? 'key-empty' : ''}}"
               bindtap="onKeyTap"
               data-key="{{item}}">
           {{item}}
         </view>
       </view>
-      
     </view>
   </view>
 </scroll-view>

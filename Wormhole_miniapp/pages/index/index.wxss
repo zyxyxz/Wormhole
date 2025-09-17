@@ -6,18 +6,20 @@ page {
 }
 .scrollarea {
   flex: 1;
-  overflow-y: hidden;
 }
 
 .container {
-  padding: 40rpx;
+  min-height: 100vh;
+  padding: 40rpx 40rpx calc(40rpx + env(safe-area-inset-bottom));
   display: flex;
   flex-direction: column;
   align-items: center;
 }
+.spacer { flex: 1; }
+.enter-area { width: 100%; }
 
 .top-actions { width: 100%; display: flex; justify-content: flex-end; }
-.top-actions .link { color: #9AA0A6; font-size: 26rpx; }
+.top-actions .link { color: #64748B; font-size: 26rpx; }
 
 .title { font-size: 44rpx; font-weight: 800; margin: 30rpx 0 8rpx; color: #111; }
 .subtitle { color: #666; margin-bottom: 40rpx; }
@@ -37,7 +39,5 @@ page {
 .key-empty {
   background: transparent;
 }
-
-.confirm-button { width: 100%; height: 88rpx; background: #0A84FF; color: white; border-radius: 12rpx; }
 
 .join-share { display: none; }

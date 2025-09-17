@@ -4,6 +4,7 @@ from sqlalchemy import select
 from app.database import get_db
 from models.user import UserAlias
 from schemas.user import AliasSetRequest, AliasResponse
+from app.ws import event_manager
 
 router = APIRouter()
 
@@ -25,5 +26,11 @@ async def set_alias(payload: AliasSetRequest, db: AsyncSession = Depends(get_db)
         alias = UserAlias(space_id=payload.space_id, user_id=payload.user_id, alias=payload.alias)
         db.add(alias)
     await db.commit()
+    # 广播别名更新事件
+    await event_manager.broadcast(payload.space_id, {
+        "type": "alias_update",
+        "space_id": payload.space_id,
+        "user_id": payload.user_id,
+        "alias": payload.alias,
+    })
     return AliasResponse(space_id=payload.space_id, user_id=payload.user_id, alias=payload.alias)
-

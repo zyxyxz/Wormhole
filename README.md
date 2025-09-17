@@ -52,9 +52,19 @@
    python scripts/reset_db.py
    ```
 4. 启动服务
-   ```bash
-   uvicorn app.main:app --reload
-   ```
+   - 方式A（推荐，读取 .env 中 HOST/PORT）
+     ```bash
+     python scripts/run.py
+     ```
+   - 方式B（手动指定）
+     ```bash
+     uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+     ```
+   - .env 支持：
+     ```env
+     HOST=0.0.0.0
+     PORT=8000
+     ```
    - 静态上传目录：`/static/uploads`（已自动挂载）
    - 主要 API 前缀：`/api/*`（space/chat/notes/feed/wallet/settings/user/auth/upload）
 
@@ -99,4 +109,3 @@
 
 ## 许可
 本项目未附加开源许可协议，默认保留所有权利。如需开放许可或选择具体 License，可在 README 中更新并添加 LICENSE 文件。
-

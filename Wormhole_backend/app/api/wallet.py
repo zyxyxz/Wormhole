@@ -8,6 +8,7 @@ from schemas.wallet import WalletInfo, WalletResponse, TransactionResponse
 from pydantic import BaseModel
 from decimal import Decimal
 import uuid
+from app.ws import event_manager
 
 router = APIRouter()
 
@@ -85,6 +86,13 @@ async def recharge(payload: AmountRequest, db: AsyncSession = Depends(get_db)):
     wallet.balance = (wallet.balance or Decimal("0")) + payload.amount
     db.add(Transaction(wallet_id=wallet.id, amount=payload.amount, type="recharge", user_id=(payload.user_id or "")))
     await db.commit()
+    # 广播余额更新事件
+    await event_manager.broadcast(payload.space_id, {
+        "type": "wallet_update",
+        "space_id": payload.space_id,
+        "balance": str(wallet.balance),
+        "op": "recharge"
+    })
     return {"success": True, "balance": str(wallet.balance)}
 
 @router.post("/pay")
@@ -96,4 +104,10 @@ async def pay(payload: AmountRequest, db: AsyncSession = Depends(get_db)):
     wallet.balance = (wallet.balance or Decimal("0")) - payload.amount
     db.add(Transaction(wallet_id=wallet.id, amount=-payload.amount, type="payment", user_id=(payload.user_id or "")))
     await db.commit()
+    await event_manager.broadcast(payload.space_id, {
+        "type": "wallet_update",
+        "space_id": payload.space_id,
+        "balance": str(wallet.balance),
+        "op": "payment"
+    })
     return {"success": True, "balance": str(wallet.balance)}
