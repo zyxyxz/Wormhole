@@ -7,8 +7,8 @@ class Settings(BaseModel):
     COS_SECRET_KEY: str = ""
     COS_REGION: str = "ap-guangzhou"
     COS_BUCKET: str = ""
-    WECHAT_APP_ID: str = ""
-    WECHAT_APP_SECRET: str = ""
+    WECHAT_APP_ID: str = "wxf352f78176ea0dd2"
+    WECHAT_APP_SECRET: str = "c4b2a446a0fc75c7f679ece1217be76b"
 
     class Config:
         env_file = ".env"
