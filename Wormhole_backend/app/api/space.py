@@ -198,6 +198,9 @@ async def remove_member(payload: RemoveMemberRequest, db: AsyncSession = Depends
         raise HTTPException(status_code=404, detail="空间不存在")
     if space.owner_user_id != payload.operator_user_id:
         raise HTTPException(status_code=403, detail="无权限")
+    # 房主不可移除自己
+    if payload.member_user_id == space.owner_user_id:
+        raise HTTPException(status_code=400, detail="房主不可移除自己")
     await db.execute(delete(SpaceMember).where(SpaceMember.space_id == payload.space_id, SpaceMember.user_id == payload.member_user_id))
     await db.commit()
     return {"success": True}

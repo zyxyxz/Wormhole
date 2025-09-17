@@ -39,7 +39,7 @@ Page({
       success: (res) => {
         const info = res.data;
         const isOwner = wx.getStorageSync('openid') === info.owner_user_id;
-        this.setData({ isOwner });
+        this.setData({ isOwner, ownerUserId: info.owner_user_id });
         if (isOwner) this.fetchMembers();
       }
     });
@@ -169,6 +169,11 @@ Page({
       data: { space_id: this.data.spaceId, user_id: openid, alias },
       success: () => {
         this.setData({ alias, showAliasModal: false });
+        // 保存到本地，并触发页面刷新标记
+        try {
+          wx.setStorageSync('myAlias', alias);
+          wx.setStorageSync('aliasUpdatedAt', Date.now());
+        } catch (e) {}
         wx.showToast({ title: '已保存' });
       }
     });

@@ -5,6 +5,7 @@ from app.database import get_db
 from models.chat import Message
 from models.user import UserAlias
 from schemas.chat import MessageCreate, ChatHistoryResponse, MessageResponse
+from app.ws import manager
 from typing import List
 
 router = APIRouter()
@@ -50,4 +51,21 @@ async def send_message(
     db.add(db_message)
     await db.commit()
     await db.refresh(db_message)
-    return {"success": True, "message": "发送成功"} 
+    # 附带别名并广播
+    alias_rows = await db.execute(select(UserAlias).where(UserAlias.space_id == message.space_id, UserAlias.user_id == message.user_id))
+    ua = alias_rows.scalar_one_or_none()
+    payload = {
+        "id": db_message.id,
+        "user_id": db_message.user_id,
+        "content": db_message.content,
+        "created_at": db_message.created_at,
+        "alias": ua.alias if ua else None,
+    }
+    await manager.broadcast(message.space_id, {
+        "id": payload["id"],
+        "user_id": payload["user_id"],
+        "content": payload["content"],
+        "created_at": payload["created_at"].isoformat() if payload["created_at"] else None,
+        "alias": payload["alias"],
+    })
+    return {"success": True, "message": "发送成功"}

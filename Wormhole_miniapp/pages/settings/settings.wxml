@@ -28,7 +28,7 @@
     </view>
     <view class="member-item" wx:for="{{members}}" wx:key="user_id">
       <text>{{item.alias || item.user_id}}</text>
-      <view>
+      <view wx:if="{{item.user_id !== ownerUserId}}">
         <button size="mini" bindtap="removeMember" data-userid="{{item.user_id}}">移除</button>
         <button size="mini" type="warn" bindtap="blockMember" data-userid="{{item.user_id}}">拉黑</button>
       </view>
