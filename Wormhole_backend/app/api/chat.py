@@ -5,7 +5,7 @@ from app.database import get_db
 from models.chat import Message
 from models.user import UserAlias
 from schemas.chat import MessageCreate, ChatHistoryResponse, MessageResponse
-from app.ws import manager
+from app.ws import chat_manager
 from typing import List
 
 router = APIRouter()
@@ -61,7 +61,7 @@ async def send_message(
         "created_at": db_message.created_at,
         "alias": ua.alias if ua else None,
     }
-    await manager.broadcast(message.space_id, {
+    await chat_manager.broadcast(message.space_id, {
         "id": payload["id"],
         "user_id": payload["user_id"],
         "content": payload["content"],
