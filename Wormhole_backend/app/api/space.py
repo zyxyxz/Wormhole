@@ -41,16 +41,23 @@ async def enter_space(
     request: SpaceEnterRequest,
     db: AsyncSession = Depends(get_db)
 ):
+    # 需要明确的用户身份，才能保证空间号仅在用户范围内唯一
+    if not request.user_id:
+        raise HTTPException(status_code=400, detail="缺少用户ID")
+
     # 验证空间号格式
     if not request.space_code.isdigit() or len(request.space_code) != 6:
         raise HTTPException(status_code=400, detail="空间号必须是6位数字")
     
-    # 先查主空间码
-    query = select(Space).where(Space.code == request.space_code)
+    # 先在当前用户的空间中查找，保证不同用户互不影响
+    query = select(Space).where(
+        Space.code == request.space_code,
+        Space.owner_user_id == request.user_id
+    )
     result = await db.execute(query)
     space = result.scalar_one_or_none()
 
-    # 再查别名空间码
+    # 再查别名空间码（被分享的空间）
     if not space:
         alias_q = select(SpaceCode).where(SpaceCode.code == request.space_code)
         alias_res = await db.execute(alias_q)
@@ -61,16 +68,11 @@ async def enter_space(
             space = space_res.scalar_one_or_none()
     
     if not space:
-        # 创建新空间
+        # 当前用户首次使用该空间号，创建属于自己的空间
         space = Space(code=request.space_code, owner_user_id=request.user_id)
         db.add(space)
         await db.commit()
         await db.refresh(space)
-    else:
-        # 若尚无房主且本次有用户，设为房主
-        if not space.owner_user_id and request.user_id:
-            space.owner_user_id = request.user_id
-            await db.commit()
     # 黑名单校验
     if request.user_id:
         blk = await db.execute(select(SpaceBlock).where(SpaceBlock.space_id == space.id, SpaceBlock.user_id == request.user_id))
@@ -120,10 +122,9 @@ async def join_by_share(payload: JoinByShareRequest, db: AsyncSession = Depends(
     share = res.scalar_one_or_none()
     if not share:
         raise HTTPException(status_code=404, detail="分享口令无效")
-    # 新空间号是否被使用（主表或别名表）
-    exist_main = (await db.execute(select(Space).where(Space.code == payload.new_code))).scalar_one_or_none()
+    # 新空间号仅需确保未作为分享别名被占用
     exist_alias = (await db.execute(select(SpaceCode).where(SpaceCode.code == payload.new_code))).scalar_one_or_none()
-    if exist_main or exist_alias:
+    if exist_alias:
         raise HTTPException(status_code=400, detail="该空间号已被使用")
     # 创建别名
     alias = SpaceCode(space_id=share.space_id, code=payload.new_code)
@@ -135,10 +136,9 @@ async def join_by_share(payload: JoinByShareRequest, db: AsyncSession = Depends(
 async def modify_space_code(payload: ModifyCodeRequest, db: AsyncSession = Depends(get_db)):
     if not payload.new_code.isdigit() or len(payload.new_code) != 6:
         raise HTTPException(status_code=400, detail="空间号必须是6位数字")
-    # 校验新空间号在主表和别名表中不可用
-    exist_main = (await db.execute(select(Space).where(Space.code == payload.new_code))).scalar_one_or_none()
+    # 校验新空间号未被分享别名占用
     exist_alias = (await db.execute(select(SpaceCode).where(SpaceCode.code == payload.new_code))).scalar_one_or_none()
-    if exist_main or exist_alias:
+    if exist_alias:
         raise HTTPException(status_code=400, detail="该空间号已被使用")
     res = await db.execute(select(Space).where(Space.id == payload.space_id))
     space = res.scalar_one_or_none()

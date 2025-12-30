@@ -18,9 +18,8 @@ async def modify_space_code(
         raise HTTPException(status_code=400, detail="空间号必须是6位数字")
     
     # 检查新空间号是否已被使用
-    existing_space = (await db.execute(select(Space).where(Space.code == new_code))).scalar_one_or_none()
     existing_alias = (await db.execute(select(SpaceCode).where(SpaceCode.code == new_code))).scalar_one_or_none()
-    if existing_space or existing_alias:
+    if existing_alias:
         raise HTTPException(status_code=400, detail="该空间号已被使用")
     
     # 更新空间号

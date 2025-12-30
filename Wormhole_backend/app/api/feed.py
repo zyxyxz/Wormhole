@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from collections import defaultdict
 from app.database import get_db
 from models.feed import Post, Comment
 from models.user import UserAlias
@@ -36,6 +37,7 @@ async def create_post(payload: PostCreate, db: AsyncSession = Depends(get_db)):
         media_type=post.media_type,
         media_urls=json.loads(post.media_urls or "[]"),
         created_at=post.created_at,
+        comments=[],
     )
 
 
@@ -43,6 +45,14 @@ async def create_post(payload: PostCreate, db: AsyncSession = Depends(get_db)):
 async def list_posts(space_id: int, db: AsyncSession = Depends(get_db)):
     res = await db.execute(select(Post).where(Post.space_id == space_id).order_by(Post.created_at.desc()))
     posts = res.scalars().all()
+    post_ids = [p.id for p in posts]
+    comments_map: dict[int, list[Comment]] = defaultdict(list)
+    if post_ids:
+        comment_rows = await db.execute(
+            select(Comment).where(Comment.post_id.in_(post_ids)).order_by(Comment.created_at)
+        )
+        for c in comment_rows.scalars().all():
+            comments_map[c.post_id].append(c)
     alias_rows = await db.execute(select(UserAlias).where(UserAlias.space_id == space_id))
     alias_map = {r.user_id: r.alias for r in alias_rows.scalars().all()}
     return FeedListResponse(posts=[
@@ -55,6 +65,16 @@ async def list_posts(space_id: int, db: AsyncSession = Depends(get_db)):
             media_type=p.media_type,
             media_urls=json.loads(p.media_urls or "[]"),
             created_at=p.created_at,
+            comments=[
+                CommentResponse(
+                    id=c.id,
+                    post_id=c.post_id,
+                    user_id=c.user_id,
+                    alias=alias_map.get(c.user_id),
+                    content=c.content,
+                    created_at=c.created_at,
+                ) for c in comments_map.get(p.id, [])
+            ]
         ) for p in posts
     ])
 
@@ -102,4 +122,3 @@ async def list_comments(post_id: int, db: AsyncSession = Depends(get_db)):
             created_at=c.created_at,
         ) for c in comments
     ])
-

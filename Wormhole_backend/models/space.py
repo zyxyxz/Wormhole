@@ -6,7 +6,7 @@ class Space(Base):
     __tablename__ = "spaces"
     
     id = Column(Integer, primary_key=True, index=True)
-    code = Column(String, unique=True, index=True)  # 空间号
+    code = Column(String, index=True)  # 空间号允许不同用户重复使用
     owner_user_id = Column(String, index=True, nullable=True)  # 房主openid
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())

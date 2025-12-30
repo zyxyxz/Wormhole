@@ -16,6 +16,13 @@
 .images { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6rpx; margin: 10rpx 0; }
 .image { width: 100%; height: 200rpx; border-radius: 10rpx; }
 .video { width: 100%; border-radius: 8rpx; margin: 10rpx 0; }
+.comments { margin-top: 10rpx; padding: 12rpx 16rpx; background: #F8FAFC; border-radius: 16rpx; }
+.comment { margin-bottom: 12rpx; }
+.comment:last-child { margin-bottom: 0; }
+.comment-header { display: flex; justify-content: space-between; align-items: baseline; font-size: 24rpx; }
+.comment-name { font-weight: 600; color: #0F172A; }
+.comment-time { font-size: 22rpx; color: #94A3B8; }
+.comment-content { margin-top: 4rpx; font-size: 28rpx; color: #1E293B; }
 .comment-box { display: flex; gap: 10rpx; margin-top: 10rpx; }
 .comment-input { flex: 1; background: #FFFFFF; border: 1rpx solid #E2E8F0; border-radius: 12rpx; padding: 0 20rpx; height: 72rpx; color: #0F172A; }
 

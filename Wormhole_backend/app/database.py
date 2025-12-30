@@ -1,5 +1,6 @@
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy import text
 from app.config import settings
 
 DATABASE_URL = f"sqlite+aiosqlite:///{settings.DATABASE_PATH}"
@@ -21,4 +22,10 @@ async def get_db():
 
 async def create_tables():
     async with engine.begin() as conn:
+        # 旧版本曾为空间号创建唯一索引，这里在建表前移除
+        try:
+            await conn.execute(text("DROP INDEX IF EXISTS ix_spaces_code"))
+        except Exception:
+            # sqlite 以外的数据库若不存在该索引会直接跳过
+            pass
         await conn.run_sync(Base.metadata.create_all) 
