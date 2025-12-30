@@ -99,6 +99,7 @@
     POST /api/space/share
     请求参数：
     - spaceId: 空间ID
+    - operator_user_id: 操作者 user_id（必须为房主）
     返回：
     - shareCode: 分享口令
 

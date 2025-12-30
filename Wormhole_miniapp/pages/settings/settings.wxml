@@ -6,7 +6,7 @@
       <text class="space-code">{{spaceCode}}</text>
     </view>
     
-    <view class="settings-item" bindtap="shareSpace">
+    <view class="settings-item" wx:if="{{isOwner}}" bindtap="shareSpace">
       <text>分享空间</text>
       <text class="arrow">></text>
     </view>

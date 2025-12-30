@@ -121,10 +121,19 @@ Page({
   },
 
   shareSpace() {
+    if (!this.data.isOwner) {
+      wx.showToast({ title: '仅房主可分享', icon: 'none' });
+      return;
+    }
+    const operatorUserId = wx.getStorageSync('openid');
+    if (!operatorUserId) {
+      wx.showToast({ title: '未登录', icon: 'none' });
+      return;
+    }
     wx.request({
       url: `${BASE_URL}/api/space/share`,
       method: 'POST',
-      data: { space_id: this.data.spaceId },
+      data: { space_id: this.data.spaceId, operator_user_id: operatorUserId },
       success: (res) => {
         this.setData({
           shareCode: res.data.share_code || res.data.shareCode || res.data.share_code,

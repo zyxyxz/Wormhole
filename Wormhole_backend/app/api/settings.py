@@ -49,8 +49,18 @@ async def delete_space(
 @router.post("/space/share")
 async def share_space(
     space_id: int,
+    operator_user_id: str,
     db: AsyncSession = Depends(get_db)
 ):
+    space_res = await db.execute(select(Space).where(Space.id == space_id))
+    space = space_res.scalar_one_or_none()
+    if not space:
+        raise HTTPException(status_code=404, detail="空间不存在")
+    if not operator_user_id:
+        raise HTTPException(status_code=400, detail="缺少用户ID")
+    if space.owner_user_id != operator_user_id:
+        raise HTTPException(status_code=403, detail="无权限")
+
     # 生成8位随机分享码
     while True:
         share_code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))

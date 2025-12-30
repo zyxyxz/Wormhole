@@ -18,6 +18,7 @@ router = APIRouter()
 
 class ShareRequest(BaseModel):
     space_id: int
+    operator_user_id: str
 
 class ModifyCodeRequest(BaseModel):
     space_id: int
@@ -99,6 +100,11 @@ async def share_space(payload: ShareRequest, db: AsyncSession = Depends(get_db))
     space = result.scalar_one_or_none()
     if not space:
         raise HTTPException(status_code=404, detail="空间不存在")
+
+    if not payload.operator_user_id:
+        raise HTTPException(status_code=400, detail="缺少用户ID")
+    if space.owner_user_id != payload.operator_user_id:
+        raise HTTPException(status_code=403, detail="无权限")
 
     # 生成唯一分享码
     while True:

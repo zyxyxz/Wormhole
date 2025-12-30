@@ -16,6 +16,7 @@
   - 余额展示、充值、交易记录（带作者 alias）
 - 设置
   - 修改空间号、删除空间（仅房主）
+  - 分享空间（仅房主，生成8位口令）
   - 房主成员管理（移除/拉黑/取消拉黑），黑名单禁止再次进入
   - 房间内别名（alias）设置
 
@@ -88,7 +89,7 @@
 ## 主要接口速查
 - 空间/分享
   - `POST /api/space/enter`（space_code, user_id）
-  - `POST /api/space/share`（space_id）
+  - `POST /api/space/share`（space_id, operator_user_id，仅房主）
   - `POST /api/space/join-by-share`（share_code, new_code）
   - `GET /api/space/info?space_id`、`GET /api/space/members?space_id`、`GET /api/space/blocks?space_id`
   - `POST /api/space/remove-member|block-member|unblock-member|delete`
