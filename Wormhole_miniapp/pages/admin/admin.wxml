@@ -1,49 +1,55 @@
 <navigation-bar title="超级管理" back="{{true}}" bind:back="goBack" home-button="{{false}}" />
-<view class="admin-container">
-  <view class="stats-card">
-    <view class="stat-item">
-      <text class="stat-value">{{overview.users || 0}}</text>
-      <text class="stat-label">原始用户数</text>
-    </view>
-    <view class="stat-item">
-      <text class="stat-value">{{overview.spaces || 0}}</text>
-      <text class="stat-label">总空间</text>
-    </view>
-    <view class="stat-item">
-      <text class="stat-value">{{overview.messages || 0}}</text>
-      <text class="stat-label">消息</text>
-    </view>
-    <view class="stat-item">
-      <text class="stat-value">{{overview.posts || 0}}</text>
-      <text class="stat-label">动态</text>
-    </view>
-  </view>
 
-  <view class="section">
-    <view class="section-title">管理员登录</view>
-    <input class="admin-input" placeholder="管理员OpenID" value="{{adminOpenId}}" bindinput="onAdminIdInput" />
-    <input class="admin-input" placeholder="输入管理员房间号" value="{{adminRoomCode}}" bindinput="onAdminRoomInput" />
-    <button class="primary" bindtap="fetchOverview">加载概览</button>
-    <button class="primary outline" bindtap="fetchUsers">查看用户列表</button>
-  </view>
+<view class="admin-placeholder" wx:if="{{loading}}">加载中...</view>
+<view class="admin-placeholder" wx:elif="{{!loading && !hasAccess}}">无权限</view>
 
-  <view class="section" wx:if="{{users.length}}">
-    <view class="section-title">用户列表</view>
-    <view class="user-row" wx:for="{{users}}" wx:key="user_id">
-      <view>
-        <text class="user-alias">{{item.alias || '未命名'}}</text>
-        <text class="user-id">{{item.user_id}}</text>
+<scroll-view wx:if="{{hasAccess}}" class="admin-scroll" scroll-y="true">
+  <view class="admin-container">
+    <view class="meta-card">
+      <view class="meta-head">
+        <text class="meta-title">管理员通道</text>
+        <button size="mini" class="refresh-btn" bindtap="refreshData">刷新</button>
       </view>
-      <button size="mini" bindtap="viewSpaces" data-userid="{{item.user_id}}">房间</button>
+      <text class="meta-code">当前口令：{{adminRoomCode}}</text>
     </view>
-  </view>
 
-  <view class="section" wx:if="{{currentUserSpaces.length}}">
-    <view class="section-title">{{currentUserId}} 的房间</view>
-    <view class="space-row" wx:for="{{currentUserSpaces}}" wx:key="space_id">
-      <text>空间ID：{{item.space_id}}</text>
-      <text>代码：{{item.code}}</text>
-      <text>创建时间：{{item.created_at}}</text>
+    <view class="stats-card">
+      <view class="stat-item">
+        <text class="stat-value">{{overview.users || 0}}</text>
+        <text class="stat-label">原始用户数</text>
+      </view>
+      <view class="stat-item">
+        <text class="stat-value">{{overview.spaces || 0}}</text>
+        <text class="stat-label">总空间</text>
+      </view>
+      <view class="stat-item">
+        <text class="stat-value">{{overview.messages || 0}}</text>
+        <text class="stat-label">消息</text>
+      </view>
+      <view class="stat-item">
+        <text class="stat-value">{{overview.posts || 0}}</text>
+        <text class="stat-label">动态</text>
+      </view>
+    </view>
+
+    <view class="section" wx:if="{{users.length}}">
+      <view class="section-title">用户列表</view>
+      <view class="user-row" wx:for="{{users}}" wx:key="user_id">
+        <view>
+          <text class="user-alias">{{item.alias || '未命名'}}</text>
+          <text class="user-id">{{item.user_id}}</text>
+        </view>
+        <button size="mini" bindtap="viewSpaces" data-userid="{{item.user_id}}">房间</button>
+      </view>
+    </view>
+
+    <view class="section" wx:if="{{currentUserSpaces.length}}">
+      <view class="section-title">{{currentUserId}} 的房间</view>
+      <view class="space-row" wx:for="{{currentUserSpaces}}" wx:key="space_id">
+        <text>空间ID：{{item.space_id}}</text>
+        <text>代码：{{item.code}}</text>
+        <text>创建时间：{{item.created_at}}</text>
+      </view>
     </view>
   </view>
-</view>
+</scroll-view>

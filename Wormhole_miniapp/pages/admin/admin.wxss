@@ -1,9 +1,21 @@
-.admin-container { padding: 30rpx; }
-.stats-card { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20rpx; background: #F8FAFC; border-radius: 20rpx; padding: 20rpx; margin-bottom: 30rpx; }
+.admin-scroll { height: calc(100vh - 44px); }
+.admin-container { padding: 30rpx; display: flex; flex-direction: column; gap: 24rpx; }
+.stats-card { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20rpx; background: #F8FAFC; border-radius: 20rpx; padding: 20rpx; }
 .stat-item { background: #fff; border-radius: 16rpx; padding: 24rpx; box-shadow: 0 8rpx 24rpx rgba(15,23,42,0.08); }
 .stat-value { font-size: 40rpx; font-weight: bold; display: block; color: #0F172A; }
 .stat-label { font-size: 24rpx; color: #94A3B8; }
 .section { background: #fff; border-radius: 20rpx; padding: 24rpx; box-shadow: 0 8rpx 24rpx rgba(15,23,42,0.08); }
 .section-title { font-size: 30rpx; font-weight: 600; margin-bottom: 16rpx; }
-.admin-input { width: 100%; border: 1rpx solid #E2E8F0; border-radius: 12rpx; padding: 0 20rpx; height: 72rpx; margin-bottom: 16rpx; }
-button.primary { background: linear-gradient(135deg, #5EEAD4, #22D3EE); color: #0F172A; border-radius: 12rpx; }
+.user-row { display: flex; justify-content: space-between; align-items: center; padding: 16rpx 0; border-bottom: 1rpx solid #F1F5F9; }
+.user-row:last-child { border-bottom: none; }
+.user-alias { display: block; font-size: 30rpx; color: #0F172A; }
+.user-id { display: block; font-size: 24rpx; color: #94A3B8; }
+.space-row { padding: 16rpx 0; border-bottom: 1rpx solid #F1F5F9; }
+.space-row:last-child { border-bottom: none; }
+.space-row text { display: block; font-size: 26rpx; color: #0F172A; }
+.admin-placeholder { padding: 120rpx 40rpx; text-align: center; color: #94A3B8; font-size: 28rpx; }
+.meta-card { background: linear-gradient(135deg, rgba(20,184,166,0.12), rgba(14,165,233,0.12)); border-radius: 20rpx; padding: 24rpx; box-shadow: 0 10rpx 26rpx rgba(15,118,110,0.12); }
+.meta-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12rpx; }
+.meta-title { font-size: 32rpx; font-weight: 600; color: #0F172A; }
+.refresh-btn { border: 1rpx solid #0F766E; color: #0F766E; border-radius: 999rpx; padding: 0 24rpx; background: rgba(15,118,110,0.08); }
+.meta-code { font-size: 26rpx; color: #0F766E; }
