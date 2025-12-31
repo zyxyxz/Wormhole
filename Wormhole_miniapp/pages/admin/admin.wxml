@@ -3,24 +3,26 @@
 <view class="admin-placeholder" wx:if="{{loading}}">加载中...</view>
 <view class="admin-placeholder" wx:elif="{{!loading && !hasAccess}}">无权限</view>
 
-<scroll-view wx:if="{{hasAccess}}" class="admin-scroll" scroll-y="true">
+<scroll-view wx:elif="{{hasAccess}}" class="admin-scroll" scroll-y="true">
   <view class="admin-container">
     <view class="meta-card">
       <view class="meta-head">
-        <text class="meta-title">管理员通道</text>
+        <view>
+          <text class="meta-title">管理员通道</text>
+          <text class="meta-desc">当前口令：{{adminRoomCode}}</text>
+        </view>
         <button size="mini" class="refresh-btn" bindtap="refreshData">刷新</button>
       </view>
-      <text class="meta-code">当前口令：{{adminRoomCode}}</text>
     </view>
 
     <view class="stats-card">
       <view class="stat-item">
         <text class="stat-value">{{overview.users || 0}}</text>
-        <text class="stat-label">原始用户数</text>
+        <text class="stat-label">别名用户</text>
       </view>
       <view class="stat-item">
         <text class="stat-value">{{overview.spaces || 0}}</text>
-        <text class="stat-label">总空间</text>
+        <text class="stat-label">空间总数</text>
       </view>
       <view class="stat-item">
         <text class="stat-value">{{overview.messages || 0}}</text>
@@ -32,8 +34,27 @@
       </view>
     </view>
 
+    <view class="section" wx:if="{{spaces.length}}">
+      <view class="section-title">空间列表</view>
+      <view class="space-card" wx:for="{{spaces}}" wx:key="space_id">
+        <view class="space-head">
+          <view>
+            <text class="space-code">空间号 {{item.code}}</text>
+            <text class="space-owner">房主：{{item.owner_user_id || '未设置'}}</text>
+          </view>
+          <button size="mini" data-id="{{item.space_id}}" bindtap="openSpaceDetail">详情</button>
+        </view>
+        <view class="space-stats">
+          <text>成员 {{item.member_count}}</text>
+          <text>消息 {{item.message_count}}</text>
+          <text>动态 {{item.post_count}}</text>
+          <text>笔记 {{item.note_count}}</text>
+        </view>
+      </view>
+    </view>
+
     <view class="section" wx:if="{{users.length}}">
-      <view class="section-title">用户列表</view>
+      <view class="section-title">别名用户</view>
       <view class="user-row" wx:for="{{users}}" wx:key="user_id">
         <view>
           <text class="user-alias">{{item.alias || '未命名'}}</text>
@@ -53,3 +74,41 @@
     </view>
   </view>
 </scroll-view>
+
+<view class="modal" wx:if="{{showSpaceModal}}">
+  <view class="modal-content space-modal">
+    <view class="modal-title">空间 {{spaceDetail.code}}</view>
+    <view class="modal-meta">
+      <text>房主：{{spaceDetail.owner_user_id || '未设置'}}</text>
+      <text>创建：{{spaceDetail.created_at}}</text>
+    </view>
+    <view class="modal-stats">
+      <text>成员 {{spaceDetail.member_count}}</text>
+      <text>消息 {{spaceDetail.message_count}}</text>
+      <text>动态 {{spaceDetail.post_count}}</text>
+      <text>笔记 {{spaceDetail.note_count}}</text>
+    </view>
+    <view class="modal-section">
+      <view class="modal-section-head">成员（{{spaceMembers.length}}）</view>
+      <view class="member-row" wx:for="{{spaceMembers}}" wx:key="user_id">
+        <text class="member-name">{{item.alias || item.user_id}}</text>
+        <text class="member-id">{{item.user_id}}</text>
+      </view>
+    </view>
+    <view class="modal-section" wx:if="{{recentPosts.length}}">
+      <view class="modal-section-head">近期动态</view>
+      <view class="feed-row" wx:for="{{recentPosts}}" wx:key="id">
+        <text class="feed-meta">{{item.alias || item.user_id}} · {{item.created_at}}</text>
+        <text class="feed-content">{{item.content || '[媒体]'}} </text>
+      </view>
+    </view>
+    <view class="modal-section" wx:if="{{recentMessages.length}}">
+      <view class="modal-section-head">近期消息</view>
+      <view class="feed-row" wx:for="{{recentMessages}}" wx:key="id">
+        <text class="feed-meta">{{item.alias || item.user_id}} · {{item.created_at}}</text>
+        <text class="feed-content">{{item.content || '[媒体]'}} </text>
+      </view>
+    </view>
+    <button class="close-button" bindtap="closeSpaceDetail">关闭</button>
+  </view>
+</view>

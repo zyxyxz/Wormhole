@@ -2,10 +2,11 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
 from app.database import get_db
-from models.space import Space, SpaceMapping, SpaceCode, ShareCode
+from models.space import Space, SpaceMapping, SpaceCode, ShareCode, SpaceMember
 from models.user import UserAlias
 from models.chat import Message
 from models.feed import Post
+from models.notes import Note
 from sqlalchemy import func
 import random
 import string
@@ -64,10 +65,20 @@ def verify_admin(user_id: str, room_code: str):
         raise HTTPException(status_code=403, detail="无权限")
 
 
+async def aggregate_counts(db: AsyncSession, model, space_ids: list[int]):
+    if not space_ids:
+        return {}
+    rows = await db.execute(
+        select(model.space_id, func.count(model.id))
+        .where(model.space_id.in_(space_ids))
+        .group_by(model.space_id)
+    )
+    return {space_id: count for space_id, count in rows}
+
+
 @router.get("/admin/overview")
 async def admin_overview(user_id: str, room_code: str, db: AsyncSession = Depends(get_db)):
     verify_admin(user_id, room_code)
-    user_count = (await db.execute(select(func.count(Space.id)))).scalar() or 0
     alias_count = (await db.execute(select(func.count(UserAlias.id)))).scalar() or 0
     space_count = (await db.execute(select(func.count(Space.id)))).scalar() or 0
     message_count = (await db.execute(select(func.count(Message.id)))).scalar() or 0
@@ -111,6 +122,97 @@ async def admin_user_spaces(user_id: str, room_code: str, target_user_id: str, d
                 "code": s.code,
                 "created_at": s.created_at,
             } for s in spaces
+        ]
+    }
+
+
+@router.get("/admin/spaces")
+async def admin_spaces(user_id: str, room_code: str, db: AsyncSession = Depends(get_db)):
+    verify_admin(user_id, room_code)
+    res = await db.execute(select(Space).order_by(Space.created_at.desc()))
+    spaces = res.scalars().all()
+    space_ids = [s.id for s in spaces]
+    member_counts = await aggregate_counts(db, SpaceMember, space_ids)
+    message_counts = await aggregate_counts(db, Message, space_ids)
+    post_counts = await aggregate_counts(db, Post, space_ids)
+    note_counts = await aggregate_counts(db, Note, space_ids)
+    return {
+        "spaces": [
+            {
+                "space_id": s.id,
+                "code": s.code,
+                "owner_user_id": s.owner_user_id,
+                "created_at": s.created_at,
+                "member_count": member_counts.get(s.id, 0),
+                "message_count": message_counts.get(s.id, 0),
+                "post_count": post_counts.get(s.id, 0),
+                "note_count": note_counts.get(s.id, 0),
+            } for s in spaces
+        ]
+    }
+
+
+@router.get("/admin/space-detail")
+async def admin_space_detail(user_id: str, room_code: str, space_id: int, db: AsyncSession = Depends(get_db)):
+    verify_admin(user_id, room_code)
+    space = (await db.execute(select(Space).where(Space.id == space_id))).scalar_one_or_none()
+    if not space:
+        raise HTTPException(status_code=404, detail="空间不存在")
+    member_rows = await db.execute(select(SpaceMember).where(SpaceMember.space_id == space_id))
+    members = member_rows.scalars().all()
+    alias_rows = await db.execute(select(UserAlias).where(UserAlias.space_id == space_id))
+    alias_map = {a.user_id: a for a in alias_rows.scalars().all()}
+    member_payload = [
+        {
+            "user_id": m.user_id,
+            "alias": alias_map.get(m.user_id).alias if alias_map.get(m.user_id) else None,
+            "avatar_url": alias_map.get(m.user_id).avatar_url if alias_map.get(m.user_id) else None,
+            "joined_at": m.joined_at,
+        } for m in members
+    ]
+    recent_posts_res = await db.execute(
+        select(Post).where(Post.space_id == space_id).order_by(Post.created_at.desc()).limit(5)
+    )
+    posts = recent_posts_res.scalars().all()
+    recent_messages_res = await db.execute(
+        select(Message).where(Message.space_id == space_id).order_by(Message.created_at.desc()).limit(5)
+    )
+    messages = recent_messages_res.scalars().all()
+    message_count = (await db.execute(select(func.count(Message.id)).where(Message.space_id == space_id))).scalar() or 0
+    post_count = (await db.execute(select(func.count(Post.id)).where(Post.space_id == space_id))).scalar() or 0
+    member_count = len(member_payload)
+    note_count = (await db.execute(select(func.count(Note.id)).where(Note.space_id == space_id))).scalar() or 0
+    return {
+        "space": {
+            "space_id": space.id,
+            "code": space.code,
+            "owner_user_id": space.owner_user_id,
+            "created_at": space.created_at,
+            "member_count": member_count,
+            "message_count": message_count,
+            "post_count": post_count,
+            "note_count": note_count,
+        },
+        "members": member_payload,
+        "recent_posts": [
+            {
+                "id": p.id,
+                "user_id": p.user_id,
+                "alias": alias_map.get(p.user_id).alias if alias_map.get(p.user_id) else None,
+                "content": p.content,
+                "media_type": p.media_type,
+                "created_at": p.created_at,
+            } for p in posts
+        ],
+        "recent_messages": [
+            {
+                "id": msg.id,
+                "user_id": msg.user_id,
+                "alias": alias_map.get(msg.user_id).alias if alias_map.get(msg.user_id) else None,
+                "content": msg.content,
+                "message_type": msg.message_type,
+                "created_at": msg.created_at,
+            } for msg in messages
         ]
     }
 
