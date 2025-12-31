@@ -36,6 +36,8 @@ Page({
     keyboardHeight: 0,
     bottomPadding: 120,
     _baseBottomPadding: 120,
+    recording: false,
+    audioPlayingId: null,
   },
   goHome() {
     wx.reLaunch({ url: '/pages/index/index' });
@@ -72,6 +74,26 @@ Page({
     
     // 获取历史消息
     this.getHistoryMessages();
+
+    if (wx.getRecorderManager) {
+      this.recorder = wx.getRecorderManager();
+      this.recorder.onStop((res) => {
+        if (!res || this._recordCancelled) {
+          this._recordCancelled = false;
+          return;
+        }
+        if (!res.tempFilePath || res.duration < 500) {
+          wx.showToast({ title: '录音太短', icon: 'none' });
+          return;
+        }
+        this.uploadMedia(res.tempFilePath, 'audio', res.duration);
+      });
+    }
+    if (wx.createInnerAudioContext) {
+      this.audioCtx = wx.createInnerAudioContext();
+      this.audioCtx.onEnded(() => this.setData({ audioPlayingId: null }));
+      this.audioCtx.onStop(() => this.setData({ audioPlayingId: null }));
+    }
   },
   onInputFocus() {
     this.scrollToBottom();
@@ -142,23 +164,98 @@ Page({
     });
   },
 
+  chooseImage() {
+    const app = typeof getApp === 'function' ? getApp() : null;
+    if (app && typeof app.markTemporaryForegroundAllowed === 'function') {
+      app.markTemporaryForegroundAllowed();
+    }
+    wx.chooseImage({
+      count: 9,
+      success: (res) => {
+        const files = res.tempFilePaths || [];
+        files.forEach(path => this.uploadMedia(path, 'image'));
+      },
+      complete: () => {
+        if (app && typeof app.clearTemporaryForegroundFlag === 'function') {
+          app.clearTemporaryForegroundFlag();
+        }
+      }
+    });
+  },
+
+  uploadMedia(filePath, messageType, extra) {
+    if (!filePath) return;
+    wx.showLoading({ title: '发送中', mask: true });
+    wx.uploadFile({
+      url: `${BASE_URL}/api/upload`,
+      filePath,
+      name: 'file',
+      success: (resp) => {
+        try {
+          const data = JSON.parse(resp.data || '{}');
+          let url = data.url || '';
+          if (url && url.startsWith('/')) {
+            url = `${BASE_URL}${url}`;
+          }
+          if (url) {
+            this.sendPayload({
+              message_type: messageType,
+              media_url: url,
+              media_duration: extra || null,
+              content: messageType === 'text' ? this.data.inputMessage : ''
+            });
+          }
+        } catch (e) {
+          wx.showToast({ title: '上传失败', icon: 'none' });
+        }
+      },
+      fail: () => {
+        wx.showToast({ title: '上传失败', icon: 'none' });
+      },
+      complete: () => {
+        wx.hideLoading();
+      }
+    });
+  },
+
   onInputChange(e) {
     this.setData({ inputMessage: e.detail.value });
   },
 
   sendMessage() {
-    if (!this.data.inputMessage.trim()) return;
+    const text = this.data.inputMessage.trim();
+    if (!text) return;
+    this.sendPayload({
+      content: text,
+      message_type: 'text'
+    });
+  },
 
+  sendPayload(payload) {
     const message = {
-      content: this.data.inputMessage,
+      space_id: this.data.spaceId,
       user_id: wx.getStorageSync('openid') || '',
+      content: payload.content || '',
+      message_type: payload.message_type || 'text',
+      media_url: payload.media_url || null,
+      media_duration: payload.media_duration || null,
     };
-
+    if (!message.user_id) {
+      wx.showToast({ title: '未登录', icon: 'none' });
+      return;
+    }
+    if (message.message_type === 'text' && !message.content.trim()) {
+      return;
+    }
+    const wsPayload = { ...message };
+    delete wsPayload.space_id;
     if (this.ws) {
       this.ws.send({
-        data: JSON.stringify(message),
+        data: JSON.stringify(wsPayload),
         success: () => {
-          this.setData({ inputMessage: '' });
+          if (message.message_type === 'text') {
+            this.setData({ inputMessage: '' });
+          }
         },
         fail: () => {
           this.sendViaHttp(message);
@@ -173,9 +270,11 @@ Page({
     wx.request({
       url: `${BASE_URL}/api/chat/send`,
       method: 'POST',
-      data: { ...message, space_id: this.data.spaceId },
+      data: message,
       success: () => {
-        this.setData({ inputMessage: '' });
+        if (message.message_type === 'text') {
+          this.setData({ inputMessage: '' });
+        }
         this.getHistoryMessages();
       }
     });
@@ -193,14 +292,19 @@ Page({
     const nickname = message.alias || message.user_id || '匿名';
     const avatar = message.avatar_url || '';
     const initialSource = nickname || message.user_id || '匿';
+    const duration = message.media_duration ? Math.round(message.media_duration / 1000) : 0;
     return {
       id: message.id,
       content: message.content,
-      time: formatTime(message.created_at),
+      displayTime: formatTime(message.created_at),
       isSelf: message.user_id === myId,
       avatar,
       initial: initialSource.charAt(0),
       nickname,
+      messageType: message.message_type || 'text',
+      mediaUrl: message.media_url || '',
+      mediaDuration: message.media_duration || 0,
+      audioDuration: duration,
     };
   },
 
@@ -216,5 +320,72 @@ Page({
     if (this.ws) {
       this.ws.close();
     }
+    if (this.audioCtx) {
+      this.audioCtx.destroy();
+      this.audioCtx = null;
+    }
+  },
+
+  handleRecordStart() {
+    if (!this.recorder) {
+      wx.showToast({ title: '录音不可用', icon: 'none' });
+      return;
+    }
+    this._recordCancelled = false;
+    this.setData({ recording: true });
+    try {
+      this.recorder.start({
+        duration: 60000,
+        sampleRate: 16000,
+        numberOfChannels: 1,
+        encodeBitRate: 48000,
+        format: 'mp3'
+      });
+    } catch (e) {
+      this.setData({ recording: false });
+      wx.showToast({ title: '开启录音失败', icon: 'none' });
+    }
+  },
+
+  handleRecordEnd() {
+    if (!this.recorder) return;
+    this.setData({ recording: false });
+    this.recorder.stop();
+  },
+
+  handleRecordCancel() {
+    if (!this.recorder) return;
+    this._recordCancelled = true;
+    this.setData({ recording: false });
+    try { this.recorder.stop(); } catch (e) {}
+  },
+
+  previewChatImage(e) {
+    const url = e.currentTarget.dataset.url;
+    if (!url) return;
+    const app = typeof getApp === 'function' ? getApp() : null;
+    if (app && typeof app.markTemporaryForegroundAllowed === 'function') app.markTemporaryForegroundAllowed();
+    wx.previewImage({
+      current: url,
+      urls: [url],
+      complete: () => {
+        if (app && typeof app.clearTemporaryForegroundFlag === 'function') app.clearTemporaryForegroundFlag();
+      }
+    });
+  },
+
+  playAudio(e) {
+    const url = e.currentTarget.dataset.url;
+    const id = e.currentTarget.dataset.id;
+    if (!url || !this.audioCtx) return;
+    if (this.data.audioPlayingId === id) {
+      this.audioCtx.stop();
+      this.setData({ audioPlayingId: null });
+      return;
+    }
+    this.audioCtx.stop();
+    this.audioCtx.src = url;
+    this.audioCtx.play();
+    this.setData({ audioPlayingId: id });
   }
 }); 

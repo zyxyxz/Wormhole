@@ -8,11 +8,17 @@ class MessageBase(BaseModel):
 class MessageCreate(MessageBase):
     space_id: int
     user_id: str
+    message_type: str = "text"
+    media_url: Optional[str] = None
+    media_duration: Optional[int] = None
 
 class MessageResponse(MessageBase):
     id: int
     user_id: str
     alias: Optional[str] = None
+    message_type: str = "text"
+    media_url: Optional[str] = None
+    media_duration: Optional[int] = None
     avatar_url: Optional[str] = None
     created_at: datetime
     

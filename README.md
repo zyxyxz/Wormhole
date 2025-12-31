@@ -9,6 +9,7 @@
   - 首位进入者自动成为房主
 - 聊天
   - WebSocket 实时聊天（带作者 alias），HTTP 历史加载
+  - 支持文本 / 图片 / 语音消息，语音支持按住说话、点击播放
 - 动态（原“笔记”页重构）
   - 发布文本/图片/视频，支持评论
   - 图片点击预览、作者/房主可软删除动态、点赞互动（单人单赞）
@@ -97,6 +98,7 @@
   - `POST /api/space/remove-member|block-member|unblock-member|delete`
 - 聊天
   - `GET /api/chat/history?space_id`、`POST /api/chat/send`
+    - 请求体支持 `message_type`（text/image/audio）、`media_url`、`media_duration`
   - `WS /ws/chat/{space_id}`
 - 动态（feed）
   - `POST /api/feed/create`（space_id, user_id, content, media_type, media_urls[]）

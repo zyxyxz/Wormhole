@@ -6,6 +6,7 @@ App({
     shouldReturnToIndex: false,
     skipNextHideRedirect: false,
     foregroundHoldCount: 0,
+    hideTimer: null,
   },
 
   markTemporaryForegroundAllowed() {
@@ -13,6 +14,7 @@ App({
     this.globalData.foregroundHoldCount = current + 1;
     this.globalData.skipNextHideRedirect = true;
     this.globalData.shouldReturnToIndex = false;
+    this.clearHideTimer();
   },
 
   clearTemporaryForegroundFlag() {
@@ -22,6 +24,14 @@ App({
     if (this.globalData.foregroundHoldCount <= 0) {
       this.globalData.foregroundHoldCount = 0;
       this.globalData.skipNextHideRedirect = false;
+      this.globalData.shouldReturnToIndex = false;
+    }
+  },
+
+  clearHideTimer() {
+    if (this.globalData.hideTimer) {
+      clearTimeout(this.globalData.hideTimer);
+      this.globalData.hideTimer = null;
     }
   },
 
@@ -47,6 +57,10 @@ App({
   },
 
   onShow() {
+    this.clearHideTimer();
+    if (this.globalData.foregroundHoldCount > 0) {
+      return;
+    }
     if (!this.globalData.shouldReturnToIndex) return;
     this.globalData.shouldReturnToIndex = false;
     const pages = getCurrentPages();
@@ -63,6 +77,14 @@ App({
       this.globalData.skipNextHideRedirect = false;
       return;
     }
-    this.globalData.shouldReturnToIndex = true;
+    this.clearHideTimer();
+    this.globalData.hideTimer = setTimeout(() => {
+      if (this.globalData.foregroundHoldCount > 0) {
+        this.clearHideTimer();
+        return;
+      }
+      this.globalData.shouldReturnToIndex = true;
+      this.globalData.hideTimer = null;
+    }, 500);
   }
 })

@@ -58,12 +58,27 @@ async def websocket_endpoint(websocket: WebSocket, space_id: int):
     try:
         while True:
             data = await websocket.receive_json()
-            content = data.get("content", "").strip()
+            content = data.get("content", "")
             user_id = str(data.get("user_id") or "")
-            if not content:
+            message_type = data.get("message_type") or "text"
+            media_url = data.get("media_url")
+            media_duration = data.get("media_duration")
+            if message_type == "text":
+                content = (content or "").strip()
+                if not content:
+                    continue
+            elif not media_url:
+                # 非文本消息必须有媒体地址
                 continue
             async with AsyncSessionLocal() as session:
-                msg = Message(space_id=space_id, user_id=user_id, content=content)
+                msg = Message(
+                    space_id=space_id,
+                    user_id=user_id,
+                    content=content or "",
+                    message_type=message_type,
+                    media_url=media_url,
+                    media_duration=media_duration,
+                )
                 session.add(msg)
                 await session.commit()
                 await session.refresh(msg)
@@ -83,6 +98,9 @@ async def websocket_endpoint(websocket: WebSocket, space_id: int):
                     "id": msg.id,
                     "user_id": msg.user_id,
                     "content": msg.content,
+                    "message_type": msg.message_type,
+                    "media_url": msg.media_url,
+                    "media_duration": msg.media_duration,
                     "created_at": msg.created_at.isoformat() if msg.created_at else datetime.utcnow().isoformat(),
                     "alias": alias,
                     "avatar_url": avatar_url,

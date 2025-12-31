@@ -30,6 +30,9 @@ async def get_chat_history(
             alias=(alias_map.get(m.user_id).alias if alias_map.get(m.user_id) else None),
             avatar_url=(alias_map.get(m.user_id).avatar_url if alias_map.get(m.user_id) else None),
             content=m.content,
+            message_type=m.message_type or "text",
+            media_url=m.media_url,
+            media_duration=m.media_duration,
             created_at=m.created_at,
         ) for m in messages
     ]
@@ -47,7 +50,10 @@ async def send_message(
     db_message = Message(
         space_id=message.space_id,
         user_id=message.user_id,
-        content=message.content
+        content=message.content or "",
+        message_type=message.message_type or "text",
+        media_url=message.media_url,
+        media_duration=message.media_duration,
     )
     db.add(db_message)
     await db.commit()
@@ -59,6 +65,9 @@ async def send_message(
         "id": db_message.id,
         "user_id": db_message.user_id,
         "content": db_message.content,
+        "message_type": db_message.message_type,
+        "media_url": db_message.media_url,
+        "media_duration": db_message.media_duration,
         "created_at": db_message.created_at,
         "alias": ua.alias if ua else None,
         "avatar_url": ua.avatar_url if ua else None,

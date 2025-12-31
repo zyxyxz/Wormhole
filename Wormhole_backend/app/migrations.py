@@ -52,10 +52,20 @@ async def add_user_avatar(conn):
     await conn.execute(text("ALTER TABLE user_aliases ADD COLUMN avatar_url TEXT"))
 
 
+async def add_message_media_columns(conn):
+    if not await column_exists(conn, "messages", "message_type"):
+        await conn.execute(text("ALTER TABLE messages ADD COLUMN message_type TEXT DEFAULT 'text'"))
+    if not await column_exists(conn, "messages", "media_url"):
+        await conn.execute(text("ALTER TABLE messages ADD COLUMN media_url TEXT"))
+    if not await column_exists(conn, "messages", "media_duration"):
+        await conn.execute(text("ALTER TABLE messages ADD COLUMN media_duration INTEGER"))
+
+
 MIGRATIONS = [
     ("202401_add_deleted_at_to_posts", add_deleted_at_to_posts),
     ("202402_add_share_code_expiry", add_share_code_expiry),
     ("202402_add_user_alias_avatar", add_user_avatar),
+    ("202402_add_message_media", add_message_media_columns),
 ]
 
 

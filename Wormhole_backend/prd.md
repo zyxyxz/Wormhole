@@ -60,6 +60,16 @@
     返回：
     - messages: 聊天记录
     - lastMessageId: 最后一条消息ID
+    - 消息字段包含 message_type（text/image/audio）、media_url、media_duration、alias、avatar
+2.2 聊天-发送消息
+    POST /api/chat/send
+    请求参数：
+    - spaceId: 空间ID
+    - userId: 用户ID
+    - content: 文本内容（文本消息必填）
+    - message_type: 消息类型（text/image/audio）
+    - media_url: 媒体地址（图片/语音必填）
+    - media_duration: 语音时长（毫秒，可选）
 
 3. 笔记
 3.1 笔记-获取笔记列表
