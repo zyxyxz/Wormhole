@@ -69,18 +69,23 @@ async def websocket_endpoint(websocket: WebSocket, space_id: int):
                 await session.refresh(msg)
                 # 查找别名
                 alias = None
+                avatar_url = None
                 try:
                     res = await session.execute(select(UserAlias).where(UserAlias.space_id == space_id, UserAlias.user_id == user_id))
                     ua = res.scalar_one_or_none()
-                    alias = ua.alias if ua else None
+                    if ua:
+                        alias = ua.alias
+                        avatar_url = ua.avatar_url
                 except Exception:
                     alias = None
+                    avatar_url = None
                 payload = {
                     "id": msg.id,
                     "user_id": msg.user_id,
                     "content": msg.content,
                     "created_at": msg.created_at.isoformat() if msg.created_at else datetime.utcnow().isoformat(),
                     "alias": alias,
+                    "avatar_url": avatar_url,
                 }
                 await chat_manager.broadcast(space_id, payload)
     except WebSocketDisconnect:

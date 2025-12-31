@@ -13,6 +13,7 @@ class MessageResponse(MessageBase):
     id: int
     user_id: str
     alias: Optional[str] = None
+    avatar_url: Optional[str] = None
     created_at: datetime
     
     class Config:

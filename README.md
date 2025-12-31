@@ -11,7 +11,7 @@
   - WebSocket 实时聊天（带作者 alias），HTTP 历史加载
 - 动态（原“笔记”页重构）
   - 发布文本/图片/视频，支持评论
-  - 图片点击预览、作者/房主可软删除动态
+  - 图片点击预览、作者/房主可软删除动态、点赞互动（单人单赞）
   - 列表为卡片流（支持骨架/空态）
 - 钱包
   - 余额展示、充值、交易记录（带作者 alias）
@@ -100,9 +100,11 @@
   - `WS /ws/chat/{space_id}`
 - 动态（feed）
   - `POST /api/feed/create`（space_id, user_id, content, media_type, media_urls[]）
-  - `GET /api/feed/list?space_id`
+  - `GET /api/feed/list?space_id&user_id`（user_id 可选，用于返回 liked_by_me）
   - `POST /api/feed/comment`、`GET /api/feed/comments?post_id`
+  - `POST /api/feed/comment/delete`（comment_id, operator_user_id）
   - `POST /api/feed/delete`（post_id, operator_user_id；作者或房主）
+  - `POST /api/feed/like`（post_id, user_id, like=true/false）
   - `POST /api/upload`（小型本地上传）
 - 钱包
   - `GET /api/wallet/info|transactions?space_id`

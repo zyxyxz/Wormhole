@@ -16,6 +16,7 @@ class CommentResponse(BaseModel):
     post_id: int
     user_id: str
     alias: Optional[str] = None
+    avatar_url: Optional[str] = None
     content: str
     created_at: datetime
 
@@ -25,11 +26,14 @@ class PostResponse(BaseModel):
     space_id: int
     user_id: str
     alias: Optional[str] = None
+    avatar_url: Optional[str] = None
     content: str
     media_type: str
     media_urls: List[str]
     created_at: datetime
     comments: List[CommentResponse] = Field(default_factory=list)
+    like_count: int = 0
+    liked_by_me: bool = False
 
 
 class FeedListResponse(BaseModel):
@@ -49,3 +53,14 @@ class CommentsListResponse(BaseModel):
 class PostDeleteRequest(BaseModel):
     post_id: int
     operator_user_id: str
+
+
+class CommentDeleteRequest(BaseModel):
+    comment_id: int
+    operator_user_id: str
+
+
+class PostLikeRequest(BaseModel):
+    post_id: int
+    user_id: str
+    like: bool = True

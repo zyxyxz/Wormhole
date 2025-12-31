@@ -16,7 +16,10 @@ Page({
     messages: [],
     inputMessage: '',
     lastMessageId: '',
-    spaceId: ''
+    spaceId: '',
+    keyboardHeight: 0,
+    bottomPadding: 120,
+    _baseBottomPadding: 120,
   },
   goHome() {
     wx.reLaunch({ url: '/pages/index/index' });
@@ -28,11 +31,37 @@ Page({
     const openid = wx.getStorageSync('openid');
     this.setData({ spaceId });
     
+    // 初始化基础 padding（约 104rpx 高度）
+    try {
+      const sys = wx.getSystemInfoSync();
+      const rpx = sys.windowWidth / 750;
+      const base = Math.ceil(150 * rpx + 24); // 输入区 + 安全距离
+      this.setData({ _baseBottomPadding: base, bottomPadding: base });
+    } catch(e) {}
+
+    // 键盘高度变化监听
+    if (wx.onKeyboardHeightChange) {
+      wx.onKeyboardHeightChange(res => {
+        const kh = res.height || 0;
+        this.setData({ 
+          keyboardHeight: kh,
+          bottomPadding: (this.data._baseBottomPadding || 120) + kh
+        });
+        this.scrollToBottom();
+      });
+    }
+
     // 初始化WebSocket连接
     this.initWebSocket();
     
     // 获取历史消息
     this.getHistoryMessages();
+  },
+  onInputFocus() {
+    this.scrollToBottom();
+  },
+  onInputBlur() {
+    // 留给 onKeyboardHeightChange 处理高度归零
   },
   onShow() {
     // 若昵称更新，刷新历史以展示新昵称
@@ -60,15 +89,7 @@ Page({
       } catch (e) {
         message = res.data;
       }
-      // 适配前端显示字段
-      const displayed = {
-        id: message.id,
-        content: message.content,
-        time: formatTime(message.created_at),
-        isSelf: message.user_id === wx.getStorageSync('openid'),
-        avatar: '/assets/icons/chat.png',
-        nickname: message.alias || message.user_id || '匿名',
-      };
+      const displayed = this.decorateMessage(message, wx.getStorageSync('openid'));
       this.addMessage(displayed);
     });
 
@@ -90,14 +111,7 @@ Page({
       data: { space_id: this.data.spaceId },
       success: (res) => {
         const myid = wx.getStorageSync('openid');
-        const msgs = (res.data.messages || []).map(m => ({
-          id: m.id,
-          content: m.content,
-          time: formatTime(m.created_at),
-          isSelf: m.user_id === myid,
-          avatar: '/assets/icons/chat.png',
-          nickname: m.alias || m.user_id || '匿名',
-        }));
+        const msgs = (res.data.messages || []).map(m => this.decorateMessage(m, myid));
         this.setData({ 
           messages: msgs,
           lastMessageId: msgs.length ? `msg-${msgs[msgs.length - 1].id}` : ''
@@ -157,6 +171,29 @@ Page({
       messages,
       lastMessageId: `msg-${message.id}`
     });
+  },
+
+  decorateMessage(message, myId) {
+    const nickname = message.alias || message.user_id || '匿名';
+    const avatar = message.avatar_url || '';
+    const initialSource = nickname || message.user_id || '匿';
+    return {
+      id: message.id,
+      content: message.content,
+      time: formatTime(message.created_at),
+      isSelf: message.user_id === myId,
+      avatar,
+      initial: initialSource.charAt(0),
+      nickname,
+    };
+  },
+
+  scrollToBottom() {
+    const arr = this.data.messages || [];
+    if (arr.length) {
+      const id = arr[arr.length - 1].id;
+      this.setData({ lastMessageId: `msg-${id}` });
+    }
   },
 
   onUnload() {

@@ -66,8 +66,25 @@
     POST /api/notes
     请求参数：
     - spaceId: 空间ID
+    - userId: 用户ID（可选，用于判断是否已点赞）
     返回：
     - notes: 笔记列表
+3.2 评论-删除
+    POST /api/feed/comment/delete
+    请求参数：
+    - comment_id: 评论ID
+    - operator_user_id: 操作者 user_id（评论作者或房主）
+    返回：
+    - success: 是否成功
+3.3 笔记-点赞/取消
+    POST /api/feed/like
+    请求参数：
+    - post_id: 动态ID
+    - user_id: 用户ID
+    - like: 是否点赞（true 点赞，false 取消）
+    返回：
+    - like_count: 当前点赞数
+    - liked: 当前点赞状态
 
 4. 钱包
 4.1 钱包-获取钱包信息

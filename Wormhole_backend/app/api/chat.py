@@ -21,13 +21,14 @@ async def get_chat_history(
 
     # 拉取别名字典
     alias_rows = await db.execute(select(UserAlias).where(UserAlias.space_id == space_id))
-    alias_map = {r.user_id: r.alias for r in alias_rows.scalars().all()}
+    alias_map = {r.user_id: r for r in alias_rows.scalars().all()}
 
     resp_msgs = [
         MessageResponse(
             id=m.id,
             user_id=m.user_id,
-            alias=alias_map.get(m.user_id),
+            alias=(alias_map.get(m.user_id).alias if alias_map.get(m.user_id) else None),
+            avatar_url=(alias_map.get(m.user_id).avatar_url if alias_map.get(m.user_id) else None),
             content=m.content,
             created_at=m.created_at,
         ) for m in messages
@@ -60,6 +61,7 @@ async def send_message(
         "content": db_message.content,
         "created_at": db_message.created_at,
         "alias": ua.alias if ua else None,
+        "avatar_url": ua.avatar_url if ua else None,
     }
     await chat_manager.broadcast(message.space_id, {
         "id": payload["id"],
@@ -67,5 +69,6 @@ async def send_message(
         "content": payload["content"],
         "created_at": payload["created_at"].isoformat() if payload["created_at"] else None,
         "alias": payload["alias"],
+        "avatar_url": payload["avatar_url"],
     })
     return {"success": True, "message": "发送成功"}

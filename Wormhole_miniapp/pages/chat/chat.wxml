@@ -1,8 +1,11 @@
-<view class="home-fab" bindtap="goHome">主页</view>
+<navigation-bar title="聊天" back="{{false}}" home-button="{{true}}" bind:home="goHome" background="#FFFFFF" color="#0F172A" />
 <view class="chat-container">
-  <scroll-view class="message-list" scroll-y scroll-into-view="{{lastMessageId}}">
+  <scroll-view class="message-list" scroll-y="true" scroll-with-animation="true" scroll-into-view="{{lastMessageId}}" enable-flex="true" style="padding-bottom: {{bottomPadding}}px;">
     <view wx:for="{{messages}}" wx:key="id" class="message-item {{item.isSelf ? 'self' : ''}}" id="msg-{{item.id}}">
-      <image class="avatar" src="{{item.avatar}}"/>
+      <view class="avatar">
+        <image wx:if="{{item.avatar}}" src="{{item.avatar}}" mode="aspectFill"></image>
+        <text wx:else>{{item.initial}}</text>
+      </view>
       <view class="message-content">
         <view class="nickname">{{item.nickname}}</view>
         <view class="message-bubble">{{item.content}}</view>
@@ -11,10 +14,13 @@
     </view>
   </scroll-view>
 
-  <view class="input-area">
+  <view class="input-area" style="bottom: {{keyboardHeight}}px;">
     <input class="message-input" 
            value="{{inputMessage}}"
            bindinput="onInputChange"
+           bindfocus="onInputFocus"
+           bindblur="onInputBlur"
+           adjust-position="false"
            placeholder="输入消息..."/>
     <button class="send-button" bindtap="sendMessage">发送</button>
   </view>

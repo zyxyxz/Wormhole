@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, UniqueConstraint
 from sqlalchemy.sql import func
 from app.database import Base
 
@@ -24,4 +24,16 @@ class Comment(Base):
     post_id = Column(Integer, ForeignKey("posts.id"), index=True)
     user_id = Column(String, index=True)
     content = Column(Text)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class PostLike(Base):
+    __tablename__ = "post_likes"
+    __table_args__ = (
+        UniqueConstraint('post_id', 'user_id', name='uq_post_like'),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    post_id = Column(Integer, ForeignKey("posts.id"), index=True)
+    user_id = Column(String, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
