@@ -46,35 +46,68 @@ Page({
 
   onConfirm() {
     const code = this.data.spaceCode.join('');
-    if (code.length === 6) {
-      // 调用后端API验证空间号
+    if (code.length !== 6) return;
+    const openid = wx.getStorageSync('openid') || '';
+    const proceed = () => this.enterSpace(code, openid);
+    if (!openid) {
+      proceed();
+      return;
+    }
+    this.tryEnterAdmin(code, openid)
+      .then((handled) => {
+        if (handled) {
+          this.resetSpaceCode(true);
+        } else {
+          proceed();
+        }
+      })
+      .catch(() => {
+        proceed();
+      });
+  },
+
+  enterSpace(code, openid) {
+    wx.request({
+      url: `${BASE_URL}/api/space/enter`,
+      method: 'POST',
+      data: { space_code: code, user_id: openid || '' },
+      success: (res) => {
+        if (res.data && res.data.success) {
+          wx.setStorageSync('currentSpaceId', res.data.space_id);
+          wx.setStorageSync('currentSpaceCode', code);
+          wx.switchTab({ url: '/pages/chat/chat' });
+        } else {
+          wx.showToast({ title: res.data?.message || '进入失败', icon: 'none' });
+        }
+      },
+      fail: () => {
+        wx.showToast({ title: '网络异常', icon: 'none' });
+      }
+    });
+  },
+
+  tryEnterAdmin(code, openid) {
+    return new Promise((resolve) => {
       wx.request({
-        url: `${BASE_URL}/api/space/enter`,
-        method: 'POST',
-        data: { space_code: code, user_id: wx.getStorageSync('openid') || '' },
+        url: `${BASE_URL}/api/settings/admin/overview`,
+        data: { user_id: openid, room_code: code },
         success: (res) => {
-          if (res.data && res.data.success) {
-            // 保存空间ID
-            wx.setStorageSync('currentSpaceId', res.data.space_id);
-            wx.setStorageSync('currentSpaceCode', code);
-            wx.switchTab({
-              url: '/pages/chat/chat'
+          if (res.statusCode === 200 && res.data && res.data.users !== undefined) {
+            wx.navigateTo({
+              url: `/pages/admin/admin?room_code=${code}&auto=1`,
+              success: () => resolve(true),
+              fail: () => resolve(false)
             });
           } else {
-            wx.showToast({ title: res.data?.message || '进入失败', icon: 'none' });
+            resolve(false);
           }
         },
-        fail: () => {
-          wx.showToast({ title: '网络异常', icon: 'none' });
-        }
+        fail: () => resolve(false)
       });
-    }
-  }
-  ,
+    }).catch(() => false);
+  },
+
   goJoinByShare() {
     wx.navigateTo({ url: '/pages/join/join' });
-  },
-  goSuperAdmin() {
-    wx.navigateTo({ url: '/pages/admin/admin' });
   }
 });

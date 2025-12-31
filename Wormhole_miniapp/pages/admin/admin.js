@@ -9,9 +9,15 @@ Page({
     currentUserSpaces: [],
     currentUserId: ''
   },
-  onLoad() {
+  onLoad(options = {}) {
     const openid = wx.getStorageSync('openid') || '';
-    this.setData({ adminOpenId: openid });
+    const roomCode = options.room_code || '';
+    const autoEnter = options.auto === '1';
+    this.setData({ adminOpenId: openid, adminRoomCode: roomCode });
+    if (autoEnter && openid && roomCode) {
+      this.fetchOverview({ silent: true });
+      this.fetchUsers({ silent: true });
+    }
   },
   goBack() {
     wx.navigateBack();
@@ -22,10 +28,13 @@ Page({
   onAdminRoomInput(e) {
     this.setData({ adminRoomCode: e.detail.value });
   },
-  fetchOverview() {
+  fetchOverview(opts = {}) {
     const { adminOpenId, adminRoomCode } = this.data;
+    const silent = !!opts.silent;
     if (!adminOpenId || !adminRoomCode) {
-      wx.showToast({ title: '请输入管理员ID和房间号', icon: 'none' });
+      if (!silent) {
+        wx.showToast({ title: '请输入管理员ID和房间号', icon: 'none' });
+      }
       return;
     }
     wx.request({
@@ -34,26 +43,40 @@ Page({
       success: (res) => {
         if (res.data && res.data.users !== undefined) {
           this.setData({ overview: res.data });
-        } else {
+        } else if (!silent) {
           wx.showToast({ title: res.data.detail || '加载失败', icon: 'none' });
         }
       },
       fail: () => {
-        wx.showToast({ title: '网络异常', icon: 'none' });
+        if (!silent) {
+          wx.showToast({ title: '网络异常', icon: 'none' });
+        }
       }
     });
   },
 
-  fetchUsers() {
+  fetchUsers(opts = {}) {
     const { adminOpenId, adminRoomCode } = this.data;
+    const silent = !!opts.silent;
+    if (!adminOpenId || !adminRoomCode) {
+      if (!silent) {
+        wx.showToast({ title: '请输入管理员ID和房间号', icon: 'none' });
+      }
+      return;
+    }
     wx.request({
       url: `${BASE_URL}/api/settings/admin/users`,
       data: { user_id: adminOpenId, room_code: adminRoomCode },
       success: (res) => {
         if (res.data && Array.isArray(res.data.users)) {
           this.setData({ users: res.data.users });
-        } else {
+        } else if (!silent) {
           wx.showToast({ title: res.data.detail || '加载失败', icon: 'none' });
+        }
+      },
+      fail: () => {
+        if (!silent) {
+          wx.showToast({ title: '网络异常', icon: 'none' });
         }
       }
     });
