@@ -12,6 +12,7 @@ App({
     const current = this.globalData.foregroundHoldCount || 0;
     this.globalData.foregroundHoldCount = current + 1;
     this.globalData.skipNextHideRedirect = true;
+    this.globalData.shouldReturnToIndex = false;
   },
 
   clearTemporaryForegroundFlag() {
