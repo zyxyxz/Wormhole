@@ -28,20 +28,23 @@
 
   <view class="input-area" style="bottom: {{keyboardHeight}}px;">
     <view class="input-row">
-      <input class="message-input" 
-             value="{{inputMessage}}"
-             bindinput="onInputChange"
-             bindfocus="onInputFocus"
-             bindblur="onInputBlur"
-             adjust-position="false"
-             placeholder="输入消息..."/>
-      <button class="send-button" bindtap="sendMessage">发送</button>
-    </view>
-    <view class="input-tools">
-      <button class="tool-btn" bindtap="chooseImage">图片</button>
-      <view class="voice-button" bindtouchstart="handleRecordStart" bindtouchend="handleRecordEnd" bindtouchcancel="handleRecordCancel">
-        {{recording ? '松开发送' : '按住说话'}}
-      </view>
+      <button class="tool-btn" bindtap="toggleInputMode">{{inputMode === 'text' ? '🎤' : '⌨️'}}</button>
+      <block wx:if="{{inputMode === 'text'}}">
+        <input class="message-input" 
+               value="{{inputMessage}}"
+               bindinput="onInputChange"
+               bindfocus="onInputFocus"
+               bindblur="onInputBlur"
+               adjust-position="false"
+               placeholder="输入消息..."/>
+      </block>
+      <block wx:else>
+        <view class="voice-button" bindtouchstart="handleRecordStart" bindtouchend="handleRecordEnd" bindtouchcancel="handleRecordCancel">
+          {{recording ? '松开发送' : '按住说话'}}
+        </view>
+      </block>
+      <button class="send-button" wx:if="{{inputMode === 'text' && inputMessage.trim()}}" bindtap="sendMessage">发送</button>
+      <button class="plus-button" wx:else bindtap="openAttachmentMenu">＋</button>
     </view>
   </view>
 </view> 

@@ -7,6 +7,7 @@ App({
     skipNextHideRedirect: false,
     foregroundHoldCount: 0,
     hideTimer: null,
+    lastHideTimestamp: 0,
   },
 
   markTemporaryForegroundAllowed() {
@@ -15,6 +16,7 @@ App({
     this.globalData.skipNextHideRedirect = true;
     this.globalData.shouldReturnToIndex = false;
     this.clearHideTimer();
+    this.globalData.lastHideTimestamp = Date.now();
   },
 
   clearTemporaryForegroundFlag() {
@@ -58,7 +60,8 @@ App({
 
   onShow() {
     this.clearHideTimer();
-    if (this.globalData.foregroundHoldCount > 0) {
+    const now = Date.now();
+    if (this.globalData.foregroundHoldCount > 0 || now - this.globalData.lastHideTimestamp < 800) {
       return;
     }
     if (!this.globalData.shouldReturnToIndex) return;
@@ -75,6 +78,7 @@ App({
   onHide() {
     if (this.globalData.skipNextHideRedirect || (this.globalData.foregroundHoldCount || 0) > 0) {
       this.globalData.skipNextHideRedirect = false;
+      this.globalData.lastHideTimestamp = Date.now();
       return;
     }
     this.clearHideTimer();
@@ -85,6 +89,7 @@ App({
       }
       this.globalData.shouldReturnToIndex = true;
       this.globalData.hideTimer = null;
+      this.globalData.lastHideTimestamp = Date.now();
     }, 500);
   }
 })

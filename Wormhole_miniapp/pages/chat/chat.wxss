@@ -36,10 +36,10 @@ page { overflow: hidden; }
 .audio-bubble .playing { font-size: 22rpx; color: #0F766E; }
 .message-time { font-size: 22rpx; color: #94A3B8; margin-top: 6rpx; }
 .input-area { position: fixed; left: 0; right: 0; bottom: 0; padding: 16rpx; background: #FFFFFF; border-top: 1rpx solid #E2E8F0; display: flex; flex-direction: column; gap: 16rpx; }
-.input-row { display: flex; gap: 12rpx; }
+.input-row { display: flex; gap: 12rpx; align-items: center; }
 .message-input { flex: 1; height: 72rpx; background: #FFFFFF; border: 1rpx solid #E2E8F0; border-radius: 12rpx; padding: 0 24rpx; color: #0F172A; }
 .send-button { width: 120rpx; height: 72rpx; line-height: 72rpx; background: linear-gradient(135deg, #5EEAD4, #22D3EE); color: #0F172A; border-radius: 12rpx; font-size: 28rpx; }
-.input-tools { display: flex; gap: 16rpx; align-items: center; }
-.tool-btn { height: 60rpx; line-height: 60rpx; border: 1rpx solid #CBD5F5; background: #FFFFFF; border-radius: 999rpx; padding: 0 20rpx; font-size: 26rpx; color: #0F172A; }
-.voice-button { flex: 1; height: 60rpx; line-height: 60rpx; text-align: center; border-radius: 999rpx; background: #F8FAFC; border: 1rpx dashed #94A3B8; color: #0F172A; }
+.plus-button { width: 72rpx; height: 72rpx; line-height: 72rpx; text-align: center; background: #F1F5F9; border-radius: 12rpx; border: 1rpx solid #CBD5F5; font-size: 36rpx; color: #0F172A; }
+.tool-btn { width: 72rpx; height: 72rpx; line-height: 72rpx; text-align: center; border: 1rpx solid #CBD5F5; background: #FFFFFF; border-radius: 16rpx; font-size: 32rpx; }
+.voice-button { flex: 1; height: 72rpx; line-height: 72rpx; text-align: center; border-radius: 16rpx; background: #F8FAFC; border: 1rpx dashed #94A3B8; color: #0F172A; }
 .voice-button:active { background: #DCFCE7; border-color: #0F766E; }

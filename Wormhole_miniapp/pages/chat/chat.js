@@ -38,6 +38,7 @@ Page({
     _baseBottomPadding: 120,
     recording: false,
     audioPlayingId: null,
+    inputMode: 'text',
   },
   goHome() {
     wx.reLaunch({ url: '/pages/index/index' });
@@ -183,6 +184,18 @@ Page({
     });
   },
 
+  openAttachmentMenu() {
+    const actions = ['图片'];
+    wx.showActionSheet({
+      itemList: actions,
+      success: (res) => {
+        if (res.tapIndex === 0) {
+          this.chooseImage();
+        }
+      }
+    });
+  },
+
   uploadMedia(filePath, messageType, extra) {
     if (!filePath) return;
     wx.showLoading({ title: '发送中', mask: true });
@@ -286,6 +299,11 @@ Page({
       messages,
       lastMessageId: `msg-${message.id}`
     });
+  },
+
+  toggleInputMode() {
+    const nextMode = this.data.inputMode === 'text' ? 'audio' : 'text';
+    this.setData({ inputMode: nextMode, recording: false });
   },
 
   decorateMessage(message, myId) {
