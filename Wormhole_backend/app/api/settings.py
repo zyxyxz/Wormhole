@@ -53,6 +53,32 @@ async def delete_space(
     return {"success": True, "message": "空间删除成功"}
 
 
+@router.post("/admin/cleanup-spaces")
+async def admin_cleanup_spaces(user_id: str, room_code: str, db: AsyncSession = Depends(get_db)):
+    verify_admin(user_id, room_code)
+    # 找出无任何数据痕迹的空间
+    subquery = select(Space.id).select_from(Space)
+    subquery = subquery.outerjoin(Message, Message.space_id == Space.id)
+    subquery = subquery.outerjoin(Post, Post.space_id == Space.id)
+    subquery = subquery.outerjoin(Note, Note.space_id == Space.id)
+    subquery = subquery.outerjoin(UserAlias, UserAlias.space_id == Space.id)
+    subquery = subquery.outerjoin(ShareCode, ShareCode.space_id == Space.id)
+    subquery = subquery.where(
+        Message.id.is_(None),
+        Post.id.is_(None),
+        Note.id.is_(None),
+        UserAlias.id.is_(None),
+        ShareCode.id.is_(None)
+    )
+    idle_space_ids = [row[0] for row in (await db.execute(subquery)).fetchall()]
+    deleted = 0
+    for sid in idle_space_ids:
+        await db.execute(delete(Space).where(Space.id == sid))
+        deleted += 1
+    await db.commit()
+    return {"deleted": deleted}
+
+
 def is_super_admin(user_id: str) -> bool:
     from app.config import settings
     admin_ids = [i.strip() for i in (settings.SUPER_ADMIN_OPENIDS or '').split(',') if i.strip()]
