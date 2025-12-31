@@ -61,8 +61,17 @@ class AdminAuth(BaseModel):
 
 
 @router.post("/admin/cleanup-spaces")
-async def admin_cleanup_spaces(payload: AdminAuth, db: AsyncSession = Depends(get_db)):
-    verify_admin(payload.user_id, payload.room_code)
+async def admin_cleanup_spaces(
+    payload: AdminAuth | None = None,
+    user_id: str | None = None,
+    room_code: str | None = None,
+    db: AsyncSession = Depends(get_db)
+):
+    auth_user = payload.user_id if payload else user_id
+    auth_room = payload.room_code if payload else room_code
+    if not auth_user or not auth_room:
+        raise HTTPException(status_code=400, detail="缺少管理员凭据")
+    verify_admin(auth_user, auth_room)
     # 找出无任何数据痕迹的空间
     subquery = select(Space.id).select_from(Space)
     subquery = subquery.outerjoin(Message, Message.space_id == Space.id)
