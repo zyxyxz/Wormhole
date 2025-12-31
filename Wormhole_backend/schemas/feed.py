@@ -34,6 +34,7 @@ class PostResponse(BaseModel):
     comments: List[CommentResponse] = Field(default_factory=list)
     like_count: int = 0
     liked_by_me: bool = False
+    likes: List[LikeEntry] = Field(default_factory=list)
 
 
 class FeedListResponse(BaseModel):
@@ -64,3 +65,9 @@ class PostLikeRequest(BaseModel):
     post_id: int
     user_id: str
     like: bool = True
+
+
+class LikeEntry(BaseModel):
+    user_id: str
+    alias: Optional[str] = None
+    avatar_url: Optional[str] = None

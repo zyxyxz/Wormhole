@@ -1,10 +1,22 @@
 const { BASE_URL } = require('../../utils/config.js');
 
+function normalizeDateString(str) {
+  if (!str) return '';
+  let normalized = str.replace(' ', 'T');
+  if (!/[zZ]|[+-]\d{2}:?\d{2}$/.test(normalized)) {
+    normalized += 'Z';
+  }
+  return normalized;
+}
+
 Page({
   data: {
     posts: [],
     spaceId: '',
     commentInputs: {},
+    commentPlaceholders: {},
+    replyTargets: {},
+    activeCommentInput: null,
     loading: true,
     myUserId: '',
     isOwner: false,
@@ -58,9 +70,16 @@ Page({
     const canDelete = this.data.isOwner || post.user_id === this.data.myUserId;
     const comments = (post.comments || []).map(comment => ({
       ...comment,
+      postId: post.id,
       avatar: comment.avatar_url || '',
       initial: (comment.alias || comment.user_id || '匿').charAt(0),
-      canDelete: this.data.isOwner || comment.user_id === this.data.myUserId
+      canDelete: this.data.isOwner || comment.user_id === this.data.myUserId,
+      displayTime: this.formatFriendlyTime(comment.created_at)
+    }));
+    const likes = (post.likes || []).map(like => ({
+      ...like,
+      avatar: like.avatar_url || '',
+      initial: (like.alias || like.user_id || '匿').charAt(0)
     }));
     return {
       ...post,
@@ -68,8 +87,10 @@ Page({
       initial,
       canDelete,
       comments,
+      likes,
       likeCount: post.like_count || 0,
-      likedByMe: !!post.liked_by_me
+      likedByMe: !!post.liked_by_me,
+      displayTime: this.formatFriendlyTime(post.created_at)
     };
   },
 
@@ -80,16 +101,34 @@ Page({
     this.setData({ [`commentInputs.${id}`]: e.detail.value });
   },
 
+  onCommentFocus(e) {
+    const id = e.currentTarget.dataset.id;
+    this.setData({ activeCommentInput: id });
+  },
+
   submitComment(e) {
     const id = e.currentTarget.dataset.id;
     const content = this.data.commentInputs[id] || '';
     if (!content.trim()) return;
     const userId = wx.getStorageSync('openid') || '';
+    const reply = this.data.replyTargets[id];
+    let payloadContent = content.trim();
+    if (reply && reply.userId && reply.userId !== this.data.myUserId) {
+      payloadContent = `回复 ${reply.alias || reply.userId}: ${payloadContent}`;
+    }
     wx.request({
       url: `${BASE_URL}/api/feed/comment`,
       method: 'POST',
-      data: { post_id: id, user_id: userId, content },
-      success: () => { this.setData({ [`commentInputs.${id}`]: '' }); this.getPosts(); }
+      data: { post_id: id, user_id: userId, content: payloadContent },
+      success: () => {
+        this.setData({
+          [`commentInputs.${id}`]: '',
+          [`commentPlaceholders.${id}`]: '',
+          [`replyTargets.${id}`]: null,
+          activeCommentInput: null
+        });
+        this.getPosts();
+      }
     });
   },
 
@@ -197,6 +236,7 @@ Page({
             this.setData({ posts: updated });
           }
         }
+        this.getPosts();
       },
       fail: () => {
         const rollback = [...this.data.posts];
@@ -208,5 +248,34 @@ Page({
         wx.showToast({ title: '操作失败', icon: 'none' });
       }
     });
+  },
+  replyComment(e) {
+    const postId = e.currentTarget.dataset.postid;
+    const alias = e.currentTarget.dataset.alias;
+    const userId = e.currentTarget.dataset.userid;
+    if (!postId || !userId || userId === this.data.myUserId) return;
+    this.setData({
+      [`commentPlaceholders.${postId}`]: `回复 ${alias || '匿名'}...`,
+      [`replyTargets.${postId}`]: { userId, alias },
+      activeCommentInput: postId,
+      [`commentInputs.${postId}`]: this.data.commentInputs[postId] || ''
+    });
+  },
+  formatFriendlyTime(isoString) {
+    if (!isoString) return '';
+    const date = new Date(normalizeDateString(isoString));
+    if (Number.isNaN(date.getTime())) return '';
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfTarget = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const diffDays = Math.round((startOfToday - startOfTarget) / (24 * 60 * 60 * 1000));
+    const timeText = `${date.getHours().toString().padStart(2,'0')}:${date.getMinutes().toString().padStart(2,'0')}`;
+    if (diffDays === 0) {
+      return `今天 ${timeText}`;
+    }
+    if (diffDays === 1) {
+      return `昨天 ${timeText}`;
+    }
+    return `${date.getFullYear()}-${(date.getMonth()+1).toString().padStart(2,'0')}-${date.getDate().toString().padStart(2,'0')} ${timeText}`;
   }
 });

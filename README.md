@@ -100,7 +100,7 @@
   - `WS /ws/chat/{space_id}`
 - 动态（feed）
   - `POST /api/feed/create`（space_id, user_id, content, media_type, media_urls[]）
-  - `GET /api/feed/list?space_id&user_id`（user_id 可选，用于返回 liked_by_me）
+  - `GET /api/feed/list?space_id&user_id`（user_id 可选，返回 liked_by_me 与点赞头像列表）
   - `POST /api/feed/comment`、`GET /api/feed/comments?post_id`
   - `POST /api/feed/comment/delete`（comment_id, operator_user_id）
   - `POST /api/feed/delete`（post_id, operator_user_id；作者或房主）

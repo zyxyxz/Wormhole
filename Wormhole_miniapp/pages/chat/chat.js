@@ -1,11 +1,27 @@
 const { BASE_URL, WS_URL } = require('../../utils/config.js');
 
+function normalizeDateString(str) {
+  if (!str) return '';
+  let normalized = str.replace(' ', 'T');
+  if (!/[zZ]|[+-]\d{2}:?\d{2}$/.test(normalized)) {
+    normalized += 'Z';
+  }
+  return normalized;
+}
+
 function formatTime(iso) {
+  if (!iso) return '';
   try {
-    const d = new Date(iso);
-    return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes()
-      .toString()
-      .padStart(2, '0')}`;
+    const d = new Date(normalizeDateString(iso));
+    if (Number.isNaN(d.getTime())) return '';
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfTarget = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const diffDays = Math.round((startOfToday - startOfTarget) / (24 * 60 * 60 * 1000));
+    const timeText = `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+    if (diffDays === 0) return timeText;
+    if (diffDays === 1) return `昨天 ${timeText}`;
+    return `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')} ${timeText}`;
   } catch (e) {
     return '';
   }

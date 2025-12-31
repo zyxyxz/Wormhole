@@ -16,6 +16,7 @@ from schemas.feed import (
     PostDeleteRequest,
     CommentDeleteRequest,
     PostLikeRequest,
+    LikeEntry,
 )
 import json
 from datetime import datetime
@@ -80,12 +81,28 @@ async def list_posts(space_id: int, user_id: str | None = None, db: AsyncSession
     alias_map = {r.user_id: r for r in alias_rows.scalars().all()}
     like_counts = {}
     liked_post_ids = set()
+    likes_map: dict[int, list[LikeEntry]] = {pid: [] for pid in post_ids}
     if post_ids:
         like_rows = await db.execute(
             select(PostLike.post_id, func.count(PostLike.id)).where(PostLike.post_id.in_(post_ids)).group_by(PostLike.post_id)
         )
         for post_id, count in like_rows:
             like_counts[post_id] = count
+        like_detail_rows = await db.execute(
+            select(PostLike.post_id, PostLike.user_id)
+            .where(PostLike.post_id.in_(post_ids))
+            .order_by(PostLike.created_at.desc())
+        )
+        for post_id, liked_user in like_detail_rows:
+            ua_entry = alias_map.get(liked_user)
+            likes_map.setdefault(post_id, [])
+            likes_map[post_id].append(
+                LikeEntry(
+                    user_id=liked_user,
+                    alias=ua_entry.alias if ua_entry else None,
+                    avatar_url=ua_entry.avatar_url if ua_entry else None
+                )
+            )
         if user_id:
             liked_rows = await db.execute(select(PostLike.post_id).where(PostLike.post_id.in_(post_ids), PostLike.user_id == user_id))
             liked_post_ids = {post_id for (post_id,) in liked_rows}
@@ -102,6 +119,7 @@ async def list_posts(space_id: int, user_id: str | None = None, db: AsyncSession
             created_at=p.created_at,
             like_count=like_counts.get(p.id, 0),
             liked_by_me=p.id in liked_post_ids,
+            likes=(likes_map.get(p.id) or []),
             comments=[
                 CommentResponse(
                     id=c.id,

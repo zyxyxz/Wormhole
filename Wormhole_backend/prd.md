@@ -68,7 +68,7 @@
     - spaceId: 空间ID
     - userId: 用户ID（可选，用于判断是否已点赞）
     返回：
-    - notes: 笔记列表
+    - notes: 笔记列表（含点赞头像列表 likes）
 3.2 评论-删除
     POST /api/feed/comment/delete
     请求参数：
