@@ -21,10 +21,6 @@ class CommentResponse(BaseModel):
     created_at: datetime
 
 
-class FeedListResponse(BaseModel):
-    posts: List[PostResponse]
-
-
 class CommentCreate(BaseModel):
     post_id: int
     user_id: str
@@ -71,3 +67,7 @@ class PostResponse(BaseModel):
     like_count: int = 0
     liked_by_me: bool = False
     likes: List[LikeEntry] = Field(default_factory=list)
+
+
+class FeedListResponse(BaseModel):
+    posts: List[PostResponse]
