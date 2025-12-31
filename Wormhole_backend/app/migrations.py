@@ -39,8 +39,23 @@ async def add_deleted_at_to_posts(conn):
     await conn.execute(text("ALTER TABLE posts ADD COLUMN deleted_at DATETIME"))
 
 
+async def add_share_code_expiry(conn):
+    if not await column_exists(conn, "share_codes", "expires_at"):
+        await conn.execute(text("ALTER TABLE share_codes ADD COLUMN expires_at DATETIME"))
+    if not await column_exists(conn, "share_codes", "used"):
+        await conn.execute(text("ALTER TABLE share_codes ADD COLUMN used BOOLEAN DEFAULT 0"))
+
+
+async def add_user_avatar(conn):
+    if await column_exists(conn, "user_aliases", "avatar_url"):
+        return
+    await conn.execute(text("ALTER TABLE user_aliases ADD COLUMN avatar_url TEXT"))
+
+
 MIGRATIONS = [
     ("202401_add_deleted_at_to_posts", add_deleted_at_to_posts),
+    ("202402_add_share_code_expiry", add_share_code_expiry),
+    ("202402_add_user_alias_avatar", add_user_avatar),
 ]
 
 

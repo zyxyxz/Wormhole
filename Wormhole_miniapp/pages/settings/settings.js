@@ -1,5 +1,16 @@
 const { BASE_URL } = require('../../utils/config.js');
 
+function setTemporaryForeground(active) {
+  const app = typeof getApp === 'function' ? getApp() : null;
+  if (!app) return;
+  const method = active ? 'markTemporaryForegroundAllowed' : 'clearTemporaryForegroundFlag';
+  if (typeof app[method] === 'function') {
+    app[method]();
+  } else if (app.globalData) {
+    app.globalData.skipNextHideRedirect = !!active;
+  }
+}
+
 Page({
   data: {
     spaceCode: '',
@@ -9,10 +20,16 @@ Page({
     showShareModal: false,
     showAliasModal: false,
     alias: '',
+    aliasInitial: '我',
+    avatarUrl: '',
     newAlias: '',
     spaceId: '',
     isOwner: false,
-    members: []
+    members: [],
+    memberPreview: [],
+    showMembersModal: false,
+    shareInfoText: '',
+    blocks: []
   },
   onBack() {
     wx.reLaunch({ url: '/pages/index/index' });
@@ -24,9 +41,14 @@ Page({
   onLoad() {
     const spaceId = wx.getStorageSync('currentSpaceId');
     const spaceCode = wx.getStorageSync('currentSpaceCode');
+    const myUserId = wx.getStorageSync('openid') || '';
+    const cachedAlias = wx.getStorageSync('myAlias') || '';
     this.setData({ 
       spaceId,
-      spaceCode 
+      spaceCode,
+      myUserId,
+      alias: cachedAlias || this.data.alias,
+      aliasInitial: (cachedAlias || myUserId || '我').charAt(0)
     });
     this.fetchAlias();
     this.fetchSpaceInfo();
@@ -40,7 +62,7 @@ Page({
         const info = res.data;
         const isOwner = wx.getStorageSync('openid') === info.owner_user_id;
         this.setData({ isOwner, ownerUserId: info.owner_user_id });
-        if (isOwner) this.fetchMembers();
+        this.fetchMembers();
       }
     });
   },
@@ -50,8 +72,20 @@ Page({
       url: `${BASE_URL}/api/space/members`,
       data: { space_id: this.data.spaceId },
       success: (res) => {
-        this.setData({ members: res.data.members || [] });
-        this.fetchBlocks();
+        const membersRaw = res.data.members || [];
+        const members = membersRaw.map(item => ({
+          ...item,
+          displayName: item.alias || item.user_id,
+          initial: (item.alias || item.user_id || '?').charAt(0)
+        }));
+        const preview = members.slice(0, 4);
+        this.setData({
+          members,
+          memberPreview: preview
+        });
+        if (this.data.isOwner) {
+          this.fetchBlocks();
+        }
       }
     });
   },
@@ -73,7 +107,13 @@ Page({
       data: { space_id: this.data.spaceId, user_id: openid },
       success: (res) => {
         if (res.data && res.data.alias !== undefined) {
-          this.setData({ alias: res.data.alias });
+          const alias = res.data.alias;
+          const avatarUrl = res.data.avatar_url || '';
+          this.setData({
+            alias,
+            avatarUrl,
+            aliasInitial: (alias || openid || '我').charAt(0)
+          });
         }
       }
     });
@@ -135,10 +175,59 @@ Page({
       method: 'POST',
       data: { space_id: this.data.spaceId, operator_user_id: operatorUserId },
       success: (res) => {
+        const expires = res.data.expires_in || res.data.expiresIn;
+        const hint = expires ? `口令将在 ${Math.ceil(expires / 60)} 分钟后失效，仅可使用一次` : '口令仅可使用一次';
         this.setData({
           shareCode: res.data.share_code || res.data.shareCode || res.data.share_code,
+          shareInfoText: hint,
           showShareModal: true
         });
+      }
+    });
+  },
+
+  chooseAvatar() {
+    const openid = wx.getStorageSync('openid');
+    if (!openid) {
+      wx.showToast({ title: '未登录', icon: 'none' });
+      return;
+    }
+    setTemporaryForeground(true);
+    wx.chooseImage({
+      count: 1,
+      sizeType: ['compressed'],
+      success: (res) => {
+        const filePath = res.tempFilePaths && res.tempFilePaths[0];
+        if (!filePath) return;
+        wx.showLoading({ title: '上传中', mask: true });
+        wx.uploadFile({
+          url: `${BASE_URL}/api/upload`,
+          filePath,
+          name: 'file',
+          success: (resp) => {
+            try {
+              const data = JSON.parse(resp.data || '{}');
+              let url = data.url || '';
+              if (url && url.startsWith('/')) {
+                url = `${BASE_URL}${url}`;
+              }
+              if (url) {
+                this.saveAlias({ avatarUrl: url });
+              }
+            } catch (e) {
+              wx.showToast({ title: '上传失败', icon: 'none' });
+            }
+          },
+          fail: () => {
+            wx.showToast({ title: '上传失败', icon: 'none' });
+          },
+          complete: () => {
+            wx.hideLoading();
+          }
+        });
+      },
+      complete: () => {
+        setTemporaryForeground(false);
       }
     });
   },
@@ -153,7 +242,16 @@ Page({
   },
 
   closeShareModal() {
-    this.setData({ showShareModal: false });
+    this.setData({ showShareModal: false, shareInfoText: '' });
+  },
+
+  openMembersModal() {
+    if (!this.data.members.length) return;
+    this.setData({ showMembersModal: true });
+  },
+
+  closeMembersModal() {
+    this.setData({ showMembersModal: false });
   },
 
   openAliasModal() {
@@ -165,8 +263,7 @@ Page({
   onAliasInput(e) {
     this.setData({ newAlias: e.detail.value });
   },
-  confirmAlias() {
-    const alias = this.data.newAlias.trim();
+  saveAlias({ alias = this.data.alias, avatarUrl = this.data.avatarUrl, closeModal = false } = {}) {
     const openid = wx.getStorageSync('openid');
     if (!openid) {
       wx.showToast({ title: '未登录', icon: 'none' });
@@ -175,17 +272,21 @@ Page({
     wx.request({
       url: `${BASE_URL}/api/user/set-alias`,
       method: 'POST',
-      data: { space_id: this.data.spaceId, user_id: openid, alias },
+      data: { space_id: this.data.spaceId, user_id: openid, alias, avatar_url: avatarUrl },
       success: () => {
-        this.setData({ alias, showAliasModal: false });
-        // 保存到本地，并触发页面刷新标记
+        const aliasInitial = (alias || openid || '我').charAt(0);
+        this.setData({ alias, avatarUrl, aliasInitial, showAliasModal: closeModal ? false : this.data.showAliasModal });
         try {
           wx.setStorageSync('myAlias', alias);
           wx.setStorageSync('aliasUpdatedAt', Date.now());
         } catch (e) {}
-        wx.showToast({ title: '已保存' });
+        wx.showToast({ title: '已保存', icon: 'none' });
       }
     });
+  },
+  confirmAlias() {
+    const alias = this.data.newAlias.trim();
+    this.saveAlias({ alias, closeModal: true });
   },
 
   deleteSpace() {

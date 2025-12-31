@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, UniqueConstraint
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, UniqueConstraint, Boolean
 from sqlalchemy.sql import func
 from app.database import Base
 
@@ -34,6 +34,8 @@ class ShareCode(Base):
     id = Column(Integer, primary_key=True, index=True)
     space_id = Column(Integer, ForeignKey("spaces.id"), index=True)
     code = Column(String, unique=True, index=True)
+    expires_at = Column(DateTime(timezone=True), nullable=True)
+    used = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 class SpaceMember(Base):

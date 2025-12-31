@@ -27,6 +27,7 @@ class SpaceEnterResponse(BaseModel):
 class MemberResponse(BaseModel):
     user_id: str
     alias: Optional[str] = None
+    avatar_url: Optional[str] = None
 
 class MembersListResponse(BaseModel):
     members: list[MemberResponse]

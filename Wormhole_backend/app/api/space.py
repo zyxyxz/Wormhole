@@ -10,9 +10,11 @@ from models.space import SpaceCode, ShareCode, SpaceMember, SpaceBlock
 from models.chat import Message
 from models.notes import Note
 from models.wallet import Wallet, Transaction
+from models.user import UserAlias
 from pydantic import BaseModel
 from schemas.space import SpaceEnterRequest, SpaceEnterResponse, MembersListResponse, MemberResponse, RemoveMemberRequest, BlockMemberRequest, UnblockMemberRequest, BlocksListResponse
 import random
+from datetime import datetime, timedelta
 
 router = APIRouter()
 
@@ -130,10 +132,11 @@ async def share_space(payload: ShareRequest, db: AsyncSession = Depends(get_db))
         if not exists.scalar_one_or_none():
             break
 
-    share = ShareCode(space_id=payload.space_id, code=code)
+    expires_at = datetime.utcnow() + timedelta(minutes=5)
+    share = ShareCode(space_id=payload.space_id, code=code, expires_at=expires_at, used=False)
     db.add(share)
     await db.commit()
-    return {"share_code": code}
+    return {"share_code": code, "expires_in": 300}
 
 @router.post("/join-by-share")
 async def join_by_share(payload: JoinByShareRequest, db: AsyncSession = Depends(get_db)):
@@ -147,10 +150,24 @@ async def join_by_share(payload: JoinByShareRequest, db: AsyncSession = Depends(
     share = res.scalar_one_or_none()
     if not share:
         raise HTTPException(status_code=404, detail="分享口令无效")
+    now = datetime.utcnow()
+    if share.used:
+        raise HTTPException(status_code=400, detail="分享口令已被使用")
+    if share.expires_at and share.expires_at < now:
+        raise HTTPException(status_code=400, detail="分享口令已过期")
     # 新空间号仅需确保未作为分享别名被占用
     exist_alias = (await db.execute(select(SpaceCode).where(SpaceCode.code == payload.new_code))).scalar_one_or_none()
     if exist_alias:
         raise HTTPException(status_code=400, detail="该空间号已被使用")
+    # 该用户若已使用该空间号（自己创建的空间），需提示
+    owned_space = (await db.execute(
+        select(Space).where(
+            Space.code == payload.new_code,
+            Space.owner_user_id == payload.user_id
+        )
+    )).scalar_one_or_none()
+    if owned_space:
+        raise HTTPException(status_code=400, detail="该空间号已存在，请删除后再使用")
     # 同一用户多次加入时，移除旧的映射/别名
     await db.execute(delete(SpaceMapping).where(SpaceMapping.space_id == share.space_id, SpaceMapping.user_id == payload.user_id))
     await db.execute(delete(SpaceCode).where(SpaceCode.space_id == share.space_id, SpaceCode.code == payload.new_code))
@@ -159,6 +176,7 @@ async def join_by_share(payload: JoinByShareRequest, db: AsyncSession = Depends(
     alias = SpaceCode(space_id=share.space_id, code=payload.new_code)
     db.add(alias)
     db.add(SpaceMapping(space_id=share.space_id, user_id=payload.user_id, space_code=payload.new_code))
+    share.used = True
     await db.commit()
     return {"success": True, "space_id": share.space_id}
 
@@ -214,11 +232,17 @@ async def space_info(space_id: int, db: AsyncSession = Depends(get_db)):
 async def get_members(space_id: int, db: AsyncSession = Depends(get_db)):
     mem_rows = await db.execute(select(SpaceMember).where(SpaceMember.space_id == space_id))
     members = mem_rows.scalars().all()
-    # 映射别名
-    from models.user import UserAlias
     alias_rows = await db.execute(select(UserAlias).where(UserAlias.space_id == space_id))
-    alias_map = {r.user_id: r.alias for r in alias_rows.scalars().all()}
-    return MembersListResponse(members=[MemberResponse(user_id=m.user_id, alias=alias_map.get(m.user_id)) for m in members])
+    alias_map = {r.user_id: r for r in alias_rows.scalars().all()}
+    member_payload = []
+    for m in members:
+        alias_entry = alias_map.get(m.user_id)
+        member_payload.append(MemberResponse(
+            user_id=m.user_id,
+            alias=alias_entry.alias if alias_entry else None,
+            avatar_url=alias_entry.avatar_url if alias_entry else None
+        ))
+    return MembersListResponse(members=member_payload)
 
 @router.post("/remove-member")
 async def remove_member(payload: RemoveMemberRequest, db: AsyncSession = Depends(get_db)):
@@ -247,7 +271,17 @@ async def remove_member(payload: RemoveMemberRequest, db: AsyncSession = Depends
 async def list_blocks(space_id: int, db: AsyncSession = Depends(get_db)):
     rows = await db.execute(select(SpaceBlock).where(SpaceBlock.space_id == space_id))
     blocks = rows.scalars().all()
-    return BlocksListResponse(blocks=[MemberResponse(user_id=b.user_id, alias=None) for b in blocks])
+    alias_rows = await db.execute(select(UserAlias).where(UserAlias.space_id == space_id))
+    alias_map = {r.user_id: r for r in alias_rows.scalars().all()}
+    block_payload = []
+    for b in blocks:
+        alias_entry = alias_map.get(b.user_id)
+        block_payload.append(MemberResponse(
+            user_id=b.user_id,
+            alias=alias_entry.alias if alias_entry else None,
+            avatar_url=alias_entry.avatar_url if alias_entry else None
+        ))
+    return BlocksListResponse(blocks=block_payload)
 
 @router.post("/block-member")
 async def block_member(payload: BlockMemberRequest, db: AsyncSession = Depends(get_db)):

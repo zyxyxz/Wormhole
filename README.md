@@ -5,7 +5,7 @@
 ## 功能速览
 - 房间与进入
   - 6 位空间号可直接进入；空间不存在时自动创建
-  - 分享口令 + 自定义 6 位码加入同一共享空间（多码指向同一真实空间）
+  - 分享口令 + 自定义 6 位码加入同一共享空间（多码指向同一真实空间），分享码 5 分钟有效且仅可使用一次
   - 首位进入者自动成为房主
 - 聊天
   - WebSocket 实时聊天（带作者 alias），HTTP 历史加载
@@ -19,7 +19,7 @@
   - 修改空间号、删除空间（仅房主）
   - 分享空间（仅房主，生成8位口令）
   - 房主成员管理（移除/拉黑/取消拉黑），黑名单禁止再次进入
-  - 房间内别名（alias）设置
+  - 房间内别名与头像设置
 
 ## 代码结构
 - `Wormhole_miniapp/` 微信小程序前端
@@ -92,7 +92,7 @@
 - 空间/分享
   - `POST /api/space/enter`（space_code, user_id）
   - `POST /api/space/share`（space_id, operator_user_id，仅房主）
-  - `POST /api/space/join-by-share`（share_code, new_code, user_id）
+  - `POST /api/space/join-by-share`（share_code, new_code, user_id；新空间号若已被自己使用需先删除）
   - `GET /api/space/info?space_id`、`GET /api/space/members?space_id`、`GET /api/space/blocks?space_id`
   - `POST /api/space/remove-member|block-member|unblock-member|delete`
 - 聊天
@@ -109,7 +109,7 @@
   - `POST /api/wallet/recharge|pay`（space_id, amount, user_id）
 - 用户/认证
   - `POST /api/auth/login`（小程序 code 换 openid；开发模式返回 dev_openid）
-  - `GET /api/user/alias`、`POST /api/user/set-alias`
+  - `GET /api/user/alias`、`POST /api/user/set-alias`（alias + avatar_url 可选）
 
 ## 许可
 本项目未附加开源许可协议，默认保留所有权利。如需开放许可或选择具体 License，可在 README 中更新并添加 LICENSE 文件。

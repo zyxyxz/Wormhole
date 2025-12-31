@@ -1,37 +1,48 @@
-<view class="home-fab" bindtap="goHome">主页</view>
+<navigation-bar title="设置" back="{{false}}" home-button="{{true}}" bind:home="goHome" background="#FFFFFF" color="#0F172A" />
 <view class="settings-container">
-  <view class="settings-group">
-    <view class="settings-item" bindtap="modifySpaceCode">
-      <text>修改空间号</text>
-      <text class="space-code">{{spaceCode}}</text>
+  <view class="room-card">
+    <view class="room-card-header">
+      <view class="avatar-circle" bindtap="chooseAvatar">
+        <image wx:if="{{avatarUrl}}" src="{{avatarUrl}}" mode="aspectFill"></image>
+        <text wx:else>{{aliasInitial}}</text>
+      </view>
+      <view class="room-card-info">
+        <view class="alias-row">
+          <text class="alias-text">{{alias || '未设置'}}</text>
+          <button class="icon-button" size="mini" bindtap="openAliasModal">编辑</button>
+        </view>
+        <view class="code-row">
+          <text class="code-text">空间号 {{spaceCode}}</text>
+          <button class="link-button" wx:if="{{isOwner}}" bindtap="modifySpaceCode">修改</button>
+        </view>
+      </view>
     </view>
-    
+    <view class="room-card-meta">
+      <view class="meta-item interactive" bindtap="openMembersModal">
+        <text class="meta-label">成员</text>
+        <view class="member-avatars">
+          <view class="avatar-mini" wx:for="{{memberPreview}}" wx:key="user_id">
+            <image wx:if="{{item.avatar_url}}" src="{{item.avatar_url}}" mode="aspectFill"></image>
+            <text wx:else>{{item.initial}}</text>
+          </view>
+          <text class="meta-count">{{members.length}}人</text>
+        </view>
+      </view>
+      <view class="meta-item">
+        <text class="meta-label">我的身份</text>
+        <text class="meta-value">{{isOwner ? '房主' : '成员'}}</text>
+      </view>
+    </view>
+  </view>
+  <view class="settings-group">
     <view class="settings-item" wx:if="{{isOwner}}" bindtap="shareSpace">
       <text>分享空间</text>
       <text class="arrow">></text>
     </view>
 
-    <view class="settings-item" bindtap="openAliasModal">
-      <text>设置房间内别名</text>
-      <text class="space-code">{{alias || '未设置'}}</text>
-    </view>
-    
     <view class="settings-item" bindtap="deleteSpace">
       <text>删除空间</text>
       <text class="arrow">></text>
-    </view>
-  </view>
-
-  <view class="settings-group" wx:if="{{isOwner}}">
-    <view class="settings-item">
-      <text>成员管理（房主）</text>
-    </view>
-    <view class="member-item" wx:for="{{members}}" wx:key="user_id">
-      <text>{{item.alias || item.user_id}}</text>
-      <view wx:if="{{item.user_id !== ownerUserId}}">
-        <button size="mini" bindtap="removeMember" data-userid="{{item.user_id}}">移除</button>
-        <button size="mini" type="warn" bindtap="blockMember" data-userid="{{item.user_id}}">拉黑</button>
-      </view>
     </view>
   </view>
 
@@ -68,6 +79,7 @@
   <view class="modal-content">
     <view class="modal-title">分享口令</view>
     <view class="share-code">{{shareCode}}</view>
+    <view class="share-hint">{{shareInfoText}}</view>
     <button class="copy-button" bindtap="copyShareCode">复制口令</button>
     <button class="close-button" bindtap="closeShareModal">关闭</button>
   </view>
@@ -83,5 +95,28 @@
       <button class="confirm-button" bindtap="confirmAlias">确定</button>
     </view>
   </view>
-  
+</view>
+
+<!-- 成员列表弹窗 -->
+<view class="modal" wx:if="{{showMembersModal}}">
+  <view class="modal-content members-modal">
+    <view class="modal-title">成员（{{members.length}}人）</view>
+    <scroll-view class="members-scroll" scroll-y="true">
+      <view class="member-row" wx:for="{{members}}" wx:key="user_id">
+        <view class="member-avatar">
+          <image wx:if="{{item.avatar_url}}" src="{{item.avatar_url}}" mode="aspectFill"></image>
+          <text wx:else>{{item.initial}}</text>
+        </view>
+        <view class="member-info">
+          <text class="member-name">{{item.displayName || item.user_id}}</text>
+          <text class="member-id">{{item.user_id}}</text>
+        </view>
+        <view class="member-actions" wx:if="{{isOwner && item.user_id !== ownerUserId}}">
+          <button size="mini" bindtap="removeMember" data-userid="{{item.user_id}}">移除</button>
+          <button size="mini" type="warn" bindtap="blockMember" data-userid="{{item.user_id}}">拉黑</button>
+        </view>
+      </view>
+    </scroll-view>
+    <button class="close-button" bindtap="closeMembersModal">关闭</button>
+  </view>
 </view>

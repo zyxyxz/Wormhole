@@ -5,6 +5,7 @@ from app.database import get_db
 from models.space import Space, SpaceMapping, SpaceCode, ShareCode
 import random
 import string
+from datetime import datetime, timedelta
 
 router = APIRouter()
 
@@ -68,6 +69,7 @@ async def share_space(
         if not exists.scalar_one_or_none():
             break
 
-    db.add(ShareCode(space_id=space_id, code=share_code))
+    expires_at = datetime.utcnow() + timedelta(minutes=5)
+    db.add(ShareCode(space_id=space_id, code=share_code, expires_at=expires_at, used=False))
     await db.commit()
-    return {"share_code": share_code}
+    return {"share_code": share_code, "expires_in": 300}

@@ -73,9 +73,22 @@ Page({
   previewImage(e) {
     const { urls = [], current } = e.currentTarget.dataset;
     if (!urls.length) return;
+    const app = getApp && getApp();
+    if (app && typeof app.markTemporaryForegroundAllowed === 'function') {
+      app.markTemporaryForegroundAllowed();
+    } else if (app && app.globalData) {
+      app.globalData.skipNextHideRedirect = true;
+    }
     wx.previewImage({
       current: current || urls[0],
-      urls
+      urls,
+      complete: () => {
+        if (app && typeof app.clearTemporaryForegroundFlag === 'function') {
+          app.clearTemporaryForegroundFlag();
+        } else if (app && app.globalData) {
+          app.globalData.skipNextHideRedirect = false;
+        }
+      }
     });
   },
 

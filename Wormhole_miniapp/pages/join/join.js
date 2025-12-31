@@ -34,13 +34,17 @@ Page({
       method: 'POST',
       data: { share_code: shareCode, new_code: newCode, user_id: userId },
       success: (res) => {
-        if (res.data.success) {
+        if (res.statusCode === 200 && res.data.success) {
           wx.setStorageSync('currentSpaceId', res.data.space_id);
           wx.setStorageSync('currentSpaceCode', newCode);
           wx.switchTab({ url: '/pages/chat/chat' });
         } else {
-          wx.showToast({ title: res.data.message || '加入失败', icon: 'none' });
+          const msg = res.data.detail || res.data.message || '加入失败';
+          wx.showToast({ title: msg, icon: 'none' });
         }
+      },
+      fail: () => {
+        wx.showToast({ title: '网络异常', icon: 'none' });
       }
     });
   }

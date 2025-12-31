@@ -101,7 +101,7 @@
     - spaceId: 空间ID
     - operator_user_id: 操作者 user_id（必须为房主）
     返回：
-    - shareCode: 分享口令
+    - shareCode: 分享口令（5分钟有效，单次使用）
 
 5.3 设置-删除空间
     POST /api/space/delete
