@@ -32,7 +32,7 @@ async def get_chat_history(
             content=m.content,
             message_type=m.message_type or "text",
             media_url=m.media_url,
-            media_duration=m.media_duration,
+            media_duration=int(m.media_duration) if m.media_duration is not None else None,
             created_at=m.created_at,
         ) for m in messages
     ]
