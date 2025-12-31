@@ -2,6 +2,7 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker, declarative_base
 from sqlalchemy import text
 from app.config import settings
+from app.migrations import run_migrations
 
 DATABASE_URL = f"sqlite+aiosqlite:///{settings.DATABASE_PATH}"
 
@@ -28,4 +29,5 @@ async def create_tables():
         except Exception:
             # sqlite 以外的数据库若不存在该索引会直接跳过
             pass
-        await conn.run_sync(Base.metadata.create_all) 
+        await conn.run_sync(Base.metadata.create_all)
+        await run_migrations(conn)

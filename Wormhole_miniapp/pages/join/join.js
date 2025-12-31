@@ -16,6 +16,7 @@ Page({
 
   submit() {
     const { shareCode, newCode } = this.data;
+    const userId = wx.getStorageSync('openid');
     if (!shareCode || shareCode.length < 6) {
       wx.showToast({ title: '请输入分享口令', icon: 'none' });
       return;
@@ -24,10 +25,14 @@ Page({
       wx.showToast({ title: '请输入6位数字新空间号', icon: 'none' });
       return;
     }
+    if (!userId) {
+      wx.showToast({ title: '未登录', icon: 'none' });
+      return;
+    }
     wx.request({
       url: `${BASE_URL}/api/space/join-by-share`,
       method: 'POST',
-      data: { share_code: shareCode, new_code: newCode },
+      data: { share_code: shareCode, new_code: newCode, user_id: userId },
       success: (res) => {
         if (res.data.success) {
           wx.setStorageSync('currentSpaceId', res.data.space_id);
@@ -40,4 +45,3 @@ Page({
     });
   }
 });
-

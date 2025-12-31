@@ -5,8 +5,18 @@ from collections import defaultdict
 from app.database import get_db
 from models.feed import Post, Comment
 from models.user import UserAlias
-from schemas.feed import PostCreate, PostResponse, FeedListResponse, CommentCreate, CommentResponse, CommentsListResponse
+from models.space import Space
+from schemas.feed import (
+    PostCreate,
+    PostResponse,
+    FeedListResponse,
+    CommentCreate,
+    CommentResponse,
+    CommentsListResponse,
+    PostDeleteRequest,
+)
 import json
+from datetime import datetime
 
 router = APIRouter()
 
@@ -43,7 +53,11 @@ async def create_post(payload: PostCreate, db: AsyncSession = Depends(get_db)):
 
 @router.get("/list", response_model=FeedListResponse)
 async def list_posts(space_id: int, db: AsyncSession = Depends(get_db)):
-    res = await db.execute(select(Post).where(Post.space_id == space_id).order_by(Post.created_at.desc()))
+    res = await db.execute(
+        select(Post)
+        .where(Post.space_id == space_id, Post.deleted_at.is_(None))
+        .order_by(Post.created_at.desc())
+    )
     posts = res.scalars().all()
     post_ids = [p.id for p in posts]
     comments_map: dict[int, list[Comment]] = defaultdict(list)
@@ -83,7 +97,7 @@ async def list_posts(space_id: int, db: AsyncSession = Depends(get_db)):
 async def add_comment(payload: CommentCreate, db: AsyncSession = Depends(get_db)):
     # 确认post存在
     post = (await db.execute(select(Post).where(Post.id == payload.post_id))).scalar_one_or_none()
-    if not post:
+    if not post or post.deleted_at:
         raise HTTPException(status_code=404, detail="动态不存在")
     c = Comment(post_id=payload.post_id, user_id=payload.user_id, content=payload.content)
     db.add(c)
@@ -106,7 +120,7 @@ async def add_comment(payload: CommentCreate, db: AsyncSession = Depends(get_db)
 @router.get("/comments", response_model=CommentsListResponse)
 async def list_comments(post_id: int, db: AsyncSession = Depends(get_db)):
     post = (await db.execute(select(Post).where(Post.id == post_id))).scalar_one_or_none()
-    if not post:
+    if not post or post.deleted_at:
         raise HTTPException(status_code=404, detail="动态不存在")
     res = await db.execute(select(Comment).where(Comment.post_id == post_id).order_by(Comment.created_at))
     comments = res.scalars().all()
@@ -122,3 +136,20 @@ async def list_comments(post_id: int, db: AsyncSession = Depends(get_db)):
             created_at=c.created_at,
         ) for c in comments
     ])
+
+
+@router.post("/delete")
+async def delete_post(payload: PostDeleteRequest, db: AsyncSession = Depends(get_db)):
+    if not payload.operator_user_id:
+        raise HTTPException(status_code=400, detail="缺少用户ID")
+    post = (await db.execute(select(Post).where(Post.id == payload.post_id))).scalar_one_or_none()
+    if not post or post.deleted_at:
+        raise HTTPException(status_code=404, detail="动态不存在或已删除")
+    space = (await db.execute(select(Space).where(Space.id == post.space_id))).scalar_one_or_none()
+    if not space:
+        raise HTTPException(status_code=404, detail="空间不存在")
+    if payload.operator_user_id not in {post.user_id, space.owner_user_id}:
+        raise HTTPException(status_code=403, detail="无权限")
+    post.deleted_at = datetime.utcnow()
+    await db.commit()
+    return {"success": True}

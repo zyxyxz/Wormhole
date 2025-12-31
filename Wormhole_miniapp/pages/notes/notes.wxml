@@ -1,18 +1,23 @@
-<view class="home-fab" bindtap="goHome">主页</view>
+<navigation-bar title="动态" back="{{false}}" home-button="{{true}}" bind:home="goHome" background="#FFFFFF" color="#0F172A" />
 <view class="notes-container">
   <skeleton-list show="{{loading}}" rows="6" />
   <view class="notes-list" wx:if="{{!loading}}">
     <view wx:for="{{posts}}" wx:key="id" class="post card">
       <view class="post-header">
-        <image class="avatar" src="/assets/icons/chat.png"></image>
-        <view class="user-info">
-          <view class="name">{{item.alias || item.user_id || '匿名'}}</view>
-          <view class="time muted">{{item.created_at}}</view>
+        <view class="post-info">
+          <image class="avatar" src="/assets/icons/chat.png"></image>
+          <view class="user-info">
+            <view class="name">{{item.alias || item.user_id || '匿名'}}</view>
+            <view class="time muted">{{item.created_at}}</view>
+          </view>
+        </view>
+        <view class="post-actions" wx:if="{{item.user_id === myUserId || isOwner}}">
+          <button size="mini" class="ghost" data-id="{{item.id}}" bindtap="deletePost">删除</button>
         </view>
       </view>
       <view wx:if="{{item.content}}" class="post-content">{{item.content}}</view>
       <view wx:if="{{item.media_type==='image'}}" class="images">
-        <image wx:for="{{item.media_urls}}" wx:key="*this" class="image" mode="aspectFill" src="{{item}}" />
+        <image wx:for="{{item.media_urls}}" wx:for-item="imgSrc" wx:key="*this" class="image" mode="aspectFill" src="{{imgSrc}}" data-urls="{{item.media_urls}}" data-current="{{imgSrc}}" bindtap="previewImage" />
       </view>
       <video wx:if="{{item.media_type==='video'}}" class="video" src="{{item.media_urls[0]}}" controls></video>
 

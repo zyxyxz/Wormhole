@@ -14,6 +14,7 @@ class Post(Base):
     media_urls = Column(Text, default="[]")  # JSON array string
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
 
 
 class Comment(Base):
@@ -24,4 +25,3 @@ class Comment(Base):
     user_id = Column(String, index=True)
     content = Column(Text)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-

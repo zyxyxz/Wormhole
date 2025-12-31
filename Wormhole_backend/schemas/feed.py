@@ -44,3 +44,8 @@ class CommentCreate(BaseModel):
 
 class CommentsListResponse(BaseModel):
     comments: List[CommentResponse]
+
+
+class PostDeleteRequest(BaseModel):
+    post_id: int
+    operator_user_id: str

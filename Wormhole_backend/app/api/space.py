@@ -31,6 +31,7 @@ class DeleteRequest(BaseModel):
 class JoinByShareRequest(BaseModel):
     share_code: str
     new_code: str
+    user_id: str
 
 class SpaceInfoResponse(BaseModel):
     space_id: int
@@ -79,13 +80,29 @@ async def enter_space(
         blk = await db.execute(select(SpaceBlock).where(SpaceBlock.space_id == space.id, SpaceBlock.user_id == request.user_id))
         if blk.scalar_one_or_none():
             raise HTTPException(status_code=403, detail="你已被房主移出该空间")
-    # 记录成员
+    # 记录成员与空间映射
+    commit_needed = False
     if request.user_id:
         mem_res = await db.execute(select(SpaceMember).where(SpaceMember.space_id == space.id, SpaceMember.user_id == request.user_id))
         mem = mem_res.scalar_one_or_none()
         if not mem:
             db.add(SpaceMember(space_id=space.id, user_id=request.user_id))
-            await db.commit()
+            commit_needed = True
+        # 保存用户使用的空间码（用于分享场景清理别名）
+        if space.owner_user_id != request.user_id:
+            map_res = await db.execute(
+                select(SpaceMapping).where(
+                    SpaceMapping.space_id == space.id,
+                    SpaceMapping.user_id == request.user_id,
+                    SpaceMapping.space_code == request.space_code
+                )
+            )
+            mapping = map_res.scalar_one_or_none()
+            if not mapping:
+                db.add(SpaceMapping(space_id=space.id, user_id=request.user_id, space_code=request.space_code))
+                commit_needed = True
+    if commit_needed:
+        await db.commit()
     
     return SpaceEnterResponse(
         success=True,
@@ -123,6 +140,8 @@ async def join_by_share(payload: JoinByShareRequest, db: AsyncSession = Depends(
     # 校验新空间号
     if not payload.new_code.isdigit() or len(payload.new_code) != 6:
         raise HTTPException(status_code=400, detail="新空间号必须是6位数字")
+    if not payload.user_id:
+        raise HTTPException(status_code=400, detail="缺少用户ID")
     # 校验分享码
     res = await db.execute(select(ShareCode).where(ShareCode.code == payload.share_code))
     share = res.scalar_one_or_none()
@@ -132,9 +151,14 @@ async def join_by_share(payload: JoinByShareRequest, db: AsyncSession = Depends(
     exist_alias = (await db.execute(select(SpaceCode).where(SpaceCode.code == payload.new_code))).scalar_one_or_none()
     if exist_alias:
         raise HTTPException(status_code=400, detail="该空间号已被使用")
-    # 创建别名
+    # 同一用户多次加入时，移除旧的映射/别名
+    await db.execute(delete(SpaceMapping).where(SpaceMapping.space_id == share.space_id, SpaceMapping.user_id == payload.user_id))
+    await db.execute(delete(SpaceCode).where(SpaceCode.space_id == share.space_id, SpaceCode.code == payload.new_code))
+
+    # 创建别名并记录用户映射
     alias = SpaceCode(space_id=share.space_id, code=payload.new_code)
     db.add(alias)
+    db.add(SpaceMapping(space_id=share.space_id, user_id=payload.user_id, space_code=payload.new_code))
     await db.commit()
     return {"success": True, "space_id": share.space_id}
 
@@ -208,6 +232,14 @@ async def remove_member(payload: RemoveMemberRequest, db: AsyncSession = Depends
     if payload.member_user_id == space.owner_user_id:
         raise HTTPException(status_code=400, detail="房主不可移除自己")
     await db.execute(delete(SpaceMember).where(SpaceMember.space_id == payload.space_id, SpaceMember.user_id == payload.member_user_id))
+    # 清理成员关联的分享空间号
+    mapping_rows = await db.execute(select(SpaceMapping).where(SpaceMapping.space_id == payload.space_id, SpaceMapping.user_id == payload.member_user_id))
+    mappings = mapping_rows.scalars().all()
+    if mappings:
+        codes = [m.space_code for m in mappings if m.space_code]
+        await db.execute(delete(SpaceMapping).where(SpaceMapping.space_id == payload.space_id, SpaceMapping.user_id == payload.member_user_id))
+        if codes:
+            await db.execute(delete(SpaceCode).where(SpaceCode.space_id == payload.space_id, SpaceCode.code.in_(codes)))
     await db.commit()
     return {"success": True}
 
@@ -224,8 +256,15 @@ async def block_member(payload: BlockMemberRequest, db: AsyncSession = Depends(g
         raise HTTPException(status_code=404, detail="空间不存在")
     if space.owner_user_id != payload.operator_user_id:
         raise HTTPException(status_code=403, detail="无权限")
-    # 先从成员列表移除
+    # 先从成员列表移除并清理空间号映射
     await db.execute(delete(SpaceMember).where(SpaceMember.space_id == payload.space_id, SpaceMember.user_id == payload.member_user_id))
+    mapping_rows = await db.execute(select(SpaceMapping).where(SpaceMapping.space_id == payload.space_id, SpaceMapping.user_id == payload.member_user_id))
+    mappings = mapping_rows.scalars().all()
+    if mappings:
+        codes = [m.space_code for m in mappings if m.space_code]
+        await db.execute(delete(SpaceMapping).where(SpaceMapping.space_id == payload.space_id, SpaceMapping.user_id == payload.member_user_id))
+        if codes:
+            await db.execute(delete(SpaceCode).where(SpaceCode.space_id == payload.space_id, SpaceCode.code.in_(codes)))
     # 加入黑名单
     exist = (await db.execute(select(SpaceBlock).where(SpaceBlock.space_id == payload.space_id, SpaceBlock.user_id == payload.member_user_id))).scalar_one_or_none()
     if not exist:

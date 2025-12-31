@@ -1,7 +1,8 @@
 .notes-container {
-  height: 100vh;
   padding: 20rpx;
   position: relative;
+  min-height: calc(100vh - 44px - constant(safe-area-inset-top));
+  min-height: calc(100vh - 44px - env(safe-area-inset-top));
 }
 
 .notes-list {
@@ -9,7 +10,10 @@
 }
 
 .post { padding: 24rpx; margin-bottom: 20rpx; background: #FFFFFF; border: 1rpx solid #E2E8F0; border-radius: 20rpx; box-shadow: 0 8rpx 24rpx rgba(2,132,199,0.08);} 
-.post-header { display: flex; gap: 16rpx; align-items: center; margin-bottom: 10rpx; }
+.post-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10rpx; gap: 16rpx; }
+.post-info { display: flex; gap: 16rpx; align-items: center; }
+.post-actions button { border: none; }
+.ghost { background: rgba(15,118,110,0.1); color: #0F766E; border-radius: 999rpx; padding: 0 20rpx; }
 .avatar { width: 72rpx; height: 72rpx; border-radius: 50%; background: linear-gradient(135deg, #5EEAD4, #22D3EE); }
 .user-info .name { font-weight: bold; }
 .post-content { margin: 10rpx 0 10rpx; font-size: 30rpx; color: #0F172A; }
