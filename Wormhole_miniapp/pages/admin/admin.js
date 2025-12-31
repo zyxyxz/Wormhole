@@ -121,6 +121,32 @@ Page({
     });
   },
 
+  cleanIdleSpaces() {
+    const { adminOpenId, adminRoomCode } = this.data;
+    if (!adminOpenId || !adminRoomCode) {
+      wx.showToast({ title: '管理员信息缺失', icon: 'none' });
+      return;
+    }
+    wx.showLoading({ title: '清理中', mask: true });
+    wx.request({
+      url: `${BASE_URL}/api/settings/admin/cleanup-spaces`,
+      method: 'POST',
+      data: { user_id: adminOpenId, room_code: adminRoomCode },
+      success: (res) => {
+        wx.hideLoading();
+        const deleted = res.data?.deleted ?? 0;
+        wx.showToast({ title: `已清理 ${deleted} 个`, icon: 'none' });
+        if (deleted > 0) {
+          this.refreshData({ silent: true });
+        }
+      },
+      fail: () => {
+        wx.hideLoading();
+        wx.showToast({ title: '操作失败', icon: 'none' });
+      }
+    });
+  },
+
   exitDueToNoAccess(message) {
     if (message) {
       wx.showToast({ title: message, icon: 'none' });

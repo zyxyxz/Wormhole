@@ -11,7 +11,10 @@
           <text class="meta-title">管理员通道</text>
           <text class="meta-desc">当前口令：{{adminRoomCode}}</text>
         </view>
-        <button size="mini" class="refresh-btn" bindtap="refreshData">刷新</button>
+        <view class="meta-actions">
+          <button size="mini" class="refresh-btn" bindtap="refreshData">刷新</button>
+          <button size="mini" class="refresh-btn danger" bindtap="cleanIdleSpaces">清理空房</button>
+        </view>
       </view>
     </view>
 
