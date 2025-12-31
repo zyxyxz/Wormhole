@@ -2,6 +2,9 @@
   --weui-FG-0:rgba(0,0,0,.9);
   --height: 44px;
   --left: 16px;
+  position: sticky;
+  top: 0;
+  z-index: 998;
 }
 .weui-navigation-bar .android {
   --height: 48px;
@@ -55,6 +58,25 @@
   -webkit-mask-size: cover;
   mask-size: cover;
   background-color: var(--weui-FG-0);
+}
+
+.weui-navigation-bar__buttons_home {
+  padding: 8px 0;
+}
+
+.weui-navigation-bar__btn_home_wrapper {
+  margin-left: 8px;
+}
+
+.weui-navigation-bar__btn_home {
+  padding: 0 16px;
+  height: 30px;
+  line-height: 30px;
+  border-radius: 999px;
+  background: rgba(15, 118, 110, 0.12);
+  color: #0F766E;
+  font-size: 14px;
+  box-shadow: inset 0 0 0 1px rgba(20, 184, 166, 0.4);
 }
 
 .weui-navigation-bar__center {

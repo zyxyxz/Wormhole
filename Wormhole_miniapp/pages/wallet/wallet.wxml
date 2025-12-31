@@ -1,4 +1,4 @@
-<view class="home-fab" bindtap="goHome">主页</view>
+<navigation-bar title="钱包" back="{{false}}" home-button="{{true}}" bind:home="goHome" background="#FFFFFF" color="#0F172A" />
 <view class="wallet-container">
   <!-- 余额展示 -->
   <view class="balance-card">

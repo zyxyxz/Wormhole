@@ -27,9 +27,6 @@ page { background: linear-gradient(135deg, #ECFEFF 0%, #F0FDFA 100%); color: #0F
 /* Avatars */
 .avatar-neo { background: linear-gradient(135deg, #5EEAD4, #22D3EE); }
 
-/* Floating home button */
-.home-fab { position: fixed; top: 24rpx; left: 24rpx; z-index: 1000; background: rgba(255,255,255,0.9); color: #0F766E; border: 1rpx solid #BAF2E3; border-radius: 999rpx; padding: 10rpx 20rpx; font-size: 26rpx; box-shadow: 0 8rpx 20rpx rgba(2,132,199,0.12); }
-
 /* Typography */
 .title-neo { font-size: 48rpx; font-weight: 900; color: #0F172A; letter-spacing: 1rpx; }
 .subtitle-neo { color: #475569; }

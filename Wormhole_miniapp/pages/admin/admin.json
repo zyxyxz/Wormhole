@@ -1,4 +1,5 @@
 {
+  "navigationBarTitleText": "超级管理",
   "navigationStyle": "custom",
   "usingComponents": {
     "navigation-bar": "/components/navigation-bar/navigation-bar"

@@ -1,5 +1,17 @@
 const { BASE_URL } = require('../../utils/config.js');
 
+function setSystemPickerFlag(active) {
+  if (typeof getApp !== 'function') return;
+  const app = getApp();
+  if (!app) return;
+  const method = active ? 'markTemporaryForegroundAllowed' : 'clearTemporaryForegroundFlag';
+  if (typeof app[method] === 'function') {
+    app[method]();
+  } else if (app.globalData) {
+    app.globalData.skipNextHideRedirect = !!active;
+  }
+}
+
 Page({
   data: {
     content: '',
@@ -12,11 +24,22 @@ Page({
   onContentInput(e) { this.setData({ content: e.detail.value }); },
 
   chooseImage() {
-    wx.chooseImage({ count: 9, success: (res) => { this.uploadFiles(res.tempFilePaths, 'image'); } });
+    setSystemPickerFlag(true);
+    wx.chooseImage({
+      count: 9,
+      success: (res) => { this.uploadFiles(res.tempFilePaths, 'image'); },
+      complete: () => { setSystemPickerFlag(false); }
+    });
   },
 
   chooseVideo() {
-    wx.chooseVideo({ sourceType: ['album','camera'], maxDuration: 60, success: (res) => { this.uploadFiles([res.tempFilePath], 'video'); } });
+    setSystemPickerFlag(true);
+    wx.chooseVideo({
+      sourceType: ['album','camera'],
+      maxDuration: 60,
+      success: (res) => { this.uploadFiles([res.tempFilePath], 'video'); },
+      complete: () => { setSystemPickerFlag(false); }
+    });
   },
 
   uploadFiles(paths, type) {

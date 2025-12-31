@@ -8,6 +8,7 @@
   <view class="container">
     <view class="top-actions">
       <view class="link" bindtap="goJoinByShare">口令加入</view>
+      <view class="link" bindtap="goSuperAdmin">超级管理</view>
     </view>
     <view class="title-neo">虫洞私密共享空间</view>
     <view class="subtitle-neo">输入6位空间号，进入你的共享空间</view>
@@ -16,8 +17,7 @@
 
     <view class="enter-area">
       <view class="input-display">
-        <text wx:for="{{spaceCode}}" wx:key="index" class="code-digit">{{hideCode ? '•' : item}}</text>
-        <button class="eye-btn" bindtap="toggleHide">{{hideCode ? '显示' : '隐藏'}}</button>
+        <text wx:for="{{spaceCode}}" wx:key="index" class="code-digit">{{item ? '*' : ''}}</text>
       </view>
       <view class="keypad">
         <view wx:for="{{[1,2,3,4,5,6,7,8,9,'',0,'删除']}}" 

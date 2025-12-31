@@ -29,7 +29,7 @@
               aria-role="button"
               aria-label="首页"
             >
-              <view class="weui-navigation-bar__button weui-navigation-bar__btn_home"></view>
+              <view class="weui-navigation-bar__button weui-navigation-bar__btn_home">主页</view>
             </view>
           </view>
         </block>

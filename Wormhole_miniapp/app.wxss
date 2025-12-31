@@ -4,6 +4,3 @@
 
 /* Base container for forms/pages */
 .container { padding: 24rpx; box-sizing: border-box; }
-
-/* Global in-page home back link */
-.home-fab { position: fixed; top: 24rpx; left: 24rpx; z-index: 1000; background: rgba(255,255,255,0.08); color: #E5E7EB; border: 1rpx solid rgba(255,255,255,0.18); border-radius: 999rpx; padding: 10rpx 20rpx; font-size: 26rpx; box-shadow: 0 12rpx 30rpx rgba(0,0,0,0.25); }

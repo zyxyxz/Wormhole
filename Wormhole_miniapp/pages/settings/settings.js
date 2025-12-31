@@ -44,7 +44,7 @@ Page({
     const spaceId = wx.getStorageSync('currentSpaceId');
     const spaceCode = wx.getStorageSync('currentSpaceCode');
     const myUserId = wx.getStorageSync('openid') || '';
-    const cachedAlias = wx.getStorageSync('myAlias') || '';
+    const cachedAlias = wx.getStorageSync(`myAlias_${spaceId}`) || '';
     this.setData({ 
       spaceId,
       spaceCode,
@@ -319,7 +319,7 @@ Page({
         const aliasInitial = (alias || openid || '我').charAt(0);
         this.setData({ alias, avatarUrl, aliasInitial, showAliasModal: closeModal ? false : this.data.showAliasModal });
         try {
-          wx.setStorageSync('myAlias', alias);
+          wx.setStorageSync(`myAlias_${this.data.spaceId}`, alias);
           wx.setStorageSync('aliasUpdatedAt', Date.now());
         } catch (e) {}
         wx.showToast({ title: '已保存', icon: 'none' });

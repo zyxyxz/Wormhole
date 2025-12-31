@@ -6,7 +6,6 @@ const emptySpaceCode = () => ['', '', '', '', '', ''];
 Page({
   data: {
     spaceCode: emptySpaceCode(),  // 6位空间号
-    hideCode: true,
   },
 
   onShow() {
@@ -75,7 +74,7 @@ Page({
   goJoinByShare() {
     wx.navigateTo({ url: '/pages/join/join' });
   },
-  toggleHide() {
-    this.setData({ hideCode: !this.data.hideCode });
+  goSuperAdmin() {
+    wx.navigateTo({ url: '/pages/admin/admin' });
   }
 });
