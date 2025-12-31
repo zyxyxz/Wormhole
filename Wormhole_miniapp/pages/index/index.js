@@ -47,16 +47,34 @@ Page({
   onConfirm() {
     const code = this.data.spaceCode.join('');
     if (code.length !== 6) return;
+    this.enterSpaceRequest(code);
+  },
+
+  enterSpaceRequest(code, { createIfMissing = false } = {}) {
     const openid = wx.getStorageSync('openid') || '';
     wx.request({
       url: `${BASE_URL}/api/space/enter`,
       method: 'POST',
-      data: { space_code: code, user_id: openid || '' },
+      data: { space_code: code, user_id: openid || '', create_if_missing: createIfMissing },
       success: (res) => {
         const data = res.data || {};
         if (data.admin_entry) {
           this.resetSpaceCode(true);
           wx.navigateTo({ url: `/pages/admin/admin?room_code=${code}` });
+          return;
+        }
+        if (data.requires_creation) {
+          wx.showModal({
+            title: '创建空间',
+            content: '该空间号尚未创建，是否立即创建？',
+            success: (modalRes) => {
+              if (modalRes.confirm) {
+                this.enterSpaceRequest(code, { createIfMissing: true });
+              } else {
+                this.resetSpaceCode(true);
+              }
+            }
+          });
           return;
         }
         if (data.success) {

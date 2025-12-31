@@ -18,12 +18,14 @@ class SpaceResponse(SpaceBase):
 class SpaceEnterRequest(BaseModel):
     space_code: str
     user_id: Optional[str] = None
+    create_if_missing: bool = False
 
 class SpaceEnterResponse(BaseModel):
     success: bool
     message: str
     space_id: Optional[int] = None
     admin_entry: bool = False
+    requires_creation: bool = False
 
 class MemberResponse(BaseModel):
     user_id: str

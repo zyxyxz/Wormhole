@@ -89,6 +89,12 @@ async def enter_space(
             space = space_res.scalar_one_or_none()
     
     if not space:
+        if not request.create_if_missing:
+            return SpaceEnterResponse(
+                success=False,
+                message="空间号未创建",
+                requires_creation=True
+            )
         # 当前用户首次使用该空间号，创建属于自己的空间
         space = Space(code=request.space_code, owner_user_id=request.user_id)
         db.add(space)
