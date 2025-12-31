@@ -15,7 +15,8 @@ Page({
     spaceDetail: null,
     spaceMembers: [],
     recentPosts: [],
-    recentMessages: []
+    recentMessages: [],
+    reviewMode: false
   },
   onLoad(options = {}) {
     const openid = wx.getStorageSync('openid') || '';
@@ -107,7 +108,8 @@ Page({
     Promise.all([
       this.fetchOverview({ silent: true }),
       this.fetchUsers({ silent: true }),
-      this.fetchSpaces({ silent: true })
+      this.fetchSpaces({ silent: true }),
+      this.fetchSystemFlags({ silent: true })
     ]).then(() => {
       this.setData({ loading: false, hasAccess: true });
     }).catch(() => {
@@ -245,5 +247,54 @@ Page({
 
   closeSpaceDetail() {
     this.setData({ showSpaceModal: false, spaceDetail: null });
+  },
+
+  fetchSystemFlags(opts = {}) {
+    const silent = !!opts.silent;
+    return new Promise((resolve, reject) => {
+      wx.request({
+        url: `${BASE_URL}/api/settings/system`,
+        success: (res) => {
+          const flag = !!res.data?.review_mode;
+          this.setData({ reviewMode: flag });
+          resolve(flag);
+        },
+        fail: () => {
+          if (!silent) {
+            wx.showToast({ title: '配置拉取失败', icon: 'none' });
+          }
+          reject(new Error('network'));
+        }
+      });
+    });
+  },
+
+  toggleReviewMode(e) {
+    const { adminOpenId, adminRoomCode } = this.data;
+    if (!adminOpenId || !adminRoomCode) {
+      wx.showToast({ title: '管理员信息缺失', icon: 'none' });
+      return;
+    }
+    const next = !!e.detail.value;
+    wx.request({
+      url: `${BASE_URL}/api/settings/admin/system/review-mode`,
+      method: 'POST',
+      data: { user_id: adminOpenId, room_code: adminRoomCode, review_mode: next },
+      success: () => {
+        this.setData({ reviewMode: next });
+        try {
+          wx.setStorageSync('reviewMode', next);
+          const app = getApp();
+          if (app && typeof app.applyReviewMode === 'function') {
+            app.applyReviewMode(next);
+          }
+        } catch (error) {}
+        wx.showToast({ title: '已更新', icon: 'none' });
+      },
+      fail: () => {
+        wx.showToast({ title: '操作失败', icon: 'none' });
+        this.setData({ reviewMode: !next });
+      }
+    });
   }
 });

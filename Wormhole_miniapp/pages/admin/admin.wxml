@@ -6,15 +6,23 @@
 <scroll-view wx:elif="{{hasAccess}}" class="admin-scroll" scroll-y="true">
   <view class="admin-container">
     <view class="meta-card">
-      <view class="meta-head">
-        <view>
-          <text class="meta-title">管理员通道</text>
-          <text class="meta-desc">当前口令：{{adminRoomCode}}</text>
+        <view class="meta-head">
+          <view>
+            <text class="meta-title">管理员通道</text>
+            <text class="meta-desc">当前口令：{{adminRoomCode}}</text>
+          </view>
+          <view class="meta-actions">
+            <button size="mini" class="refresh-btn" bindtap="refreshData">刷新</button>
+            <button size="mini" class="refresh-btn danger" bindtap="cleanIdleSpaces">清理空房</button>
+          </view>
         </view>
-        <view class="meta-actions">
-          <button size="mini" class="refresh-btn" bindtap="refreshData">刷新</button>
-          <button size="mini" class="refresh-btn danger" bindtap="cleanIdleSpaces">清理空房</button>
-        </view>
+      </view>
+
+    <view class="section">
+      <view class="section-title">过审模式</view>
+      <view class="review-row">
+        <text>仅保留日记功能</text>
+        <switch checked="{{reviewMode}}" bindchange="toggleReviewMode" color="#14B8A6" />
       </view>
     </view>
 

@@ -21,6 +21,7 @@ Page({
     myUserId: '',
     isOwner: false,
     ownerUserId: '',
+    reviewMode: false,
   },
   onBack() { wx.reLaunch({ url: '/pages/index/index' }); },
   goHome() { wx.reLaunch({ url: '/pages/index/index' }); },
@@ -28,12 +29,28 @@ Page({
   onLoad() {
     const spaceId = wx.getStorageSync('currentSpaceId');
     const myUserId = wx.getStorageSync('openid') || '';
-    this.setData({ spaceId, myUserId });
+    const reviewMode = !!wx.getStorageSync('reviewMode');
+    this.setData({ spaceId, myUserId, reviewMode });
+    this.syncTabBar();
     this.fetchSpaceInfo();
     this.getPosts();
   },
 
-  onShow() { this.getPosts(); },
+  onShow() {
+    this.setData({ reviewMode: !!wx.getStorageSync('reviewMode') });
+    this.syncTabBar();
+    this.getPosts();
+  },
+
+  syncTabBar() {
+    try {
+      if (this.data.reviewMode) {
+        wx.hideTabBar({ animation: false });
+      } else {
+        wx.showTabBar({ animation: false });
+      }
+    } catch (e) {}
+  },
 
   fetchSpaceInfo() {
     if (!this.data.spaceId) return;
@@ -107,6 +124,7 @@ Page({
   },
 
   submitComment(e) {
+    if (this.data.reviewMode) return;
     const id = e.currentTarget.dataset.id;
     const content = this.data.commentInputs[id] || '';
     if (!content.trim()) return;
@@ -182,6 +200,7 @@ Page({
   }
   ,
   deleteComment(e) {
+    if (this.data.reviewMode) return;
     const commentId = e.currentTarget.dataset.id;
     const operator = this.data.myUserId;
     if (!operator) {
@@ -209,6 +228,7 @@ Page({
   }
   ,
   toggleLike(e) {
+    if (this.data.reviewMode) return;
     const postId = e.currentTarget.dataset.id;
     const index = e.currentTarget.dataset.index;
     const posts = [...this.data.posts];
@@ -250,6 +270,7 @@ Page({
     });
   },
   replyComment(e) {
+    if (this.data.reviewMode) return;
     const postId = e.currentTarget.dataset.postid;
     const alias = e.currentTarget.dataset.alias;
     const userId = e.currentTarget.dataset.userid;

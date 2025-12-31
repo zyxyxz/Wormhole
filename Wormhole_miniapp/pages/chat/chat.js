@@ -1,4 +1,5 @@
 const { BASE_URL, WS_URL } = require('../../utils/config.js');
+const { ensureDiaryMode } = require('../../utils/review.js');
 
 function normalizeDateString(str) {
   if (!str) return '';
@@ -45,6 +46,7 @@ Page({
   },
 
   onLoad() {
+    if (ensureDiaryMode('pages/chat/chat')) return;
     // 获取空间ID
     const spaceId = wx.getStorageSync('currentSpaceId');
     const openid = wx.getStorageSync('openid');

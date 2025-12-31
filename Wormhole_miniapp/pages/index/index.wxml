@@ -9,8 +9,8 @@
     <view class="top-actions">
       <view class="link" bindtap="goJoinByShare">口令加入</view>
     </view>
-    <view class="title-neo">虫洞私密共享空间</view>
-    <view class="subtitle-neo">输入6位空间号，进入你的共享空间</view>
+    <view class="title-neo">{{reviewMode ? '私人日记本' : '虫洞私密共享空间'}}</view>
+    <view class="subtitle-neo">{{reviewMode ? '输入日记本密码，打开专属私密日记' : '输入6位空间号，进入你的共享空间'}}</view>
 
     <view class="spacer"></view>
 

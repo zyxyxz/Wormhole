@@ -7,6 +7,7 @@ from models.user import UserAlias
 from models.chat import Message
 from models.feed import Post
 from models.notes import Note
+from models.system import SystemSetting
 from sqlalchemy import func
 import random
 import string
@@ -14,6 +15,28 @@ from datetime import datetime, timedelta
 from pydantic import BaseModel
 
 router = APIRouter()
+
+REVIEW_MODE_KEY = "review_mode"
+
+
+async def _get_setting(db: AsyncSession, key: str) -> SystemSetting | None:
+    return (await db.execute(select(SystemSetting).where(SystemSetting.key == key))).scalar_one_or_none()
+
+
+async def _set_setting(db: AsyncSession, key: str, value: str):
+    setting = await _get_setting(db, key)
+    if setting:
+        setting.value = value
+    else:
+        db.add(SystemSetting(key=key, value=value))
+    await db.commit()
+
+
+async def _get_review_mode(db: AsyncSession) -> bool:
+    setting = await _get_setting(db, REVIEW_MODE_KEY)
+    if not setting:
+        return False
+    return setting.value == "1"
 
 @router.post("/space/modify-code")
 async def modify_space_code(
@@ -59,6 +82,10 @@ class AdminAuth(BaseModel):
     room_code: str
 
 
+class ReviewModePayload(AdminAuth):
+    review_mode: bool
+
+
 @router.post("/admin/cleanup-spaces")
 async def admin_cleanup_spaces(
     payload: AdminAuth | None = Body(default=None),
@@ -92,6 +119,18 @@ async def admin_cleanup_spaces(
         deleted += 1
     await db.commit()
     return {"deleted": deleted}
+
+
+@router.get("/system")
+async def public_system_flags(db: AsyncSession = Depends(get_db)):
+    return {"review_mode": await _get_review_mode(db)}
+
+
+@router.post("/admin/system/review-mode")
+async def set_review_mode(payload: ReviewModePayload, db: AsyncSession = Depends(get_db)):
+    verify_admin(payload.user_id, payload.room_code)
+    await _set_setting(db, REVIEW_MODE_KEY, "1" if payload.review_mode else "0")
+    return {"review_mode": payload.review_mode}
 
 
 def is_super_admin(user_id: str) -> bool:

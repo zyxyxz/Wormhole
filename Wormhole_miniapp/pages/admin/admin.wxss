@@ -21,6 +21,7 @@
 .meta-actions { display: flex; gap: 12rpx; }
 .refresh-btn { border: 1rpx solid #0F766E; color: #0F766E; border-radius: 999rpx; padding: 0 24rpx; background: rgba(15,118,110,0.08); }
 .refresh-btn.danger { border-color: #F97316; color: #F97316; background: rgba(249,115,22,0.12); }
+.review-row { display: flex; justify-content: space-between; align-items: center; font-size: 28rpx; color: #0F172A; }
 .space-card { border: 1rpx solid #E2E8F0; border-radius: 16rpx; padding: 20rpx; margin-bottom: 16rpx; }
 .space-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12rpx; }
 .space-code { font-size: 30rpx; font-weight: 600; color: #0F172A; display: block; }

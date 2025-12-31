@@ -10,6 +10,7 @@ App({
     hideTimer: null,
     lastHideTimestamp: 0,
     autoLockSeconds: 3600,
+    reviewMode: false,
   },
 
   enterForegroundHold(ms = 60000) {
@@ -64,6 +65,7 @@ App({
         }
       }
     });
+    this.loadSystemFlags();
   },
 
   onShow() {
@@ -103,5 +105,32 @@ App({
       this.globalData.hideTimer = null;
       this.globalData.lastHideTimestamp = Date.now();
     }, 500);
+  }
+  ,
+
+  loadSystemFlags() {
+    wx.request({
+      url: `${BASE_URL}/api/settings/system`,
+      success: (res) => {
+        const review = !!res.data?.review_mode;
+        this.applyReviewMode(review);
+      },
+      fail: () => {
+        const cached = !!wx.getStorageSync('reviewMode');
+        this.applyReviewMode(cached);
+      }
+    });
+  },
+
+  applyReviewMode(flag) {
+    this.globalData.reviewMode = !!flag;
+    try { wx.setStorageSync('reviewMode', !!flag); } catch (e) {}
+    try {
+      if (flag) {
+        wx.hideTabBar({ animation: false });
+      } else {
+        wx.showTabBar({ animation: false });
+      }
+    } catch (e) {}
   }
 })

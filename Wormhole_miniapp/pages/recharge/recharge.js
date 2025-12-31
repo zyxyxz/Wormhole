@@ -1,4 +1,5 @@
 const { BASE_URL } = require('../../utils/config.js');
+const { ensureDiaryMode } = require('../../utils/review.js');
 
 Page({
   data: {
@@ -10,6 +11,7 @@ Page({
   },
 
   onLoad() {
+    if (ensureDiaryMode('pages/recharge/recharge')) return;
     const spaceId = wx.getStorageSync('currentSpaceId');
     this.setData({ spaceId });
   },

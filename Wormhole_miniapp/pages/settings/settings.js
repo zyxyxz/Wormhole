@@ -1,4 +1,5 @@
 const { BASE_URL } = require('../../utils/config.js');
+const { ensureDiaryMode } = require('../../utils/review.js');
 
 function setTemporaryForeground(active) {
   const app = typeof getApp === 'function' ? getApp() : null;
@@ -41,6 +42,7 @@ Page({
   },
 
   onLoad() {
+    if (ensureDiaryMode('pages/settings/settings')) return;
     const spaceId = wx.getStorageSync('currentSpaceId');
     const spaceCode = wx.getStorageSync('currentSpaceCode');
     const myUserId = wx.getStorageSync('openid') || '';
