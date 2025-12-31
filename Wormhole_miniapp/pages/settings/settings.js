@@ -29,7 +29,9 @@ Page({
     memberPreview: [],
     showMembersModal: false,
     shareInfoText: '',
-    blocks: []
+    blocks: [],
+    showAutoLockModal: false,
+    autoLockOptions: ['1分钟', '5分钟', '10分钟', '30分钟', '1小时']
   },
   onBack() {
     wx.reLaunch({ url: '/pages/index/index' });
@@ -52,6 +54,8 @@ Page({
     });
     this.fetchAlias();
     this.fetchSpaceInfo();
+    const autoLockSeconds = wx.getStorageSync('autoLockSeconds');
+    this.updateAutoLockDisplay(autoLockSeconds);
   },
 
   fetchSpaceInfo() {
@@ -184,6 +188,44 @@ Page({
         });
       }
     });
+  },
+
+  updateAutoLockDisplay(seconds) {
+    let label = '未设置';
+    const options = this.data.autoLockOptions;
+    let index = -1;
+    const map = [60, 300, 600, 1800, 3600];
+    if (seconds) {
+      const idx = map.indexOf(seconds);
+      if (idx >= 0) {
+        index = idx;
+        label = options[idx];
+      } else {
+        label = `${Math.round(seconds / 60)}分钟`;
+      }
+    }
+    this.setData({ autoLockDisplay: label, autoLockIndex: index >= 0 ? index : 0 });
+  },
+
+  openAutoLockModal() {
+    this.setData({ showAutoLockModal: true });
+  },
+
+  closeAutoLockModal() {
+    this.setData({ showAutoLockModal: false });
+  },
+
+  onAutoLockChange(e) {
+    this.setData({ autoLockIndex: Number(e.detail.value || 0) });
+  },
+
+  confirmAutoLock() {
+    const map = [60, 300, 600, 1800, 3600];
+    const seconds = map[this.data.autoLockIndex] || 0;
+    wx.setStorageSync('autoLockSeconds', seconds);
+    this.updateAutoLockDisplay(seconds);
+    this.setData({ showAutoLockModal: false });
+    wx.showToast({ title: '已保存', icon: 'none' });
   },
 
   chooseAvatar() {

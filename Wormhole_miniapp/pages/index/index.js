@@ -1,8 +1,22 @@
 // index.js
 const { BASE_URL } = require('../../utils/config.js');
+
+const emptySpaceCode = () => ['', '', '', '', '', ''];
+
 Page({
   data: {
-    spaceCode: ['','','','','',''],  // 6位空间号
+    spaceCode: emptySpaceCode(),  // 6位空间号
+    hideCode: true,
+  },
+
+  onShow() {
+    this.resetSpaceCode();
+  },
+
+  resetSpaceCode(force = false) {
+    const hasDigits = (this.data.spaceCode || []).some(d => d !== '');
+    if (!force && !hasDigits) return;
+    this.setData({ spaceCode: emptySpaceCode() });
   },
 
   onKeyTap(e) {
@@ -60,5 +74,8 @@ Page({
   ,
   goJoinByShare() {
     wx.navigateTo({ url: '/pages/join/join' });
+  },
+  toggleHide() {
+    this.setData({ hideCode: !this.data.hideCode });
   }
 });

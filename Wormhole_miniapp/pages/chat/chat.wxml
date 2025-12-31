@@ -43,7 +43,7 @@
           {{recording ? '松开发送' : '按住说话'}}
         </view>
       </block>
-      <button class="send-button" wx:if="{{inputMode === 'text' && inputMessage.trim()}}" bindtap="sendMessage">发送</button>
+      <button class="send-button" wx:if="{{inputMode === 'text' && inputMessage}}" bindtap="sendMessage">发送</button>
       <button class="plus-button" wx:else bindtap="openAttachmentMenu">＋</button>
     </view>
   </view>

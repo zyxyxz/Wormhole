@@ -87,7 +87,7 @@ Page({
           wx.showToast({ title: '录音太短', icon: 'none' });
           return;
         }
-        this.uploadMedia(res.tempFilePath, 'audio', res.duration);
+        this.uploadMedia(res.tempFilePath, 'audio', Math.round(res.duration || 0));
       });
     }
     if (wx.createInnerAudioContext) {
@@ -167,8 +167,8 @@ Page({
 
   chooseImage() {
     const app = typeof getApp === 'function' ? getApp() : null;
-    if (app && typeof app.markTemporaryForegroundAllowed === 'function') {
-      app.markTemporaryForegroundAllowed();
+    if (app && typeof app.enterForegroundHold === 'function') {
+      app.enterForegroundHold(60000);
     }
     wx.chooseImage({
       count: 9,
@@ -177,8 +177,8 @@ Page({
         files.forEach(path => this.uploadMedia(path, 'image'));
       },
       complete: () => {
-        if (app && typeof app.clearTemporaryForegroundFlag === 'function') {
-          app.clearTemporaryForegroundFlag();
+        if (app && typeof app.leaveForegroundHold === 'function') {
+          app.leaveForegroundHold();
         }
       }
     });
@@ -382,12 +382,12 @@ Page({
     const url = e.currentTarget.dataset.url;
     if (!url) return;
     const app = typeof getApp === 'function' ? getApp() : null;
-    if (app && typeof app.markTemporaryForegroundAllowed === 'function') app.markTemporaryForegroundAllowed();
+    if (app && typeof app.enterForegroundHold === 'function') app.enterForegroundHold(60000);
     wx.previewImage({
       current: url,
       urls: [url],
       complete: () => {
-        if (app && typeof app.clearTemporaryForegroundFlag === 'function') app.clearTemporaryForegroundFlag();
+        if (app && typeof app.leaveForegroundHold === 'function') app.leaveForegroundHold();
       }
     });
   },

@@ -47,13 +47,19 @@ async def send_message(
     message: MessageCreate,
     db: AsyncSession = Depends(get_db)
 ):
+    duration = message.media_duration
+    if duration is not None:
+        try:
+            duration = int(duration)
+        except Exception:
+            duration = None
     db_message = Message(
         space_id=message.space_id,
         user_id=message.user_id,
         content=message.content or "",
         message_type=message.message_type or "text",
         media_url=message.media_url,
-        media_duration=message.media_duration,
+        media_duration=duration,
     )
     db.add(db_message)
     await db.commit()

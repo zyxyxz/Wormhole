@@ -6,28 +6,36 @@ App({
     shouldReturnToIndex: false,
     skipNextHideRedirect: false,
     foregroundHoldCount: 0,
+    holdUntil: 0,
     hideTimer: null,
     lastHideTimestamp: 0,
+    autoLockSeconds: 3600,
   },
 
-  markTemporaryForegroundAllowed() {
-    const current = this.globalData.foregroundHoldCount || 0;
-    this.globalData.foregroundHoldCount = current + 1;
+  enterForegroundHold(ms = 60000) {
+    const now = Date.now();
+    const target = now + ms;
+    this.globalData.holdUntil = Math.max(this.globalData.holdUntil || 0, target);
     this.globalData.skipNextHideRedirect = true;
     this.globalData.shouldReturnToIndex = false;
     this.clearHideTimer();
-    this.globalData.lastHideTimestamp = Date.now();
+    this.globalData.lastHideTimestamp = now;
+  },
+
+  leaveForegroundHold() {
+    this.globalData.holdUntil = 0;
+    this.globalData.skipNextHideRedirect = false;
+    this.globalData.shouldReturnToIndex = false;
+    this.clearHideTimer();
+  },
+
+  // 向下兼容旧方法
+  markTemporaryForegroundAllowed() {
+    this.enterForegroundHold(60000);
   },
 
   clearTemporaryForegroundFlag() {
-    if (this.globalData.foregroundHoldCount && this.globalData.foregroundHoldCount > 0) {
-      this.globalData.foregroundHoldCount -= 1;
-    }
-    if (this.globalData.foregroundHoldCount <= 0) {
-      this.globalData.foregroundHoldCount = 0;
-      this.globalData.skipNextHideRedirect = false;
-      this.globalData.shouldReturnToIndex = false;
-    }
+    this.leaveForegroundHold();
   },
 
   clearHideTimer() {
@@ -61,8 +69,12 @@ App({
   onShow() {
     this.clearHideTimer();
     const now = Date.now();
-    if (this.globalData.foregroundHoldCount > 0 || now - this.globalData.lastHideTimestamp < 800) {
+    if (now < (this.globalData.holdUntil || 0)) {
       return;
+    }
+    const autoLockMs = (wx.getStorageSync('autoLockSeconds') || this.globalData.autoLockSeconds || 0) * 1000;
+    if (autoLockMs > 0 && now - this.globalData.lastHideTimestamp >= autoLockMs) {
+      this.globalData.shouldReturnToIndex = true;
     }
     if (!this.globalData.shouldReturnToIndex) return;
     this.globalData.shouldReturnToIndex = false;
@@ -76,14 +88,14 @@ App({
   },
 
   onHide() {
-    if (this.globalData.skipNextHideRedirect || (this.globalData.foregroundHoldCount || 0) > 0) {
+    if (this.globalData.skipNextHideRedirect || Date.now() < (this.globalData.holdUntil || 0)) {
       this.globalData.skipNextHideRedirect = false;
       this.globalData.lastHideTimestamp = Date.now();
       return;
     }
     this.clearHideTimer();
     this.globalData.hideTimer = setTimeout(() => {
-      if (this.globalData.foregroundHoldCount > 0) {
+      if (Date.now() < (this.globalData.holdUntil || 0)) {
         this.clearHideTimer();
         return;
       }

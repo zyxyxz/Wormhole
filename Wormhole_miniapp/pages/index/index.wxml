@@ -16,7 +16,8 @@
 
     <view class="enter-area">
       <view class="input-display">
-        <text wx:for="{{spaceCode}}" wx:key="index" class="code-digit">{{item}}</text>
+        <text wx:for="{{spaceCode}}" wx:key="index" class="code-digit">{{hideCode ? '•' : item}}</text>
+        <button class="eye-btn" bindtap="toggleHide">{{hideCode ? '显示' : '隐藏'}}</button>
       </view>
       <view class="keypad">
         <view wx:for="{{[1,2,3,4,5,6,7,8,9,'',0,'删除']}}" 
