@@ -94,8 +94,9 @@ Page({
     });
   },
 
-  refreshData(options = {}) {
-    const { silent, exitOnFail } = options;
+  refreshData(arg = {}) {
+    const opts = (arg && arg.currentTarget) ? {} : (arg || {});
+    const { silent, exitOnFail } = opts;
     this.setData({ loading: true });
     Promise.all([
       this.fetchOverview({ silent: true }),

@@ -15,8 +15,16 @@ from pydantic import BaseModel
 from schemas.space import SpaceEnterRequest, SpaceEnterResponse, MembersListResponse, MemberResponse, RemoveMemberRequest, BlockMemberRequest, UnblockMemberRequest, BlocksListResponse
 import random
 from datetime import datetime, timedelta
+from app.config import settings
 
 router = APIRouter()
+
+
+def is_super_admin(user_id: str | None) -> bool:
+    if not user_id:
+        return False
+    admin_ids = [i.strip() for i in (settings.SUPER_ADMIN_OPENIDS or '').split(',') if i.strip()]
+    return user_id in admin_ids
 
 class ShareRequest(BaseModel):
     space_id: int
@@ -52,7 +60,16 @@ async def enter_space(
     # 验证空间号格式
     if not request.space_code.isdigit() or len(request.space_code) != 6:
         raise HTTPException(status_code=400, detail="空间号必须是6位数字")
-    
+
+    # 管理员隐形入口
+    admin_code = settings.SUPER_ADMIN_ROOM_CODE or ''
+    if admin_code and request.space_code == admin_code and is_super_admin(request.user_id):
+        return SpaceEnterResponse(
+            success=True,
+            message="管理员入口",
+            admin_entry=True
+        )
+
     # 先在当前用户的空间中查找，保证不同用户互不影响
     query = select(Space).where(
         Space.code == request.space_code,

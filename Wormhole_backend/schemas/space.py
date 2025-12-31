@@ -22,7 +22,8 @@ class SpaceEnterRequest(BaseModel):
 class SpaceEnterResponse(BaseModel):
     success: bool
     message: str
-    space_id: Optional[int] = None 
+    space_id: Optional[int] = None
+    admin_entry: bool = False
 
 class MemberResponse(BaseModel):
     user_id: str
