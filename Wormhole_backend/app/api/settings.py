@@ -54,7 +54,6 @@ async def delete_space(
     return {"success": True, "message": "空间删除成功"}
 
 
-@router.post("/admin/cleanup-spaces")
 class AdminAuth(BaseModel):
     user_id: str
     room_code: str

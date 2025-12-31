@@ -128,8 +128,9 @@ Page({
       return;
     }
     wx.showLoading({ title: '清理中', mask: true });
+    const url = `${BASE_URL}/api/settings/admin/cleanup-spaces?user_id=${encodeURIComponent(adminOpenId)}&room_code=${encodeURIComponent(adminRoomCode)}`;
     wx.request({
-      url: `${BASE_URL}/api/settings/admin/cleanup-spaces`,
+      url,
       method: 'POST',
       data: { user_id: adminOpenId, room_code: adminRoomCode },
       success: (res) => {
