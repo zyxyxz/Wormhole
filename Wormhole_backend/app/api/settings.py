@@ -11,6 +11,7 @@ from sqlalchemy import func
 import random
 import string
 from datetime import datetime, timedelta
+from pydantic import BaseModel
 
 router = APIRouter()
 
@@ -54,8 +55,14 @@ async def delete_space(
 
 
 @router.post("/admin/cleanup-spaces")
-async def admin_cleanup_spaces(user_id: str, room_code: str, db: AsyncSession = Depends(get_db)):
-    verify_admin(user_id, room_code)
+class AdminAuth(BaseModel):
+    user_id: str
+    room_code: str
+
+
+@router.post("/admin/cleanup-spaces")
+async def admin_cleanup_spaces(payload: AdminAuth, db: AsyncSession = Depends(get_db)):
+    verify_admin(payload.user_id, payload.room_code)
     # 找出无任何数据痕迹的空间
     subquery = select(Space.id).select_from(Space)
     subquery = subquery.outerjoin(Message, Message.space_id == Space.id)
