@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
 from app.database import get_db
@@ -62,13 +62,13 @@ class AdminAuth(BaseModel):
 
 @router.post("/admin/cleanup-spaces")
 async def admin_cleanup_spaces(
-    payload: AdminAuth | None = None,
+    payload: AdminAuth | None = Body(default=None),
     user_id: str | None = None,
     room_code: str | None = None,
     db: AsyncSession = Depends(get_db)
 ):
-    auth_user = payload.user_id if payload else user_id
-    auth_room = payload.room_code if payload else room_code
+    auth_user = payload.user_id if payload and payload.user_id else user_id
+    auth_room = payload.room_code if payload and payload.room_code else room_code
     if not auth_user or not auth_room:
         raise HTTPException(status_code=400, detail="缺少管理员凭据")
     verify_admin(auth_user, auth_room)
