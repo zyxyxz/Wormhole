@@ -1,12 +1,40 @@
-<view class="container">
-  <textarea class="content" placeholder="这一刻的想法..." bindinput="onContentInput" />
-  <view class="media-actions">
-    <button class="btn btn-ghost" bindtap="chooseImage">选择图片</button>
-    <button class="btn btn-ghost" bindtap="chooseVideo">选择视频</button>
+<view class="page">
+  <view class="bg-orb orb-one"></view>
+  <view class="bg-orb orb-two"></view>
+
+  <view class="hero">
+    <view class="hero-title">发布动态</view>
+    <view class="hero-sub">像朋友圈一样，记录此刻</view>
   </view>
-  <view wx:if="{{mediaType==='image'}}" class="images">
-    <image wx:for="{{mediaUrls}}" wx:key="*this" class="image" src="{{item}}" mode="aspectFill" />
+
+  <view class="composer">
+    <textarea
+      class="composer-input"
+      placeholder="写下这一刻的想法…"
+      placeholder-style="color: rgba(15,23,42,0.35);"
+      auto-height="true"
+      bindinput="onContentInput"
+    />
+
+    <view wx:if="{{mediaType==='image'}}" class="images">
+      <image wx:for="{{mediaUrls}}" wx:key="*this" class="image" src="{{item}}" mode="aspectFill" />
+    </view>
+    <video wx:if="{{mediaType==='video'}}" class="video" src="{{mediaUrls[0]}}" controls />
+
+    <view class="toolbar">
+      <button class="tool-btn" bindtap="chooseImage">
+        <text class="tool-icon">🖼</text>
+        <text>照片</text>
+      </button>
+      <button class="tool-btn" bindtap="chooseVideo">
+        <text class="tool-icon">🎬</text>
+        <text>视频</text>
+      </button>
+      <text class="tool-tip">最多 9 张 / 1 个视频</text>
+    </view>
   </view>
-  <video wx:if="{{mediaType==='video'}}" class="video" src="{{mediaUrls[0]}}" controls />
-  <button class="btn btn-primary submit" bindtap="submit" loading="{{uploading}}">发布</button>
+
+  <view class="publish-bar">
+    <button class="publish-btn" bindtap="submit" loading="{{uploading}}">发布</button>
+  </view>
 </view>

@@ -1,5 +1,77 @@
-.container { padding: 24rpx; }
-.label { margin: 16rpx 0 8rpx; color: #666; }
-.input { height: 80rpx; background: #f5f5f5; border-radius: 8rpx; padding: 0 20rpx; }
-.submit { margin-top: 24rpx; background: #1296db; color: #fff; }
+page { background: #F3F6FB; }
+.page {
+  min-height: 100vh;
+  padding: 28rpx 24rpx 40rpx;
+  position: relative;
+  font-family: "PingFang SC", "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+  color: #0F172A;
+}
+.bg-orb {
+  position: fixed;
+  width: 420rpx;
+  height: 420rpx;
+  border-radius: 50%;
+  opacity: 0.32;
+  z-index: 0;
+}
+.orb-one {
+  top: -140rpx;
+  left: -120rpx;
+  background: radial-gradient(circle at 30% 30%, #93C5FD, #A7F3D0);
+}
+.orb-two {
+  bottom: -140rpx;
+  right: -140rpx;
+  background: radial-gradient(circle at 30% 30%, #FBCFE8, #FDE68A);
+}
+.header { position: relative; z-index: 1; padding: 6rpx 6rpx 24rpx; }
+.title { font-size: 42rpx; font-weight: 700; letter-spacing: 2rpx; }
+.subtitle { margin-top: 6rpx; font-size: 26rpx; color: #64748B; }
 
+.card {
+  position: relative;
+  z-index: 1;
+  background: #fff;
+  border-radius: 22rpx;
+  padding: 22rpx;
+  box-shadow: 0 16rpx 36rpx rgba(15,23,42,0.08);
+  border: 1rpx solid rgba(148,163,184,0.18);
+  margin-bottom: 18rpx;
+}
+.step { display: flex; align-items: center; gap: 16rpx; margin-bottom: 14rpx; }
+.step-index {
+  width: 52rpx;
+  height: 52rpx;
+  border-radius: 50%;
+  background: rgba(59,130,246,0.12);
+  color: #2563EB;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+}
+.step-body { display: flex; flex-direction: column; gap: 4rpx; }
+.step-title { font-size: 28rpx; font-weight: 600; }
+.step-desc { font-size: 24rpx; color: #94A3B8; }
+
+.input {
+  height: 88rpx;
+  border-radius: 16rpx;
+  padding: 0 22rpx;
+  background: #F8FAFC;
+  border: 1rpx solid rgba(148,163,184,0.3);
+  font-size: 28rpx;
+}
+
+.footer { position: relative; z-index: 1; margin-top: 10rpx; }
+.submit {
+  height: 90rpx;
+  line-height: 90rpx;
+  border-radius: 999rpx;
+  background: linear-gradient(135deg, #38BDF8, #34D399);
+  color: #0F172A;
+  font-weight: 700;
+  letter-spacing: 2rpx;
+  box-shadow: 0 12rpx 26rpx rgba(16,185,129,0.22);
+}
+.hint { margin-top: 14rpx; text-align: center; color: #94A3B8; font-size: 22rpx; }
