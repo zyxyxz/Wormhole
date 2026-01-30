@@ -33,6 +33,14 @@ async def column_exists(conn, table: str, column: str) -> bool:
     return False
 
 
+async def table_exists(conn, table: str) -> bool:
+    result = await conn.execute(
+        text("SELECT 1 FROM sqlite_master WHERE type='table' AND name = :name"),
+        {"name": table}
+    )
+    return result.first() is not None
+
+
 async def add_deleted_at_to_posts(conn):
     if await column_exists(conn, "posts", "deleted_at"):
         return
@@ -61,11 +69,35 @@ async def add_message_media_columns(conn):
         await conn.execute(text("ALTER TABLE messages ADD COLUMN media_duration INTEGER"))
 
 
+async def add_operation_logs(conn):
+    if not await table_exists(conn, "operation_logs"):
+        await conn.execute(text(
+            """
+            CREATE TABLE operation_logs (
+                id INTEGER PRIMARY KEY,
+                user_id TEXT,
+                action TEXT NOT NULL,
+                page TEXT,
+                detail TEXT,
+                space_id INTEGER,
+                ip TEXT,
+                user_agent TEXT,
+                created_at DATETIME DEFAULT (datetime('now'))
+            )
+            """
+        ))
+    await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_operation_logs_user_id ON operation_logs(user_id)"))
+    await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_operation_logs_action ON operation_logs(action)"))
+    await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_operation_logs_page ON operation_logs(page)"))
+    await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_operation_logs_space_id ON operation_logs(space_id)"))
+
+
 MIGRATIONS = [
     ("202401_add_deleted_at_to_posts", add_deleted_at_to_posts),
     ("202402_add_share_code_expiry", add_share_code_expiry),
     ("202402_add_user_alias_avatar", add_user_avatar),
     ("202402_add_message_media", add_message_media_columns),
+    ("202601_add_operation_logs", add_operation_logs),
 ]
 
 
