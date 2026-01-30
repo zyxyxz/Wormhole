@@ -3,8 +3,8 @@ page {
   height: 100vh;
   display: flex;
   flex-direction: column;
-  background: #0B1220;
-  color: #E2E8F0;
+  background: #F8FAFC;
+  color: #0F172A;
   font-family: "ZCOOL XiaoWei", "Songti SC", "STSong", "PingFang SC", serif;
 }
 
@@ -15,26 +15,26 @@ page {
   inset: 0;
   overflow: hidden;
   z-index: 0;
-  background: radial-gradient(1200rpx 600rpx at 50% -20%, rgba(56,189,248,0.2), transparent 70%),
-              linear-gradient(180deg, #0B1220 0%, #0F172A 55%, #0B1220 100%);
+  background: radial-gradient(1200rpx 600rpx at 50% -20%, rgba(56,189,248,0.18), transparent 70%),
+              linear-gradient(180deg, #F8FAFC 0%, #EEF2FF 55%, #F8FAFC 100%);
 }
 
 .blob {
   position: absolute;
   border-radius: 50%;
   filter: blur(0);
-  opacity: 0.55;
+  opacity: 0.35;
   animation: float 10s ease-in-out infinite;
 }
-.blob-a { width: 320rpx; height: 320rpx; background: radial-gradient(circle at 30% 30%, #22D3EE, transparent 60%); top: -80rpx; left: -40rpx; }
-.blob-b { width: 420rpx; height: 420rpx; background: radial-gradient(circle at 30% 30%, #A855F7, transparent 65%); top: 180rpx; right: -160rpx; animation-delay: -2s; }
-.blob-c { width: 300rpx; height: 300rpx; background: radial-gradient(circle at 30% 30%, #F472B6, transparent 60%); bottom: -120rpx; left: 120rpx; animation-delay: -4s; }
+.blob-a { width: 320rpx; height: 320rpx; background: radial-gradient(circle at 30% 30%, #38BDF8, transparent 60%); top: -80rpx; left: -40rpx; }
+.blob-b { width: 420rpx; height: 420rpx; background: radial-gradient(circle at 30% 30%, #60A5FA, transparent 65%); top: 180rpx; right: -160rpx; animation-delay: -2s; }
+.blob-c { width: 300rpx; height: 300rpx; background: radial-gradient(circle at 30% 30%, #A7F3D0, transparent 60%); bottom: -120rpx; left: 120rpx; animation-delay: -4s; }
 
 .grid-glow {
   position: absolute;
   inset: 0;
-  background-image: linear-gradient(rgba(148,163,184,0.08) 1px, transparent 1px),
-                    linear-gradient(90deg, rgba(148,163,184,0.08) 1px, transparent 1px);
+  background-image: linear-gradient(rgba(148,163,184,0.12) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(148,163,184,0.12) 1px, transparent 1px);
   background-size: 60rpx 60rpx;
   mask-image: radial-gradient(circle at 50% 30%, black 10%, transparent 70%);
   opacity: 0.2;
@@ -67,58 +67,52 @@ page {
   width: 72rpx;
   height: 72rpx;
   border-radius: 20rpx;
-  background: linear-gradient(135deg, #38BDF8, #34D399);
+  background: linear-gradient(135deg, #60A5FA, #34D399);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 28rpx;
   font-weight: 700;
-  color: #0B1220;
+  color: #0F172A;
   letter-spacing: 2rpx;
-  box-shadow: 0 16rpx 40rpx rgba(15,23,42,0.35);
+  box-shadow: 0 16rpx 40rpx rgba(15,23,42,0.12);
 }
 
 .brand-text { display: flex; flex-direction: column; }
-.brand-title { font-size: 34rpx; font-weight: 700; color: #E2E8F0; }
-.brand-subtitle { font-size: 20rpx; color: rgba(226,232,240,0.7); letter-spacing: 1rpx; }
+.brand-title { font-size: 34rpx; font-weight: 700; color: #0F172A; }
+.brand-subtitle { font-size: 20rpx; color: rgba(15,23,42,0.6); letter-spacing: 1rpx; }
 
 .join-pill {
   padding: 12rpx 22rpx;
   border-radius: 999rpx;
-  border: 1rpx solid rgba(148,163,184,0.35);
-  color: #E2E8F0;
+  border: 1rpx solid rgba(148,163,184,0.45);
+  color: #0F172A;
   font-size: 24rpx;
-  background: rgba(15,23,42,0.35);
-  backdrop-filter: blur(8rpx);
+  background: rgba(255,255,255,0.7);
+  backdrop-filter: blur(6rpx);
 }
-
-.hero { margin-top: 10rpx; }
-.hero-title { font-size: 46rpx; font-weight: 700; margin-bottom: 10rpx; }
-.hero-subtitle { color: rgba(226,232,240,0.7); font-size: 24rpx; }
 
 .enter-card {
   padding: 28rpx;
   border-radius: 24rpx;
-  background: rgba(15,23,42,0.6);
-  border: 1rpx solid rgba(148,163,184,0.2);
-  box-shadow: 0 20rpx 60rpx rgba(15,23,42,0.35);
+  background: rgba(255,255,255,0.9);
+  border: 1rpx solid rgba(148,163,184,0.35);
+  box-shadow: 0 20rpx 50rpx rgba(15,23,42,0.12);
 }
-
-.card-label { font-size: 22rpx; color: rgba(226,232,240,0.7); margin-bottom: 18rpx; }
 
 .input-display {
   display: flex;
   justify-content: space-between;
   gap: 16rpx;
-  margin-bottom: 18rpx;
+  margin-bottom: 6rpx;
 }
 
 .code-slot {
   flex: 1;
   height: 88rpx;
   border-radius: 16rpx;
-  background: rgba(15,23,42,0.7);
-  border: 1rpx solid rgba(148,163,184,0.25);
+  background: #F8FAFC;
+  border: 1rpx solid rgba(148,163,184,0.35);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -128,11 +122,14 @@ page {
   width: 16rpx;
   height: 16rpx;
   border-radius: 50%;
-  background: #E2E8F0;
-  box-shadow: 0 0 16rpx rgba(226,232,240,0.8);
+  background: #0F172A;
+  box-shadow: 0 0 14rpx rgba(15,23,42,0.2);
 }
 
-.card-tip { font-size: 22rpx; color: rgba(226,232,240,0.6); }
+.keypad-wrap {
+  margin-top: auto;
+  padding-bottom: 10rpx;
+}
 
 .keypad {
   display: grid;
@@ -143,32 +140,25 @@ page {
 .key-button {
   height: 102rpx;
   border-radius: 20rpx;
-  background: rgba(15,23,42,0.65);
-  border: 1rpx solid rgba(148,163,184,0.2);
+  background: rgba(255,255,255,0.95);
+  border: 1rpx solid rgba(148,163,184,0.35);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 14rpx 30rpx rgba(15,23,42,0.25);
+  box-shadow: 0 12rpx 26rpx rgba(15,23,42,0.08);
 }
 
 .key-button:active { transform: scale(0.98); }
 
 .key-text {
   font-size: 34rpx;
-  color: #E2E8F0;
+  color: #0F172A;
   font-family: "SF Pro Rounded", "DIN Alternate", "PingFang SC", sans-serif;
 }
 
-.key-delete .key-text { font-size: 26rpx; color: rgba(226,232,240,0.8); }
+.key-delete .key-text { font-size: 26rpx; color: rgba(15,23,42,0.6); }
 
 .key-empty { background: transparent; border-color: transparent; box-shadow: none; }
-
-.footer-note {
-  text-align: center;
-  font-size: 22rpx;
-  color: rgba(226,232,240,0.6);
-  margin-top: auto;
-}
 
 @keyframes float {
   0% { transform: translateY(0); }

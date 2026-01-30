@@ -18,33 +18,24 @@
       <view class="join-pill" bindtap="goJoinByShare">口令加入</view>
     </view>
 
-    <view class="hero">
-      <view class="hero-title">{{reviewMode ? '请输入日记本密码' : '请输入空间号'}}</view>
-      <view class="hero-subtitle">{{reviewMode ? '仅你可见，离开即锁定' : '6位房间号，直接进入内容'}}</view>
-    </view>
-
     <view class="enter-card">
-      <view class="card-label">{{reviewMode ? '密码输入' : '房间号输入'}}</view>
       <view class="input-display">
         <view wx:for="{{spaceCode}}" wx:key="index" class="code-slot">
           <view wx:if="{{item !== ''}}" class="code-dot"></view>
         </view>
       </view>
-      <view class="card-tip">{{reviewMode ? '输入完成即解锁' : '不存在的房间也会进入空白空间'}}</view>
     </view>
 
-    <view class="keypad">
-      <view wx:for="{{[1,2,3,4,5,6,7,8,9,'',0,'删除']}}"
-            wx:key="index"
-            class="key-button {{item === '' ? 'key-empty' : ''}} {{item === '删除' ? 'key-delete' : ''}}"
-            bindtap="onKeyTap"
-            data-key="{{item}}">
-        <text class="key-text">{{item}}</text>
+    <view class="keypad-wrap">
+      <view class="keypad">
+        <view wx:for="{{[1,2,3,4,5,6,7,8,9,'',0,'删除']}}"
+              wx:key="index"
+              class="key-button {{item === '' ? 'key-empty' : ''}} {{item === '删除' ? 'key-delete' : ''}}"
+              bindtap="onKeyTap"
+              data-key="{{item}}">
+          <text class="key-text">{{item}}</text>
+        </view>
       </view>
-    </view>
-
-    <view class="footer-note">
-      <text>{{reviewMode ? '内容只保留在你的房间里' : '离开小程序将立即锁定'}}</text>
     </view>
   </view>
 </scroll-view>
