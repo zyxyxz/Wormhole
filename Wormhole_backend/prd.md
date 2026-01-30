@@ -29,7 +29,7 @@
 - 前端：微信小程序
 - 后端：python fastapi
 - 数据库：sqlite
-- 储存：腾讯云COS
+- 储存：阿里云OSS
 
 ### 后端API
 

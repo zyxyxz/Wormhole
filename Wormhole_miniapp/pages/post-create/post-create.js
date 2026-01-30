@@ -44,12 +44,21 @@ Page({
 
   uploadFiles(paths, type) {
     if (!paths || !paths.length) return;
+    const spaceId = wx.getStorageSync('currentSpaceId');
+    const formData = {
+      category: 'notes',
+      media_type: type
+    };
+    if (spaceId) {
+      formData.space_id = spaceId;
+    }
     this.setData({ uploading: true });
     const uploads = paths.map(p => new Promise((resolve) => {
       wx.uploadFile({
         url: `${BASE_URL}/api/upload`,
         filePath: p,
         name: 'file',
+        formData,
         success: (resp) => {
           try {
             const data = JSON.parse(resp.data);

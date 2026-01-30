@@ -244,10 +244,18 @@ Page({
         const filePath = res.tempFilePaths && res.tempFilePaths[0];
         if (!filePath) return;
         wx.showLoading({ title: '上传中', mask: true });
+        const formData = {
+          category: 'avatars',
+          user_id: openid
+        };
+        if (this.data.spaceId) {
+          formData.space_id = this.data.spaceId;
+        }
         wx.uploadFile({
           url: `${BASE_URL}/api/upload`,
           filePath,
           name: 'file',
+          formData,
           success: (resp) => {
             try {
               const data = JSON.parse(resp.data || '{}');

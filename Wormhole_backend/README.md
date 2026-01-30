@@ -14,7 +14,7 @@
 
 - 后端框架：FastAPI
 - 数据库：SQLite
-- 对象存储：腾讯云COS
+- 对象存储：阿里云OSS
 - API文档：Swagger UI
 
 ## 快速开始

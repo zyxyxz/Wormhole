@@ -249,11 +249,19 @@ Page({
 
   uploadMedia(filePath, messageType, extra) {
     if (!filePath) return;
+    const formData = {
+      category: 'messages',
+      message_type: messageType
+    };
+    if (this.data.spaceId) {
+      formData.space_id = this.data.spaceId;
+    }
     wx.showLoading({ title: '发送中', mask: true });
     wx.uploadFile({
       url: `${BASE_URL}/api/upload`,
       filePath,
       name: 'file',
+      formData,
       success: (resp) => {
         try {
           const data = JSON.parse(resp.data || '{}');

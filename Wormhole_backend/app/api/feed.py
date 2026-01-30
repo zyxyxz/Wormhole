@@ -21,13 +21,15 @@ from schemas.feed import (
 import json
 from datetime import datetime
 from sqlalchemy import func
+from app.utils.media import process_avatar_url, process_feed_media_urls, strip_urls
 
 router = APIRouter()
 
 
 @router.post("/create", response_model=PostResponse)
 async def create_post(payload: PostCreate, db: AsyncSession = Depends(get_db)):
-    media_urls_json = json.dumps(payload.media_urls or [])
+    clean_media_urls = strip_urls(payload.media_urls or [])
+    media_urls_json = json.dumps(clean_media_urls)
     post = Post(
         space_id=payload.space_id,
         user_id=payload.user_id,
@@ -50,10 +52,10 @@ async def create_post(payload: PostCreate, db: AsyncSession = Depends(get_db)):
         space_id=post.space_id,
         user_id=post.user_id,
         alias=alias,
-        avatar_url=avatar_url,
+        avatar_url=process_avatar_url(avatar_url),
         content=post.content,
         media_type=post.media_type,
-        media_urls=json.loads(post.media_urls or "[]"),
+        media_urls=process_feed_media_urls(json.loads(post.media_urls or "[]"), post.media_type),
         created_at=post.created_at,
         comments=[],
         like_count=0,
@@ -102,7 +104,7 @@ async def list_posts(space_id: int, user_id: str | None = None, db: AsyncSession
                 LikeEntry(
                     user_id=liked_user,
                     alias=ua_entry.alias if ua_entry else None,
-                    avatar_url=ua_entry.avatar_url if ua_entry else None
+                    avatar_url=process_avatar_url(ua_entry.avatar_url if ua_entry else None)
                 )
             )
         if user_id:
@@ -114,10 +116,10 @@ async def list_posts(space_id: int, user_id: str | None = None, db: AsyncSession
             space_id=p.space_id,
             user_id=p.user_id,
             alias=(alias_map.get(p.user_id).alias if alias_map.get(p.user_id) else None),
-            avatar_url=(alias_map.get(p.user_id).avatar_url if alias_map.get(p.user_id) else None),
+            avatar_url=process_avatar_url(alias_map.get(p.user_id).avatar_url if alias_map.get(p.user_id) else None),
             content=p.content,
             media_type=p.media_type,
-            media_urls=json.loads(p.media_urls or "[]"),
+            media_urls=process_feed_media_urls(json.loads(p.media_urls or "[]"), p.media_type),
             created_at=p.created_at,
             like_count=like_counts.get(p.id, 0),
             liked_by_me=p.id in liked_post_ids,
@@ -128,7 +130,7 @@ async def list_posts(space_id: int, user_id: str | None = None, db: AsyncSession
                     post_id=c.post_id,
                     user_id=c.user_id,
                     alias=(alias_map.get(c.user_id).alias if alias_map.get(c.user_id) else None),
-                    avatar_url=(alias_map.get(c.user_id).avatar_url if alias_map.get(c.user_id) else None),
+                    avatar_url=process_avatar_url(alias_map.get(c.user_id).avatar_url if alias_map.get(c.user_id) else None),
                     content=c.content,
                     created_at=c.created_at,
                 ) for c in comments_map.get(p.id, [])
@@ -159,7 +161,7 @@ async def add_comment(payload: CommentCreate, db: AsyncSession = Depends(get_db)
         post_id=c.post_id,
         user_id=c.user_id,
         alias=alias,
-        avatar_url=avatar_url,
+        avatar_url=process_avatar_url(avatar_url),
         content=c.content,
         created_at=c.created_at,
     )
@@ -184,7 +186,7 @@ async def list_comments(post_id: int, db: AsyncSession = Depends(get_db)):
             post_id=c.post_id,
             user_id=c.user_id,
             alias=(alias_map.get(c.user_id).alias if alias_map.get(c.user_id) else None),
-            avatar_url=(alias_map.get(c.user_id).avatar_url if alias_map.get(c.user_id) else None),
+            avatar_url=process_avatar_url(alias_map.get(c.user_id).avatar_url if alias_map.get(c.user_id) else None),
             content=c.content,
             created_at=c.created_at,
         ) for c in comments

@@ -12,6 +12,7 @@ from schemas.space import SpaceEnterRequest, SpaceEnterResponse, MembersListResp
 import random
 from datetime import datetime, timedelta
 from app.config import settings
+from app.utils.media import process_avatar_url
 
 router = APIRouter()
 
@@ -272,7 +273,7 @@ async def get_members(space_id: int, db: AsyncSession = Depends(get_db)):
         member_payload.append(MemberResponse(
             user_id=m.user_id,
             alias=alias_entry.alias if alias_entry else None,
-            avatar_url=alias_entry.avatar_url if alias_entry else None
+            avatar_url=process_avatar_url(alias_entry.avatar_url if alias_entry else None)
         ))
     return MembersListResponse(members=member_payload)
 
@@ -314,7 +315,7 @@ async def list_blocks(space_id: int, db: AsyncSession = Depends(get_db)):
         block_payload.append(MemberResponse(
             user_id=b.user_id,
             alias=alias_entry.alias if alias_entry else None,
-            avatar_url=alias_entry.avatar_url if alias_entry else None
+            avatar_url=process_avatar_url(alias_entry.avatar_url if alias_entry else None)
         ))
     return BlocksListResponse(blocks=block_payload)
 

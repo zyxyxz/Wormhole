@@ -68,7 +68,7 @@
      HOST=0.0.0.0
      PORT=8000
      ```
-   - 静态上传目录：`/static/uploads`（已自动挂载）
+   - 上传存储：阿里云 OSS（/api/upload 返回 OSS 链接）
    - 主要 API 前缀：`/api/*`（space/chat/notes/feed/wallet/settings/user/auth/upload）
    - 每次启动会自动执行 `app/migrations.py` 中的轻量数据库迁移（含 `posts.deleted_at` 等升级），云端拉取最新代码并重启即可完成 Schema 更新
 
@@ -107,7 +107,7 @@
   - `POST /api/feed/comment/delete`（comment_id, operator_user_id）
   - `POST /api/feed/delete`（post_id, operator_user_id；作者或房主）
   - `POST /api/feed/like`（post_id, user_id, like=true/false）
-  - `POST /api/upload`（小型本地上传）
+  - `POST /api/upload`（OSS 上传）
 - 钱包
   - `GET /api/wallet/info|transactions?space_id`
   - `POST /api/wallet/recharge|pay`（space_id, amount, user_id）

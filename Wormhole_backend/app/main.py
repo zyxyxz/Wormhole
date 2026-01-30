@@ -13,6 +13,7 @@ from app.database import AsyncSessionLocal
 from models.chat import Message
 from models.user import UserAlias
 from app.ws import chat_manager, event_manager
+from app.utils.media import process_avatar_url, process_message_media_url, strip_url
 from sqlalchemy import select
 from datetime import datetime
 
@@ -63,7 +64,7 @@ async def websocket_endpoint(websocket: WebSocket, space_id: int):
             content = data.get("content", "")
             user_id = str(data.get("user_id") or "")
             message_type = data.get("message_type") or "text"
-            media_url = data.get("media_url")
+            media_url = strip_url(data.get("media_url"))
             media_duration = data.get("media_duration")
             if message_type == "text":
                 content = (content or "").strip()
@@ -101,11 +102,11 @@ async def websocket_endpoint(websocket: WebSocket, space_id: int):
                     "user_id": msg.user_id,
                     "content": msg.content,
                     "message_type": msg.message_type,
-                    "media_url": msg.media_url,
+                    "media_url": process_message_media_url(msg.media_url, msg.message_type),
                     "media_duration": msg.media_duration,
                     "created_at": msg.created_at.isoformat() if msg.created_at else datetime.utcnow().isoformat(),
                     "alias": alias,
-                    "avatar_url": avatar_url,
+                    "avatar_url": process_avatar_url(avatar_url),
                 }
                 await chat_manager.broadcast(space_id, payload)
     except WebSocketDisconnect:

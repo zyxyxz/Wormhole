@@ -13,6 +13,7 @@ import random
 import string
 from datetime import datetime, timedelta
 from pydantic import BaseModel
+from app.utils.media import process_avatar_url
 
 router = APIRouter()
 
@@ -329,7 +330,7 @@ async def admin_users(user_id: str, room_code: str, db: AsyncSession = Depends(g
                 "user_id": u.user_id,
                 "space_id": u.space_id,
                 "alias": u.alias,
-                "avatar_url": u.avatar_url,
+                "avatar_url": process_avatar_url(u.avatar_url),
             } for u in users
         ]
     }
@@ -408,7 +409,7 @@ async def admin_space_detail(user_id: str, room_code: str, space_id: int, db: As
         {
             "user_id": m.user_id,
             "alias": alias_map.get(m.user_id).alias if alias_map.get(m.user_id) else None,
-            "avatar_url": alias_map.get(m.user_id).avatar_url if alias_map.get(m.user_id) else None,
+            "avatar_url": process_avatar_url(alias_map.get(m.user_id).avatar_url if alias_map.get(m.user_id) else None),
             "joined_at": m.joined_at,
         } for m in members
     ]
