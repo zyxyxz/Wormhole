@@ -73,7 +73,9 @@ async def list_posts(space_id: int, user_id: str | None = None, db: AsyncSession
     comments_map: dict[int, list[Comment]] = defaultdict(list)
     if post_ids:
         comment_rows = await db.execute(
-            select(Comment).where(Comment.post_id.in_(post_ids)).order_by(Comment.created_at)
+            select(Comment)
+            .where(Comment.post_id.in_(post_ids), Comment.deleted_at.is_(None))
+            .order_by(Comment.created_at)
         )
         for c in comment_rows.scalars().all():
             comments_map[c.post_id].append(c)
@@ -168,7 +170,11 @@ async def list_comments(post_id: int, db: AsyncSession = Depends(get_db)):
     post = (await db.execute(select(Post).where(Post.id == post_id))).scalar_one_or_none()
     if not post or post.deleted_at:
         raise HTTPException(status_code=404, detail="动态不存在")
-    res = await db.execute(select(Comment).where(Comment.post_id == post_id).order_by(Comment.created_at))
+    res = await db.execute(
+        select(Comment)
+        .where(Comment.post_id == post_id, Comment.deleted_at.is_(None))
+        .order_by(Comment.created_at)
+    )
     comments = res.scalars().all()
     alias_rows = await db.execute(select(UserAlias).where(UserAlias.space_id == post.space_id))
     alias_map = {r.user_id: r for r in alias_rows.scalars().all()}
@@ -206,7 +212,7 @@ async def delete_post(payload: PostDeleteRequest, db: AsyncSession = Depends(get
 async def delete_comment(payload: CommentDeleteRequest, db: AsyncSession = Depends(get_db)):
     if not payload.operator_user_id:
         raise HTTPException(status_code=400, detail="缺少用户ID")
-    comment = (await db.execute(select(Comment).where(Comment.id == payload.comment_id))).scalar_one_or_none()
+    comment = (await db.execute(select(Comment).where(Comment.id == payload.comment_id, Comment.deleted_at.is_(None)))).scalar_one_or_none()
     if not comment:
         raise HTTPException(status_code=404, detail="评论不存在")
     post = (await db.execute(select(Post).where(Post.id == comment.post_id))).scalar_one_or_none()
@@ -217,7 +223,7 @@ async def delete_comment(payload: CommentDeleteRequest, db: AsyncSession = Depen
         raise HTTPException(status_code=404, detail="空间不存在")
     if payload.operator_user_id not in {comment.user_id, space.owner_user_id}:
         raise HTTPException(status_code=403, detail="无权限")
-    await db.delete(comment)
+    comment.deleted_at = datetime.utcnow()
     await db.commit()
     return {"success": True}
 

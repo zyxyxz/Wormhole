@@ -25,6 +25,7 @@ class Comment(Base):
     user_id = Column(String, index=True)
     content = Column(Text)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
 
 
 class PostLike(Base):

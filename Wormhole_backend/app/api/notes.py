@@ -6,7 +6,7 @@ from models.notes import Note as DBNote
 from models.user import UserAlias
 from schemas.notes import NoteCreate, NoteResponse, NoteListResponse, NoteBase, NoteUpdate
 from fastapi import Query
-from sqlalchemy import delete
+from datetime import datetime
 
 router = APIRouter()
 
@@ -15,7 +15,7 @@ async def get_notes(
     space_id: int,
     db: AsyncSession = Depends(get_db)
 ):
-    query = select(DBNote).where(DBNote.space_id == space_id).order_by(DBNote.created_at.desc())
+    query = select(DBNote).where(DBNote.space_id == space_id, DBNote.deleted_at.is_(None)).order_by(DBNote.created_at.desc())
     result = await db.execute(query)
     notes = result.scalars().all()
     # 别名映射
@@ -68,7 +68,7 @@ async def update_note(
     note: NoteUpdate,
     db: AsyncSession = Depends(get_db)
 ):
-    query = select(DBNote).where(DBNote.id == note_id)
+    query = select(DBNote).where(DBNote.id == note_id, DBNote.deleted_at.is_(None))
     result = await db.execute(query)
     db_note = result.scalar_one_or_none()
     
@@ -105,13 +105,13 @@ async def update_note(
 
 @router.delete("/{note_id}")
 async def delete_note(note_id: int, user_id: str = Query(...), db: AsyncSession = Depends(get_db)):
-    q = select(DBNote).where(DBNote.id == note_id)
+    q = select(DBNote).where(DBNote.id == note_id, DBNote.deleted_at.is_(None))
     r = await db.execute(q)
     db_note = r.scalar_one_or_none()
     if not db_note:
         raise HTTPException(status_code=404, detail="笔记不存在")
     if user_id != db_note.user_id:
         raise HTTPException(status_code=403, detail="仅作者可删除")
-    await db.execute(delete(DBNote).where(DBNote.id == note_id))
+    db_note.deleted_at = datetime.utcnow()
     await db.commit()
     return {"success": True}

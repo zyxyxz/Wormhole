@@ -1,15 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete
+from sqlalchemy import select, delete, update
 from app.database import get_db
-from models.space import Space, SpaceMapping
-from models.space import Space as DBSpace
-from models.space import Space
-from models.space import SpaceMapping
-from models.space import SpaceCode, ShareCode, SpaceMember, SpaceBlock
+from models.space import Space, SpaceMapping, SpaceCode, ShareCode, SpaceMember, SpaceBlock
 from models.chat import Message
 from models.notes import Note
-from models.wallet import Wallet, Transaction
+from models.feed import Post, Comment
 from models.user import UserAlias
 from pydantic import BaseModel
 from schemas.space import SpaceEnterRequest, SpaceEnterResponse, MembersListResponse, MemberResponse, RemoveMemberRequest, BlockMemberRequest, UnblockMemberRequest, BlocksListResponse
@@ -73,7 +69,8 @@ async def enter_space(
     # 先在当前用户的空间中查找，保证不同用户互不影响
     query = select(Space).where(
         Space.code == request.space_code,
-        Space.owner_user_id == request.user_id
+        Space.owner_user_id == request.user_id,
+        Space.deleted_at.is_(None)
     )
     result = await db.execute(query)
     space = result.scalar_one_or_none()
@@ -84,7 +81,7 @@ async def enter_space(
         alias_res = await db.execute(alias_q)
         alias = alias_res.scalar_one_or_none()
         if alias:
-            space_q = select(Space).where(Space.id == alias.space_id)
+            space_q = select(Space).where(Space.id == alias.space_id, Space.deleted_at.is_(None))
             space_res = await db.execute(space_q)
             space = space_res.scalar_one_or_none()
     
@@ -138,7 +135,7 @@ async def enter_space(
 @router.post("/share")
 async def share_space(payload: ShareRequest, db: AsyncSession = Depends(get_db)):
     # 校验空间存在
-    result = await db.execute(select(Space).where(Space.id == payload.space_id))
+    result = await db.execute(select(Space).where(Space.id == payload.space_id, Space.deleted_at.is_(None)))
     space = result.scalar_one_or_none()
     if not space:
         raise HTTPException(status_code=404, detail="空间不存在")
@@ -173,20 +170,28 @@ async def join_by_share(payload: JoinByShareRequest, db: AsyncSession = Depends(
     share = res.scalar_one_or_none()
     if not share:
         raise HTTPException(status_code=404, detail="分享口令无效")
+    space = (await db.execute(select(Space).where(Space.id == share.space_id, Space.deleted_at.is_(None)))).scalar_one_or_none()
+    if not space:
+        raise HTTPException(status_code=404, detail="空间不存在")
     now = datetime.utcnow()
     if share.used:
         raise HTTPException(status_code=400, detail="分享口令已被使用")
     if share.expires_at and share.expires_at < now:
         raise HTTPException(status_code=400, detail="分享口令已过期")
     # 新空间号仅需确保未作为分享别名被占用
-    exist_alias = (await db.execute(select(SpaceCode).where(SpaceCode.code == payload.new_code))).scalar_one_or_none()
+    exist_alias = (await db.execute(
+        select(SpaceCode)
+        .join(Space, Space.id == SpaceCode.space_id)
+        .where(SpaceCode.code == payload.new_code, Space.deleted_at.is_(None))
+    )).scalar_one_or_none()
     if exist_alias:
         raise HTTPException(status_code=400, detail="该空间号已被使用")
     # 该用户若已使用该空间号（自己创建的空间），需提示
     owned_space = (await db.execute(
         select(Space).where(
             Space.code == payload.new_code,
-            Space.owner_user_id == payload.user_id
+            Space.owner_user_id == payload.user_id,
+            Space.deleted_at.is_(None)
         )
     )).scalar_one_or_none()
     if owned_space:
@@ -208,10 +213,14 @@ async def modify_space_code(payload: ModifyCodeRequest, db: AsyncSession = Depen
     if not payload.new_code.isdigit() or len(payload.new_code) != 6:
         raise HTTPException(status_code=400, detail="空间号必须是6位数字")
     # 校验新空间号未被分享别名占用
-    exist_alias = (await db.execute(select(SpaceCode).where(SpaceCode.code == payload.new_code))).scalar_one_or_none()
+    exist_alias = (await db.execute(
+        select(SpaceCode)
+        .join(Space, Space.id == SpaceCode.space_id)
+        .where(SpaceCode.code == payload.new_code, Space.deleted_at.is_(None))
+    )).scalar_one_or_none()
     if exist_alias:
         raise HTTPException(status_code=400, detail="该空间号已被使用")
-    res = await db.execute(select(Space).where(Space.id == payload.space_id))
+    res = await db.execute(select(Space).where(Space.id == payload.space_id, Space.deleted_at.is_(None)))
     space = res.scalar_one_or_none()
     if not space:
         raise HTTPException(status_code=404, detail="空间不存在")
@@ -223,36 +232,36 @@ async def modify_space_code(payload: ModifyCodeRequest, db: AsyncSession = Depen
 async def delete_space(payload: DeleteRequest, db: AsyncSession = Depends(get_db)):
     # 级联删除相关数据
     # 权限：仅房主可删除
-    sp = (await db.execute(select(Space).where(Space.id == payload.space_id))).scalar_one_or_none()
+    sp = (await db.execute(select(Space).where(Space.id == payload.space_id, Space.deleted_at.is_(None)))).scalar_one_or_none()
     if not sp:
         raise HTTPException(status_code=404, detail="空间不存在")
     if sp.owner_user_id != payload.operator_user_id:
         raise HTTPException(status_code=403, detail="无权限")
-    await db.execute(delete(Message).where(Message.space_id == payload.space_id))
-    await db.execute(delete(Note).where(Note.space_id == payload.space_id))
-    # 删除钱包及交易
-    wallet_res = await db.execute(select(Wallet).where(Wallet.space_id == payload.space_id))
-    wallet = wallet_res.scalar_one_or_none()
-    if wallet:
-        await db.execute(delete(Transaction).where(Transaction.wallet_id == wallet.id))
-        await db.execute(delete(Wallet).where(Wallet.id == wallet.id))
-    # 删除别名与分享码
-    await db.execute(delete(SpaceCode).where(SpaceCode.space_id == payload.space_id))
-    await db.execute(delete(ShareCode).where(ShareCode.space_id == payload.space_id))
-    # 删除空间
-    await db.execute(delete(Space).where(Space.id == payload.space_id))
+    now = datetime.utcnow()
+    sp.deleted_at = now
+    await db.execute(update(Message).where(Message.space_id == payload.space_id, Message.deleted_at.is_(None)).values(deleted_at=now))
+    await db.execute(update(Note).where(Note.space_id == payload.space_id, Note.deleted_at.is_(None)).values(deleted_at=now))
+    await db.execute(update(Post).where(Post.space_id == payload.space_id, Post.deleted_at.is_(None)).values(deleted_at=now))
+    await db.execute(
+        update(Comment)
+        .where(Comment.post_id.in_(select(Post.id).where(Post.space_id == payload.space_id)), Comment.deleted_at.is_(None))
+        .values(deleted_at=now)
+    )
     await db.commit()
     return {"success": True, "message": "空间删除成功"}
 
 @router.get("/info", response_model=SpaceInfoResponse)
 async def space_info(space_id: int, db: AsyncSession = Depends(get_db)):
-    space = (await db.execute(select(Space).where(Space.id == space_id))).scalar_one_or_none()
+    space = (await db.execute(select(Space).where(Space.id == space_id, Space.deleted_at.is_(None)))).scalar_one_or_none()
     if not space:
         raise HTTPException(status_code=404, detail="空间不存在")
     return SpaceInfoResponse(space_id=space.id, code=space.code, owner_user_id=space.owner_user_id)
 
 @router.get("/members", response_model=MembersListResponse)
 async def get_members(space_id: int, db: AsyncSession = Depends(get_db)):
+    space = (await db.execute(select(Space).where(Space.id == space_id, Space.deleted_at.is_(None)))).scalar_one_or_none()
+    if not space:
+        raise HTTPException(status_code=404, detail="空间不存在")
     mem_rows = await db.execute(select(SpaceMember).where(SpaceMember.space_id == space_id))
     members = mem_rows.scalars().all()
     alias_rows = await db.execute(select(UserAlias).where(UserAlias.space_id == space_id))
@@ -270,7 +279,7 @@ async def get_members(space_id: int, db: AsyncSession = Depends(get_db)):
 @router.post("/remove-member")
 async def remove_member(payload: RemoveMemberRequest, db: AsyncSession = Depends(get_db)):
     # 只有房主可操作
-    space = (await db.execute(select(Space).where(Space.id == payload.space_id))).scalar_one_or_none()
+    space = (await db.execute(select(Space).where(Space.id == payload.space_id, Space.deleted_at.is_(None)))).scalar_one_or_none()
     if not space:
         raise HTTPException(status_code=404, detail="空间不存在")
     if space.owner_user_id != payload.operator_user_id:
@@ -292,6 +301,9 @@ async def remove_member(payload: RemoveMemberRequest, db: AsyncSession = Depends
 
 @router.get("/blocks", response_model=BlocksListResponse)
 async def list_blocks(space_id: int, db: AsyncSession = Depends(get_db)):
+    space = (await db.execute(select(Space).where(Space.id == space_id, Space.deleted_at.is_(None)))).scalar_one_or_none()
+    if not space:
+        raise HTTPException(status_code=404, detail="空间不存在")
     rows = await db.execute(select(SpaceBlock).where(SpaceBlock.space_id == space_id))
     blocks = rows.scalars().all()
     alias_rows = await db.execute(select(UserAlias).where(UserAlias.space_id == space_id))
@@ -308,7 +320,7 @@ async def list_blocks(space_id: int, db: AsyncSession = Depends(get_db)):
 
 @router.post("/block-member")
 async def block_member(payload: BlockMemberRequest, db: AsyncSession = Depends(get_db)):
-    space = (await db.execute(select(Space).where(Space.id == payload.space_id))).scalar_one_or_none()
+    space = (await db.execute(select(Space).where(Space.id == payload.space_id, Space.deleted_at.is_(None)))).scalar_one_or_none()
     if not space:
         raise HTTPException(status_code=404, detail="空间不存在")
     if space.owner_user_id != payload.operator_user_id:
@@ -331,7 +343,7 @@ async def block_member(payload: BlockMemberRequest, db: AsyncSession = Depends(g
 
 @router.post("/unblock-member")
 async def unblock_member(payload: UnblockMemberRequest, db: AsyncSession = Depends(get_db)):
-    space = (await db.execute(select(Space).where(Space.id == payload.space_id))).scalar_one_or_none()
+    space = (await db.execute(select(Space).where(Space.id == payload.space_id, Space.deleted_at.is_(None)))).scalar_one_or_none()
     if not space:
         raise HTTPException(status_code=404, detail="空间不存在")
     if space.owner_user_id != payload.operator_user_id:

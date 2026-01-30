@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.database import get_db
 from models.chat import Message
+from models.space import Space
 from models.user import UserAlias
 from schemas.chat import MessageCreate, ChatHistoryResponse, MessageResponse
 from app.ws import chat_manager
@@ -17,8 +18,11 @@ async def get_chat_history(
     before_id: int | None = None,
     db: AsyncSession = Depends(get_db)
 ):
+    space = (await db.execute(select(Space).where(Space.id == space_id, Space.deleted_at.is_(None)))).scalar_one_or_none()
+    if not space:
+        raise HTTPException(status_code=404, detail="空间不存在")
     limit = max(1, min(limit, 100))
-    query = select(Message).where(Message.space_id == space_id)
+    query = select(Message).where(Message.space_id == space_id, Message.deleted_at.is_(None))
     if before_id:
         query = query.where(Message.id < before_id)
     query = query.order_by(Message.id.desc()).limit(limit + 1)
@@ -58,6 +62,9 @@ async def send_message(
     message: MessageCreate,
     db: AsyncSession = Depends(get_db)
 ):
+    space = (await db.execute(select(Space).where(Space.id == message.space_id, Space.deleted_at.is_(None)))).scalar_one_or_none()
+    if not space:
+        raise HTTPException(status_code=404, detail="空间不存在")
     duration = message.media_duration
     if duration is not None:
         try:

@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete
+from sqlalchemy import select, update, delete
 from app.database import get_db
 from models.space import Space, SpaceMapping, SpaceCode, ShareCode, SpaceMember
 from models.user import UserAlias
 from models.chat import Message
-from models.feed import Post
+from models.feed import Post, Comment
 from models.notes import Note
 from models.system import SystemSetting
 from sqlalchemy import func, or_, and_
@@ -70,10 +70,20 @@ async def delete_space(
     space_id: int,
     db: AsyncSession = Depends(get_db)
 ):
-    # 删除空间及相关数据
-    await db.execute(delete(Space).where(Space.id == space_id))
+    space = (await db.execute(select(Space).where(Space.id == space_id, Space.deleted_at.is_(None)))).scalar_one_or_none()
+    if not space:
+        raise HTTPException(status_code=404, detail="空间不存在")
+    now = datetime.utcnow()
+    space.deleted_at = now
+    await db.execute(update(Message).where(Message.space_id == space_id, Message.deleted_at.is_(None)).values(deleted_at=now))
+    await db.execute(update(Post).where(Post.space_id == space_id, Post.deleted_at.is_(None)).values(deleted_at=now))
+    await db.execute(update(Note).where(Note.space_id == space_id, Note.deleted_at.is_(None)).values(deleted_at=now))
+    await db.execute(
+        update(Comment)
+        .where(Comment.post_id.in_(select(Post.id).where(Post.space_id == space_id)), Comment.deleted_at.is_(None))
+        .values(deleted_at=now)
+    )
     await db.commit()
-    
     return {"success": True, "message": "空间删除成功"}
 
 
@@ -98,23 +108,34 @@ async def admin_cleanup_spaces(
     if not auth_user or not auth_room:
         raise HTTPException(status_code=400, detail="缺少管理员凭据")
     verify_admin(auth_user, auth_room)
-    # 找出无任何数据痕迹的空间
-    subquery = select(Space.id).select_from(Space)
+    # 找出无任何数据痕迹的空间（允许真删除）
+    subquery = select(Space.id).select_from(Space).where(Space.deleted_at.is_(None))
     subquery = subquery.outerjoin(Message, Message.space_id == Space.id)
     subquery = subquery.outerjoin(Post, Post.space_id == Space.id)
     subquery = subquery.outerjoin(Note, Note.space_id == Space.id)
     subquery = subquery.outerjoin(UserAlias, UserAlias.space_id == Space.id)
     subquery = subquery.outerjoin(ShareCode, ShareCode.space_id == Space.id)
+    subquery = subquery.outerjoin(SpaceMember, SpaceMember.space_id == Space.id)
+    subquery = subquery.outerjoin(SpaceMapping, SpaceMapping.space_id == Space.id)
+    subquery = subquery.outerjoin(SpaceCode, SpaceCode.space_id == Space.id)
     subquery = subquery.where(
         Message.id.is_(None),
         Post.id.is_(None),
         Note.id.is_(None),
         UserAlias.id.is_(None),
-        ShareCode.id.is_(None)
+        ShareCode.id.is_(None),
+        SpaceMember.id.is_(None),
+        SpaceMapping.id.is_(None),
+        SpaceCode.id.is_(None)
     )
     idle_space_ids = [row[0] for row in (await db.execute(subquery)).fetchall()]
     deleted = 0
     for sid in idle_space_ids:
+        await db.execute(delete(SpaceMember).where(SpaceMember.space_id == sid))
+        await db.execute(delete(SpaceMapping).where(SpaceMapping.space_id == sid))
+        await db.execute(delete(SpaceCode).where(SpaceCode.space_id == sid))
+        await db.execute(delete(ShareCode).where(ShareCode.space_id == sid))
+        await db.execute(delete(UserAlias).where(UserAlias.space_id == sid))
         await db.execute(delete(Space).where(Space.id == sid))
         deleted += 1
     await db.commit()
@@ -148,21 +169,25 @@ def verify_admin(user_id: str, room_code: str):
 async def aggregate_counts(db: AsyncSession, model, space_ids: list[int]):
     if not space_ids:
         return {}
-    rows = await db.execute(
-        select(model.space_id, func.count(model.id))
-        .where(model.space_id.in_(space_ids))
-        .group_by(model.space_id)
-    )
+    query = select(model.space_id, func.count(model.id)).where(model.space_id.in_(space_ids))
+    if hasattr(model, "deleted_at"):
+        query = query.where(model.deleted_at.is_(None))
+    rows = await db.execute(query.group_by(model.space_id))
     return {space_id: count for space_id, count in rows}
 
 
 @router.get("/admin/overview")
 async def admin_overview(user_id: str, room_code: str, db: AsyncSession = Depends(get_db)):
     verify_admin(user_id, room_code)
-    alias_count = (await db.execute(select(func.count(UserAlias.id)))).scalar() or 0
-    space_count = (await db.execute(select(func.count(Space.id)))).scalar() or 0
-    message_count = (await db.execute(select(func.count(Message.id)))).scalar() or 0
-    post_count = (await db.execute(select(func.count(Post.id)))).scalar() or 0
+    alias_count = (await db.execute(
+        select(func.count(UserAlias.id))
+        .select_from(UserAlias)
+        .join(Space, UserAlias.space_id == Space.id)
+        .where(Space.deleted_at.is_(None))
+    )).scalar() or 0
+    space_count = (await db.execute(select(func.count(Space.id)).where(Space.deleted_at.is_(None)))).scalar() or 0
+    message_count = (await db.execute(select(func.count(Message.id)).where(Message.deleted_at.is_(None)))).scalar() or 0
+    post_count = (await db.execute(select(func.count(Post.id)).where(Post.deleted_at.is_(None)))).scalar() or 0
     return {
         "users": alias_count,
         "spaces": space_count,
@@ -180,12 +205,17 @@ async def admin_recent_messages(
 ):
     verify_admin(user_id, room_code)
     limit = max(1, min(limit, 50))
-    rows = await db.execute(select(Message).order_by(Message.created_at.desc()).limit(limit))
+    rows = await db.execute(
+        select(Message)
+        .where(Message.deleted_at.is_(None))
+        .order_by(Message.created_at.desc())
+        .limit(limit)
+    )
     messages = rows.scalars().all()
     space_ids = {m.space_id for m in messages}
     spaces_map = {}
     if space_ids:
-        space_rows = await db.execute(select(Space).where(Space.id.in_(space_ids)))
+        space_rows = await db.execute(select(Space).where(Space.id.in_(space_ids), Space.deleted_at.is_(None)))
         spaces_map = {s.id: s for s in space_rows.scalars().all()}
     owner_alias_map = {}
     if spaces_map:
@@ -244,7 +274,7 @@ async def admin_recent_posts(
     space_ids = {p.space_id for p in posts}
     spaces_map = {}
     if space_ids:
-        space_rows = await db.execute(select(Space).where(Space.id.in_(space_ids)))
+        space_rows = await db.execute(select(Space).where(Space.id.in_(space_ids), Space.deleted_at.is_(None)))
         spaces_map = {s.id: s for s in space_rows.scalars().all()}
     owner_alias_map = {}
     if spaces_map:
@@ -287,7 +317,11 @@ async def admin_recent_posts(
 @router.get("/admin/users")
 async def admin_users(user_id: str, room_code: str, db: AsyncSession = Depends(get_db)):
     verify_admin(user_id, room_code)
-    res = await db.execute(select(UserAlias))
+    res = await db.execute(
+        select(UserAlias)
+        .join(Space, UserAlias.space_id == Space.id)
+        .where(Space.deleted_at.is_(None))
+    )
     users = res.scalars().all()
     return {
         "users": [
@@ -306,7 +340,7 @@ async def admin_user_spaces(user_id: str, room_code: str, target_user_id: str, d
     verify_admin(user_id, room_code)
     if not target_user_id:
         raise HTTPException(status_code=400, detail="缺少用户ID")
-    res = await db.execute(select(Space).where(Space.owner_user_id == target_user_id))
+    res = await db.execute(select(Space).where(Space.owner_user_id == target_user_id, Space.deleted_at.is_(None)))
     spaces = res.scalars().all()
     return {
         "spaces": [
@@ -322,7 +356,7 @@ async def admin_user_spaces(user_id: str, room_code: str, target_user_id: str, d
 @router.get("/admin/spaces")
 async def admin_spaces(user_id: str, room_code: str, db: AsyncSession = Depends(get_db)):
     verify_admin(user_id, room_code)
-    res = await db.execute(select(Space).order_by(Space.created_at.desc()))
+    res = await db.execute(select(Space).where(Space.deleted_at.is_(None)).order_by(Space.created_at.desc()))
     spaces = res.scalars().all()
     space_ids = [s.id for s in spaces]
     owner_ids = [s.owner_user_id for s in spaces if s.owner_user_id]
@@ -362,7 +396,7 @@ async def admin_spaces(user_id: str, room_code: str, db: AsyncSession = Depends(
 @router.get("/admin/space-detail")
 async def admin_space_detail(user_id: str, room_code: str, space_id: int, db: AsyncSession = Depends(get_db)):
     verify_admin(user_id, room_code)
-    space = (await db.execute(select(Space).where(Space.id == space_id))).scalar_one_or_none()
+    space = (await db.execute(select(Space).where(Space.id == space_id, Space.deleted_at.is_(None)))).scalar_one_or_none()
     if not space:
         raise HTTPException(status_code=404, detail="空间不存在")
     member_rows = await db.execute(select(SpaceMember).where(SpaceMember.space_id == space_id))
@@ -379,17 +413,23 @@ async def admin_space_detail(user_id: str, room_code: str, space_id: int, db: As
         } for m in members
     ]
     recent_posts_res = await db.execute(
-        select(Post).where(Post.space_id == space_id).order_by(Post.created_at.desc()).limit(5)
+        select(Post)
+        .where(Post.space_id == space_id, Post.deleted_at.is_(None))
+        .order_by(Post.created_at.desc())
+        .limit(5)
     )
     posts = recent_posts_res.scalars().all()
     recent_messages_res = await db.execute(
-        select(Message).where(Message.space_id == space_id).order_by(Message.created_at.desc()).limit(5)
+        select(Message)
+        .where(Message.space_id == space_id, Message.deleted_at.is_(None))
+        .order_by(Message.created_at.desc())
+        .limit(5)
     )
     messages = recent_messages_res.scalars().all()
-    message_count = (await db.execute(select(func.count(Message.id)).where(Message.space_id == space_id))).scalar() or 0
-    post_count = (await db.execute(select(func.count(Post.id)).where(Post.space_id == space_id))).scalar() or 0
+    message_count = (await db.execute(select(func.count(Message.id)).where(Message.space_id == space_id, Message.deleted_at.is_(None)))).scalar() or 0
+    post_count = (await db.execute(select(func.count(Post.id)).where(Post.space_id == space_id, Post.deleted_at.is_(None)))).scalar() or 0
     member_count = len(member_payload)
-    note_count = (await db.execute(select(func.count(Note.id)).where(Note.space_id == space_id))).scalar() or 0
+    note_count = (await db.execute(select(func.count(Note.id)).where(Note.space_id == space_id, Note.deleted_at.is_(None)))).scalar() or 0
     return {
         "space": {
             "space_id": space.id,

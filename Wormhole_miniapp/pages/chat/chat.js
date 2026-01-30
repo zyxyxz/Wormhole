@@ -1,6 +1,8 @@
 const { BASE_URL, WS_URL } = require('../../utils/config.js');
 const { ensureDiaryMode } = require('../../utils/review.js');
 
+const CHAT_CACHE_LIMIT = 50;
+
 function normalizeDateString(str) {
   if (!str) return '';
   let normalized = str.replace(' ', 'T');
@@ -43,7 +45,7 @@ Page({
     inputMode: 'text',
     historyLoading: false,
     historyHasMore: true,
-    historyLimit: 50,
+    historyLimit: CHAT_CACHE_LIMIT,
   },
   goHome() {
     wx.reLaunch({ url: '/pages/index/index' });
@@ -79,8 +81,12 @@ Page({
     // 初始化WebSocket连接
     this.initWebSocket();
     
-    // 获取历史消息
-    this.getHistoryMessages({ reset: true });
+    const hasCache = this.loadCachedMessages();
+    if (hasCache) {
+      this.checkLatestMessage();
+    } else {
+      this.getHistoryMessages({ reset: true });
+    }
 
     if (wx.getRecorderManager) {
       this.recorder = wx.getRecorderManager();
@@ -134,6 +140,7 @@ Page({
       } catch (e) {
         message = res.data;
       }
+      this.mergeRawMessage(message);
       const displayed = this.decorateMessage(message, wx.getStorageSync('openid'));
       this.addMessage(displayed);
     });
@@ -153,19 +160,34 @@ Page({
   getHistoryMessages(opts = {}) {
     const { reset, beforeId, prepend } = opts;
     if (this.data.historyLoading) return;
+    if (!this.data.spaceId) {
+      wx.showToast({ title: '空间信息缺失', icon: 'none' });
+      return;
+    }
     this.setData({ historyLoading: true });
     const limit = this.data.historyLimit || 50;
+    const params = { space_id: this.data.spaceId, limit };
+    if (beforeId) params.before_id = beforeId;
     wx.request({
       url: `${BASE_URL}/api/chat/history`,
-      data: { space_id: this.data.spaceId, limit, before_id: beforeId || undefined },
+      data: params,
       success: (res) => {
+        if (res.statusCode !== 200) {
+          this.setData({ historyLoading: false });
+          wx.showToast({ title: res.data?.detail || '加载失败', icon: 'none' });
+          return;
+        }
         const myid = wx.getStorageSync('openid');
-        const msgs = (res.data.messages || []).map(m => this.decorateMessage(m, myid));
+        const rawMsgs = res.data.messages || [];
+        const msgs = rawMsgs.map(m => this.decorateMessage(m, myid));
         const hasMore = res.data.has_more !== undefined ? !!res.data.has_more : (msgs.length >= limit);
         if (prepend) {
           const existing = this.data.messages || [];
           const anchorId = existing.length ? existing[0].id : null;
           const merged = msgs.concat(existing);
+          const rawExisting = this._rawMessages || [];
+          this._rawMessages = rawMsgs.concat(rawExisting);
+          this.saveCachedMessages();
           this.setData({
             messages: merged,
             historyHasMore: hasMore,
@@ -173,6 +195,8 @@ Page({
             historyLoading: false
           });
         } else {
+          this._rawMessages = rawMsgs;
+          this.saveCachedMessages();
           this.setData({
             messages: msgs,
             lastMessageId: msgs.length ? `msg-${msgs[msgs.length - 1].id}` : '',
@@ -367,6 +391,81 @@ Page({
     const first = (this.data.messages || [])[0];
     if (!first) return;
     this.getHistoryMessages({ prepend: true, beforeId: first.id });
+  },
+
+  getCacheKey() {
+    return `chat_cache_${this.data.spaceId}`;
+  },
+
+  loadCachedMessages() {
+    if (!this.data.spaceId) return false;
+    const key = this.getCacheKey();
+    let cache = null;
+    try {
+      cache = wx.getStorageSync(key);
+    } catch (e) {}
+    const rawMsgs = Array.isArray(cache?.messages) ? cache.messages : [];
+    if (!rawMsgs.length) return false;
+    this._rawMessages = rawMsgs;
+    const myid = wx.getStorageSync('openid');
+    const msgs = rawMsgs.map(m => this.decorateMessage(m, myid));
+    const lastId = msgs.length ? msgs[msgs.length - 1].id : '';
+    const limit = this.data.historyLimit || CHAT_CACHE_LIMIT;
+    this.setData({
+      messages: msgs,
+      lastMessageId: lastId ? `msg-${lastId}` : '',
+      scrollTargetId: lastId ? `msg-${lastId}` : '',
+      historyHasMore: rawMsgs.length >= limit
+    });
+    return true;
+  },
+
+  saveCachedMessages() {
+    if (!this.data.spaceId) return;
+    const key = this.getCacheKey();
+    const limit = this.data.historyLimit || CHAT_CACHE_LIMIT;
+    const raw = Array.isArray(this._rawMessages) ? this._rawMessages : [];
+    if (!raw.length) {
+      try { wx.removeStorageSync(key); } catch (e) {}
+      return;
+    }
+    const trimmed = raw.slice(-limit);
+    const lastId = trimmed[trimmed.length - 1]?.id || null;
+    try {
+      wx.setStorageSync(key, { messages: trimmed, last_id: lastId, cached_at: Date.now() });
+    } catch (e) {}
+  },
+
+  mergeRawMessage(message) {
+    if (!message || !message.id) return;
+    const raw = Array.isArray(this._rawMessages) ? this._rawMessages : [];
+    if (raw.length && raw[raw.length - 1].id === message.id) return;
+    if (raw.some(m => m.id === message.id)) return;
+    raw.push(message);
+    this._rawMessages = raw;
+    this.saveCachedMessages();
+  },
+
+  checkLatestMessage() {
+    if (!this.data.spaceId) return;
+    const raw = Array.isArray(this._rawMessages) ? this._rawMessages : [];
+    const cachedLastId = raw.length ? raw[raw.length - 1].id : null;
+    if (!cachedLastId) {
+      this.getHistoryMessages({ reset: true });
+      return;
+    }
+    wx.request({
+      url: `${BASE_URL}/api/chat/history`,
+      data: { space_id: this.data.spaceId, limit: 1 },
+      success: (res) => {
+        if (res.statusCode !== 200) return;
+        const latest = (res.data?.messages || [])[0];
+        if (!latest) return;
+        if (latest.id !== cachedLastId) {
+          this.getHistoryMessages({ reset: true });
+        }
+      }
+    });
   },
 
   onUnload() {

@@ -69,6 +69,17 @@ async def add_message_media_columns(conn):
         await conn.execute(text("ALTER TABLE messages ADD COLUMN media_duration INTEGER"))
 
 
+async def add_soft_delete_columns(conn):
+    if not await column_exists(conn, "spaces", "deleted_at"):
+        await conn.execute(text("ALTER TABLE spaces ADD COLUMN deleted_at DATETIME"))
+    if not await column_exists(conn, "messages", "deleted_at"):
+        await conn.execute(text("ALTER TABLE messages ADD COLUMN deleted_at DATETIME"))
+    if not await column_exists(conn, "notes", "deleted_at"):
+        await conn.execute(text("ALTER TABLE notes ADD COLUMN deleted_at DATETIME"))
+    if not await column_exists(conn, "comments", "deleted_at"):
+        await conn.execute(text("ALTER TABLE comments ADD COLUMN deleted_at DATETIME"))
+
+
 async def add_operation_logs(conn):
     if not await table_exists(conn, "operation_logs"):
         await conn.execute(text(
@@ -98,6 +109,7 @@ MIGRATIONS = [
     ("202402_add_user_alias_avatar", add_user_avatar),
     ("202402_add_message_media", add_message_media_columns),
     ("202601_add_operation_logs", add_operation_logs),
+    ("202601_add_soft_delete_columns", add_soft_delete_columns),
 ]
 
 

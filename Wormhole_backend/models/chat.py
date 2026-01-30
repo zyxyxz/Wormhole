@@ -13,3 +13,4 @@ class Message(Base):
     media_url = Column(String, nullable=True)
     media_duration = Column(Integer, nullable=True)  # 毫秒
     created_at = Column(DateTime(timezone=True), server_default=func.now()) 
+    deleted_at = Column(DateTime(timezone=True), nullable=True)

@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.database import get_db
 from models.wallet import Wallet, Transaction
+from models.space import Space
 from models.user import UserAlias
 from schemas.wallet import WalletInfo, WalletResponse, TransactionResponse
 from pydantic import BaseModel
@@ -17,6 +18,9 @@ async def get_wallet_info(
     space_id: int,
     db: AsyncSession = Depends(get_db)
 ):
+    space = (await db.execute(select(Space).where(Space.id == space_id, Space.deleted_at.is_(None)))).scalar_one_or_none()
+    if not space:
+        raise HTTPException(status_code=404, detail="空间不存在")
     query = select(Wallet).where(Wallet.space_id == space_id)
     result = await db.execute(query)
     wallet = result.scalar_one_or_none()
@@ -41,6 +45,9 @@ async def get_transactions(
     space_id: int,
     db: AsyncSession = Depends(get_db)
 ):
+    space = (await db.execute(select(Space).where(Space.id == space_id, Space.deleted_at.is_(None)))).scalar_one_or_none()
+    if not space:
+        raise HTTPException(status_code=404, detail="空间不存在")
     wallet_query = select(Wallet).where(Wallet.space_id == space_id)
     wallet_result = await db.execute(wallet_query)
     wallet = wallet_result.scalar_one_or_none()
@@ -76,6 +83,9 @@ class AmountRequest(BaseModel):
 
 @router.post("/recharge")
 async def recharge(payload: AmountRequest, db: AsyncSession = Depends(get_db)):
+    space = (await db.execute(select(Space).where(Space.id == payload.space_id, Space.deleted_at.is_(None)))).scalar_one_or_none()
+    if not space:
+        raise HTTPException(status_code=404, detail="空间不存在")
     wallet_res = await db.execute(select(Wallet).where(Wallet.space_id == payload.space_id))
     wallet = wallet_res.scalar_one_or_none()
     if not wallet:
@@ -97,6 +107,9 @@ async def recharge(payload: AmountRequest, db: AsyncSession = Depends(get_db)):
 
 @router.post("/pay")
 async def pay(payload: AmountRequest, db: AsyncSession = Depends(get_db)):
+    space = (await db.execute(select(Space).where(Space.id == payload.space_id, Space.deleted_at.is_(None)))).scalar_one_or_none()
+    if not space:
+        raise HTTPException(status_code=404, detail="空间不存在")
     wallet_res = await db.execute(select(Wallet).where(Wallet.space_id == payload.space_id))
     wallet = wallet_res.scalar_one_or_none()
     if not wallet:
