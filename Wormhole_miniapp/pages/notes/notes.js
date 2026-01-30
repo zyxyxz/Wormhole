@@ -37,6 +37,11 @@ Page({
   },
 
   onShow() {
+    const app = getApp && getApp();
+    if (this._previewHoldActive && app && typeof app.leaveForegroundHold === 'function') {
+      this._previewHoldActive = false;
+      setTimeout(() => app.leaveForegroundHold(), 200);
+    }
     this.setData({ reviewMode: !!wx.getStorageSync('reviewMode') });
     this.syncTabBar();
     this.getPosts();
@@ -158,21 +163,19 @@ Page({
     const { urls = [], current } = e.currentTarget.dataset;
     if (!urls.length) return;
     const app = getApp && getApp();
-    if (app && typeof app.markTemporaryForegroundAllowed === 'function') {
+    if (app && typeof app.enterForegroundHold === 'function') {
+      this._previewHoldActive = true;
+      app.enterForegroundHold(60000);
+    } else if (app && typeof app.markTemporaryForegroundAllowed === 'function') {
+      this._previewHoldActive = true;
       app.markTemporaryForegroundAllowed();
     } else if (app && app.globalData) {
+      this._previewHoldActive = true;
       app.globalData.skipNextHideRedirect = true;
     }
     wx.previewImage({
       current: current || urls[0],
-      urls,
-      complete: () => {
-        if (app && typeof app.clearTemporaryForegroundFlag === 'function') {
-          app.clearTemporaryForegroundFlag();
-        } else if (app && app.globalData) {
-          app.globalData.skipNextHideRedirect = false;
-        }
-      }
+      urls
     });
   },
 

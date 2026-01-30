@@ -154,6 +154,11 @@ Page({
     this.sendTyping(false);
   },
   onShow() {
+    const app = typeof getApp === 'function' ? getApp() : null;
+    if (this._previewHoldActive && app && typeof app.leaveForegroundHold === 'function') {
+      this._previewHoldActive = false;
+      setTimeout(() => app.leaveForegroundHold(), 200);
+    }
     // 若昵称更新，刷新历史以展示新昵称
     const updated = wx.getStorageSync('aliasUpdatedAt');
     if (updated) {
@@ -1083,13 +1088,13 @@ Page({
     const url = e.currentTarget.dataset.url;
     if (!url) return;
     const app = typeof getApp === 'function' ? getApp() : null;
-    if (app && typeof app.enterForegroundHold === 'function') app.enterForegroundHold(60000);
+    if (app && typeof app.enterForegroundHold === 'function') {
+      this._previewHoldActive = true;
+      app.enterForegroundHold(60000);
+    }
     wx.previewImage({
       current: url,
-      urls: [url],
-      complete: () => {
-        if (app && typeof app.leaveForegroundHold === 'function') app.leaveForegroundHold();
-      }
+      urls: [url]
     });
   },
 
