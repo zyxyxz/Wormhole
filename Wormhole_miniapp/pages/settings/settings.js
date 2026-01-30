@@ -32,7 +32,9 @@ Page({
     shareInfoText: '',
     blocks: [],
     showAutoLockModal: false,
-    autoLockOptions: ['不锁定', '1分钟', '3分钟', '5分钟']
+    autoLockOptions: ['不锁定', '1分钟', '3分钟', '5分钟'],
+    autoLockIndex: 0,
+    autoLockDisplay: '不锁定'
   },
   onBack() {
     wx.reLaunch({ url: '/pages/index/index' });
@@ -225,15 +227,17 @@ Page({
   },
 
   onAutoLockChange(e) {
-    this.setData({ autoLockIndex: Number(e.detail.value || 0) });
+    const idx = Number(e.detail.value || 0);
+    this.setData({ autoLockIndex: idx }, () => {
+      this.applyAutoLockSelection();
+    });
   },
 
-  confirmAutoLock() {
+  applyAutoLockSelection() {
     const map = [0, 60, 180, 300];
     const seconds = map[this.data.autoLockIndex] || 0;
     wx.setStorageSync('autoLockSeconds', seconds);
     this.updateAutoLockDisplay(seconds);
-    this.setData({ showAutoLockModal: false });
     wx.showToast({ title: '已保存', icon: 'none' });
   },
 

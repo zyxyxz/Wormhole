@@ -45,10 +45,15 @@
       <text class="arrow">></text>
     </view>
 
-    <view class="settings-item" bindtap="openAutoLockModal">
-      <text>无操作锁定时间</text>
-      <text class="space-code">{{autoLockDisplay}}</text>
-    </view>
+    <picker mode="selector" range="{{autoLockOptions}}" value="{{autoLockIndex}}" bindchange="onAutoLockChange">
+      <view class="settings-item">
+        <text>无操作锁定时间</text>
+        <view class="settings-item-right">
+          <text class="space-code">{{autoLockOptions[autoLockIndex]}}</text>
+          <text class="arrow">></text>
+        </view>
+      </view>
+    </picker>
   </view>
 
   <view class="settings-group" wx:if="{{isOwner}}">
@@ -123,19 +128,5 @@
       </view>
     </scroll-view>
     <button class="close-button" bindtap="closeMembersModal">关闭</button>
-  </view>
-</view>
-
-<!-- 无操作锁定弹窗 -->
-<view class="modal" wx:if="{{showAutoLockModal}}">
-  <view class="modal-content">
-    <view class="modal-title">无操作锁定</view>
-    <picker mode="selector" range="{{autoLockOptions}}" value="{{autoLockIndex}}" bindchange="onAutoLockChange">
-      <view class="picker-display">{{autoLockOptions[autoLockIndex]}}</view>
-    </picker>
-    <view class="modal-buttons">
-      <button class="cancel-button" bindtap="closeAutoLockModal">取消</button>
-      <button class="confirm-button" bindtap="confirmAutoLock">确定</button>
-    </view>
   </view>
 </view>

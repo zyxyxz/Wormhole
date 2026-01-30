@@ -87,6 +87,12 @@
   font-size: 32rpx;
 }
 
+.settings-item-right {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
 .modal {
   position: fixed;
   top: 0;
