@@ -1,32 +1,50 @@
 <!--index.wxml-->
-<scroll-view class="scrollarea" scroll-y="false" type="list">
+<scroll-view class="scrollarea" scroll-y="true" type="list">
   <view class="aurora-bg">
-    <view class="blob cyan" style="width: 320rpx; height: 320rpx; top: -80rpx; left: -40rpx;"></view>
-    <view class="blob purple" style="width: 420rpx; height: 420rpx; top: 220rpx; right: -160rpx;"></view>
-    <view class="blob pink" style="width: 300rpx; height: 300rpx; bottom: -120rpx; left: 120rpx;"></view>
+    <view class="blob blob-a"></view>
+    <view class="blob blob-b"></view>
+    <view class="blob blob-c"></view>
+    <view class="grid-glow"></view>
   </view>
   <view class="container">
-    <view class="top-actions">
-      <view class="link" bindtap="goJoinByShare">口令加入</view>
-    </view>
-    <view class="title-neo">{{reviewMode ? '私人日记本' : '虫洞私密共享空间'}}</view>
-    <view class="subtitle-neo">{{reviewMode ? '输入日记本密码，打开专属私密日记' : '输入6位空间号，进入你的共享空间'}}</view>
-
-    <view class="spacer"></view>
-
-    <view class="enter-area">
-      <view class="input-display">
-        <text wx:for="{{spaceCode}}" wx:key="index" class="code-digit">{{item !== '' ? '*' : ''}}</text>
-      </view>
-      <view class="keypad">
-        <view wx:for="{{[1,2,3,4,5,6,7,8,9,'',0,'删除']}}" 
-              wx:key="index" 
-              class="key-button {{item === '' ? 'key-empty' : ''}}"
-              bindtap="onKeyTap"
-              data-key="{{item}}">
-          {{item}}
+    <view class="header">
+      <view class="brand">
+        <view class="brand-logo">WH</view>
+        <view class="brand-text">
+          <text class="brand-title">{{reviewMode ? '私人日记本' : '虫洞'}}</text>
+          <text class="brand-subtitle">{{reviewMode ? 'Private Diary' : 'Private Space'}}</text>
         </view>
       </view>
+      <view class="join-pill" bindtap="goJoinByShare">口令加入</view>
+    </view>
+
+    <view class="hero">
+      <view class="hero-title">{{reviewMode ? '请输入日记本密码' : '请输入空间号'}}</view>
+      <view class="hero-subtitle">{{reviewMode ? '仅你可见，离开即锁定' : '6位房间号，直接进入内容'}}</view>
+    </view>
+
+    <view class="enter-card">
+      <view class="card-label">{{reviewMode ? '密码输入' : '房间号输入'}}</view>
+      <view class="input-display">
+        <view wx:for="{{spaceCode}}" wx:key="index" class="code-slot">
+          <view wx:if="{{item !== ''}}" class="code-dot"></view>
+        </view>
+      </view>
+      <view class="card-tip">{{reviewMode ? '输入完成即解锁' : '不存在的房间也会进入空白空间'}}</view>
+    </view>
+
+    <view class="keypad">
+      <view wx:for="{{[1,2,3,4,5,6,7,8,9,'',0,'删除']}}"
+            wx:key="index"
+            class="key-button {{item === '' ? 'key-empty' : ''}} {{item === '删除' ? 'key-delete' : ''}}"
+            bindtap="onKeyTap"
+            data-key="{{item}}">
+        <text class="key-text">{{item}}</text>
+      </view>
+    </view>
+
+    <view class="footer-note">
+      <text>{{reviewMode ? '内容只保留在你的房间里' : '离开小程序将立即锁定'}}</text>
     </view>
   </view>
 </scroll-view>
