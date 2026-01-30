@@ -194,12 +194,16 @@ App({
     if (now < (this.globalData.holdUntil || 0)) {
       return;
     }
-    const autoLockMs = (wx.getStorageSync('autoLockSeconds') || this.globalData.autoLockSeconds || 0) * 1000;
-    if (autoLockMs > 0 && now - this.globalData.lastHideTimestamp >= autoLockMs) {
-      this.globalData.shouldReturnToIndex = true;
+    const lastHide = this.globalData.lastHideTimestamp || 0;
+    if (!lastHide) {
+      this.globalData.lastHideTimestamp = now;
+      return;
     }
-    if (!this.globalData.shouldReturnToIndex) return;
-    this.globalData.shouldReturnToIndex = false;
+    const storedSeconds = wx.getStorageSync('autoLockSeconds');
+    const baseSeconds = storedSeconds === undefined ? this.globalData.autoLockSeconds : storedSeconds;
+    const autoLockMs = (baseSeconds || 0) * 1000;
+    if (autoLockMs <= 0) return;
+    if (now - lastHide < autoLockMs) return;
     const pages = getCurrentPages();
     const currentPage = pages[pages.length - 1];
     if (!currentPage || currentPage.route !== 'pages/index/index') {
@@ -210,21 +214,15 @@ App({
   },
 
   onHide() {
-    if (this.globalData.skipNextHideRedirect || Date.now() < (this.globalData.holdUntil || 0)) {
+    const now = Date.now();
+    if (this.globalData.skipNextHideRedirect || now < (this.globalData.holdUntil || 0)) {
       this.globalData.skipNextHideRedirect = false;
-      this.globalData.lastHideTimestamp = Date.now();
+      this.globalData.lastHideTimestamp = now;
       return;
     }
     this.clearHideTimer();
-    this.globalData.hideTimer = setTimeout(() => {
-      if (Date.now() < (this.globalData.holdUntil || 0)) {
-        this.clearHideTimer();
-        return;
-      }
-      this.globalData.shouldReturnToIndex = true;
-      this.globalData.hideTimer = null;
-      this.globalData.lastHideTimestamp = Date.now();
-    }, 500);
+    this.globalData.shouldReturnToIndex = false;
+    this.globalData.lastHideTimestamp = now;
   }
   ,
 
