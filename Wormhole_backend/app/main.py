@@ -5,6 +5,7 @@ from app.api import feed as feed_api
 from app.api import upload as upload_api
 from app.api import user as user_api
 from app.api import auth as auth_api
+from app.api import logs as logs_api
 from app.database import create_tables
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
@@ -34,6 +35,7 @@ app.include_router(wallet.router, prefix="/api/wallet", tags=["钱包"])
 app.include_router(settings.router, prefix="/api/settings", tags=["设置"])
 app.include_router(user_api.router, prefix="/api/user", tags=["用户"])
 app.include_router(auth_api.router, prefix="/api/auth", tags=["认证"]) 
+app.include_router(logs_api.router, prefix="/api/logs", tags=["日志"])
 app.include_router(feed_api.router, prefix="/api/feed", tags=["动态"]) 
 app.include_router(upload_api.router, prefix="/api", tags=["上传"]) 
 

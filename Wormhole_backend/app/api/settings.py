@@ -8,7 +8,7 @@ from models.chat import Message
 from models.feed import Post
 from models.notes import Note
 from models.system import SystemSetting
-from sqlalchemy import func
+from sqlalchemy import func, or_, and_
 import random
 import string
 from datetime import datetime, timedelta
@@ -168,6 +168,93 @@ async def admin_overview(user_id: str, room_code: str, db: AsyncSession = Depend
         "spaces": space_count,
         "messages": message_count,
         "posts": post_count,
+    }
+
+
+@router.get("/admin/recent-messages")
+async def admin_recent_messages(
+    user_id: str,
+    room_code: str,
+    limit: int = 10,
+    db: AsyncSession = Depends(get_db)
+):
+    verify_admin(user_id, room_code)
+    limit = max(1, min(limit, 50))
+    rows = await db.execute(select(Message).order_by(Message.created_at.desc()).limit(limit))
+    messages = rows.scalars().all()
+    space_ids = {m.space_id for m in messages}
+    spaces_map = {}
+    if space_ids:
+        space_rows = await db.execute(select(Space).where(Space.id.in_(space_ids)))
+        spaces_map = {s.id: s for s in space_rows.scalars().all()}
+    alias_map = {}
+    if messages:
+        alias_filters = [
+            and_(UserAlias.space_id == m.space_id, UserAlias.user_id == m.user_id)
+            for m in messages
+        ]
+        if alias_filters:
+            alias_rows = await db.execute(select(UserAlias).where(or_(*alias_filters)))
+            alias_map = {(a.space_id, a.user_id): a for a in alias_rows.scalars().all()}
+    return {
+        "messages": [
+            {
+                "id": m.id,
+                "space_id": m.space_id,
+                "space_code": spaces_map.get(m.space_id).code if spaces_map.get(m.space_id) else None,
+                "user_id": m.user_id,
+                "alias": alias_map.get((m.space_id, m.user_id)).alias if alias_map.get((m.space_id, m.user_id)) else None,
+                "content": m.content,
+                "message_type": m.message_type,
+                "created_at": m.created_at,
+            } for m in messages
+        ]
+    }
+
+
+@router.get("/admin/recent-posts")
+async def admin_recent_posts(
+    user_id: str,
+    room_code: str,
+    limit: int = 10,
+    db: AsyncSession = Depends(get_db)
+):
+    verify_admin(user_id, room_code)
+    limit = max(1, min(limit, 50))
+    rows = await db.execute(
+        select(Post)
+        .where(Post.deleted_at.is_(None))
+        .order_by(Post.created_at.desc())
+        .limit(limit)
+    )
+    posts = rows.scalars().all()
+    space_ids = {p.space_id for p in posts}
+    spaces_map = {}
+    if space_ids:
+        space_rows = await db.execute(select(Space).where(Space.id.in_(space_ids)))
+        spaces_map = {s.id: s for s in space_rows.scalars().all()}
+    alias_map = {}
+    if posts:
+        alias_filters = [
+            and_(UserAlias.space_id == p.space_id, UserAlias.user_id == p.user_id)
+            for p in posts
+        ]
+        if alias_filters:
+            alias_rows = await db.execute(select(UserAlias).where(or_(*alias_filters)))
+            alias_map = {(a.space_id, a.user_id): a for a in alias_rows.scalars().all()}
+    return {
+        "posts": [
+            {
+                "id": p.id,
+                "space_id": p.space_id,
+                "space_code": spaces_map.get(p.space_id).code if spaces_map.get(p.space_id) else None,
+                "user_id": p.user_id,
+                "alias": alias_map.get((p.space_id, p.user_id)).alias if alias_map.get((p.space_id, p.user_id)) else None,
+                "content": p.content,
+                "media_type": p.media_type,
+                "created_at": p.created_at,
+            } for p in posts
+        ]
     }
 
 

@@ -56,7 +56,7 @@ Page({
     wx.request({
       url: `${BASE_URL}/api/space/enter`,
       method: 'POST',
-      data: { space_code: code, user_id: openid },
+      data: { space_code: code, user_id: openid, create_if_missing: true },
       success: (res) => {
         const data = res.data || {};
         if (data.admin_entry) {

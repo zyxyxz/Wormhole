@@ -27,61 +27,93 @@
     </view>
 
     <view class="stats-card">
-      <view class="stat-item">
+      <view class="stat-item {{activeSection === 'users' ? 'active' : ''}}" data-section="users" bindtap="onStatTap">
         <text class="stat-value">{{overview.users || 0}}</text>
         <text class="stat-label">别名用户</text>
       </view>
-      <view class="stat-item">
+      <view class="stat-item {{activeSection === 'spaces' ? 'active' : ''}}" data-section="spaces" bindtap="onStatTap">
         <text class="stat-value">{{overview.spaces || 0}}</text>
         <text class="stat-label">空间总数</text>
       </view>
-      <view class="stat-item">
+      <view class="stat-item {{activeSection === 'messages' ? 'active' : ''}}" data-section="messages" bindtap="onStatTap">
         <text class="stat-value">{{overview.messages || 0}}</text>
         <text class="stat-label">消息</text>
       </view>
-      <view class="stat-item">
+      <view class="stat-item {{activeSection === 'posts' ? 'active' : ''}}" data-section="posts" bindtap="onStatTap">
         <text class="stat-value">{{overview.posts || 0}}</text>
         <text class="stat-label">动态</text>
       </view>
     </view>
 
-    <view class="section" wx:if="{{spaces.length}}">
+    <view class="section" wx:if="{{activeSection === 'spaces'}}">
       <view class="section-title">空间列表</view>
-      <view class="space-card" wx:for="{{spaces}}" wx:key="space_id">
-        <view class="space-head">
-          <view>
-            <text class="space-code">空间号 {{item.code}}</text>
-            <text class="space-owner">房主：{{item.owner_user_id || '未设置'}}</text>
+      <view class="space-filter" wx:if="{{spaceOwnerFilter}}">
+        <text>筛选房主：{{spaceOwnerFilter}}</text>
+        <button size="mini" class="refresh-btn" bindtap="clearSpaceFilter">清除筛选</button>
+      </view>
+      <view wx:if="{{spaceList.length}}">
+        <view class="space-card" wx:for="{{spaceList}}" wx:key="space_id">
+          <view class="space-head">
+            <view>
+              <text class="space-code">空间号 {{item.code}}</text>
+              <text class="space-owner">房主：{{item.owner_user_id || '未设置'}}</text>
+            </view>
+            <view class="space-actions">
+              <button size="mini" data-id="{{item.space_id}}" bindtap="openSpaceDetail">详情</button>
+              <button size="mini" data-id="{{item.space_id}}" data-code="{{item.code}}" bindtap="openSpaceLogs">日志</button>
+            </view>
           </view>
-          <button size="mini" data-id="{{item.space_id}}" bindtap="openSpaceDetail">详情</button>
-        </view>
-        <view class="space-stats">
-          <text>成员 {{item.member_count}}</text>
-          <text>消息 {{item.message_count}}</text>
-          <text>动态 {{item.post_count}}</text>
-          <text>笔记 {{item.note_count}}</text>
+          <view class="space-stats">
+            <text>成员 {{item.member_count}}</text>
+            <text>消息 {{item.message_count}}</text>
+            <text>动态 {{item.post_count}}</text>
+            <text>笔记 {{item.note_count}}</text>
+          </view>
         </view>
       </view>
+      <view class="section-empty" wx:if="{{!spaceList.length}}">暂无空间</view>
     </view>
 
-    <view class="section" wx:if="{{users.length}}">
+    <view class="section" wx:if="{{activeSection === 'users'}}">
       <view class="section-title">别名用户</view>
-      <view class="user-row" wx:for="{{users}}" wx:key="user_id">
-        <view>
-          <text class="user-alias">{{item.alias || '未命名'}}</text>
-          <text class="user-id">{{item.user_id}}</text>
+      <view wx:if="{{users.length}}">
+        <view class="user-row" wx:for="{{users}}" wx:key="user_id">
+          <view>
+            <text class="user-alias">{{item.alias || '未命名'}}</text>
+            <text class="user-id">{{item.user_id}}</text>
+          </view>
+          <button size="mini" bindtap="viewSpaces" data-userid="{{item.user_id}}">房间</button>
         </view>
-        <button size="mini" bindtap="viewSpaces" data-userid="{{item.user_id}}">房间</button>
       </view>
+      <view class="section-empty" wx:if="{{!users.length}}">暂无用户</view>
     </view>
 
-    <view class="section" wx:if="{{currentUserSpaces.length}}">
-      <view class="section-title">{{currentUserId}} 的房间</view>
-      <view class="space-row" wx:for="{{currentUserSpaces}}" wx:key="space_id">
-        <text>空间ID：{{item.space_id}}</text>
-        <text>代码：{{item.code}}</text>
-        <text>创建时间：{{item.created_at}}</text>
+    <view class="section" wx:if="{{activeSection === 'messages'}}">
+      <view class="section-title">最近消息</view>
+      <view class="section-empty" wx:if="{{messagesLoading}}">加载中...</view>
+      <view wx:if="{{!messagesLoading && recentMessages.length}}">
+        <view class="activity-row" wx:for="{{recentMessages}}" wx:key="id">
+          <text class="activity-meta">
+            {{item.alias || item.user_id}} · 空间 {{item.space_code || item.space_id}} · {{item.created_at}}
+          </text>
+          <text class="activity-content">{{item.content || '[媒体]'}}</text>
+        </view>
       </view>
+      <view class="section-empty" wx:if="{{!messagesLoading && !recentMessages.length}}">暂无消息</view>
+    </view>
+
+    <view class="section" wx:if="{{activeSection === 'posts'}}">
+      <view class="section-title">最近动态</view>
+      <view class="section-empty" wx:if="{{postsLoading}}">加载中...</view>
+      <view wx:if="{{!postsLoading && recentPosts.length}}">
+        <view class="activity-row" wx:for="{{recentPosts}}" wx:key="id">
+          <text class="activity-meta">
+            {{item.alias || item.user_id}} · 空间 {{item.space_code || item.space_id}} · {{item.created_at}}
+          </text>
+          <text class="activity-content">{{item.content || '[媒体]'}}</text>
+        </view>
+      </view>
+      <view class="section-empty" wx:if="{{!postsLoading && !recentPosts.length}}">暂无动态</view>
     </view>
   </view>
 </scroll-view>
@@ -106,20 +138,42 @@
         <text class="member-id">{{item.user_id}}</text>
       </view>
     </view>
-    <view class="modal-section" wx:if="{{recentPosts.length}}">
+    <view class="modal-section" wx:if="{{spaceRecentPosts.length}}">
       <view class="modal-section-head">近期动态</view>
-      <view class="feed-row" wx:for="{{recentPosts}}" wx:key="id">
+      <view class="feed-row" wx:for="{{spaceRecentPosts}}" wx:key="id">
         <text class="feed-meta">{{item.alias || item.user_id}} · {{item.created_at}}</text>
         <text class="feed-content">{{item.content || '[媒体]'}} </text>
       </view>
     </view>
-    <view class="modal-section" wx:if="{{recentMessages.length}}">
+    <view class="modal-section" wx:if="{{spaceRecentMessages.length}}">
       <view class="modal-section-head">近期消息</view>
-      <view class="feed-row" wx:for="{{recentMessages}}" wx:key="id">
+      <view class="feed-row" wx:for="{{spaceRecentMessages}}" wx:key="id">
         <text class="feed-meta">{{item.alias || item.user_id}} · {{item.created_at}}</text>
         <text class="feed-content">{{item.content || '[媒体]'}} </text>
       </view>
     </view>
     <button class="close-button" bindtap="closeSpaceDetail">关闭</button>
+  </view>
+</view>
+
+<view class="modal" wx:if="{{showLogModal}}">
+  <view class="modal-content">
+    <view class="modal-title">空间 {{logSpace.code || logSpace.space_id}} 日志</view>
+    <view class="modal-section" wx:if="{{logEntries.length}}">
+      <view class="log-row" wx:for="{{logEntries}}" wx:key="id">
+        <view class="log-main">
+          <text class="log-user">{{item.user_id || '未知用户'}}</text>
+          <text class="log-action">{{item.action}}</text>
+        </view>
+        <view class="log-meta">
+          <text>{{item.page || '-'}}</text>
+          <text>{{item.created_at}}</text>
+        </view>
+        <view class="log-detail" wx:if="{{item.detail}}">{{item.detail}}</view>
+      </view>
+    </view>
+    <view class="log-empty" wx:if="{{logLoading}}">加载中...</view>
+    <view class="log-empty" wx:if="{{!logLoading && !logEntries.length}}">暂无日志</view>
+    <button class="close-button" bindtap="closeSpaceLogs">关闭</button>
   </view>
 </view>

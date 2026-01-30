@@ -1,6 +1,23 @@
 // app.js
 const { BASE_URL } = require('./utils/config.js');
 
+const originalPage = Page;
+Page = function (pageConfig) {
+  const originalOnShow = pageConfig.onShow;
+  pageConfig.onShow = function () {
+    try {
+      const app = getApp();
+      if (app && typeof app.logPageView === 'function') {
+        app.logPageView(this.route, this.options || {});
+      }
+    } catch (e) {}
+    if (typeof originalOnShow === 'function') {
+      return originalOnShow.apply(this, arguments);
+    }
+  };
+  return originalPage(pageConfig);
+};
+
 App({
   globalData: {
     shouldReturnToIndex: false,
@@ -44,6 +61,38 @@ App({
       clearTimeout(this.globalData.hideTimer);
       this.globalData.hideTimer = null;
     }
+  },
+
+  logOperation(payload = {}) {
+    const userId = payload.user_id || wx.getStorageSync('openid') || '';
+    if (!userId || !payload.action) return;
+    wx.request({
+      url: `${BASE_URL}/api/logs/track`,
+      method: 'POST',
+      data: {
+        user_id: userId,
+        action: payload.action,
+        page: payload.page || '',
+        detail: payload.detail || '',
+        space_id: payload.space_id || null
+      }
+    });
+  },
+
+  logPageView(route, options = {}) {
+    const spaceId = wx.getStorageSync('currentSpaceId') || null;
+    let detail = '';
+    try {
+      if (options && Object.keys(options).length) {
+        detail = JSON.stringify(options);
+      }
+    } catch (e) {}
+    this.logOperation({
+      action: 'page_view',
+      page: route,
+      detail,
+      space_id: spaceId
+    });
   },
 
   onLaunch() {

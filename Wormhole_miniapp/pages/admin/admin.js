@@ -6,17 +6,27 @@ Page({
     adminRoomCode: '',
     overview: {},
     users: [],
-    currentUserSpaces: [],
-    currentUserId: '',
     loading: true,
     hasAccess: false,
     spaces: [],
+    spaceList: [],
+    spaceOwnerFilter: '',
+    activeSection: '',
     showSpaceModal: false,
     spaceDetail: null,
     spaceMembers: [],
     recentPosts: [],
     recentMessages: [],
-    reviewMode: false
+    spaceRecentPosts: [],
+    spaceRecentMessages: [],
+    reviewMode: false,
+    messagesLoading: false,
+    postsLoading: false,
+    showLogModal: false,
+    logSpace: null,
+    logEntries: [],
+    logLoading: false,
+    logLimit: 30
   },
   onLoad(options = {}) {
     const openid = wx.getStorageSync('openid') || '';
@@ -167,18 +177,52 @@ Page({
   viewSpaces(e) {
     const targetUserId = e.currentTarget.dataset.userid;
     if (!targetUserId) return;
-    const { adminOpenId, adminRoomCode } = this.data;
-    wx.request({
-      url: `${BASE_URL}/api/settings/admin/user-spaces`,
-      data: { user_id: adminOpenId, room_code: adminRoomCode, target_user_id: targetUserId },
-      success: (res) => {
-        if (res.data && Array.isArray(res.data.spaces)) {
-          this.setData({ currentUserSpaces: res.data.spaces, currentUserId: targetUserId });
-        } else {
-          wx.showToast({ title: res.data.detail || '加载失败', icon: 'none' });
-        }
+    this.setSpaceFilter(targetUserId);
+  },
+
+  onStatTap(e) {
+    const section = e.currentTarget.dataset.section;
+    if (!section) return;
+    const next = this.data.activeSection === section ? '' : section;
+    if (next === 'spaces') {
+      this.clearSpaceFilter();
+    }
+    this.setData({ activeSection: next });
+    if (!next) return;
+    if (next === 'users') {
+      this.fetchUsers({ silent: true });
+    } else if (next === 'spaces') {
+      if (!this.data.spaces.length) {
+        this.fetchSpaces({ silent: true });
       }
-    });
+    } else if (next === 'messages') {
+      this.fetchRecentMessages({ silent: true });
+    } else if (next === 'posts') {
+      this.fetchRecentPosts({ silent: true });
+    }
+  },
+
+  setSpaceFilter(userId) {
+    if (!userId) return;
+    const applyFilter = () => {
+      const spaces = this.data.spaces || [];
+      const filtered = spaces.filter(s => s.owner_user_id === userId);
+      this.setData({
+        spaceOwnerFilter: userId,
+        spaceList: filtered,
+        activeSection: 'spaces'
+      });
+    };
+    if (!this.data.spaces.length) {
+      this.fetchSpaces({ silent: true }).then(applyFilter);
+    } else {
+      applyFilter();
+    }
+  },
+
+  clearSpaceFilter() {
+    const spaces = this.data.spaces || [];
+    this.setData({ spaceOwnerFilter: '', spaceList: spaces });
   },
 
   fetchSpaces(opts = {}) {
@@ -197,8 +241,13 @@ Page({
         data: { user_id: adminOpenId, room_code: adminRoomCode },
         success: (res) => {
           if (res.statusCode === 200 && Array.isArray(res.data?.spaces)) {
-            this.setData({ spaces: res.data.spaces });
-            resolve(res.data.spaces);
+            const spaces = res.data.spaces || [];
+            const filterOwner = (this.data.spaceOwnerFilter || '').trim();
+            const spaceList = filterOwner
+              ? spaces.filter(s => s.owner_user_id === filterOwner)
+              : spaces;
+            this.setData({ spaces, spaceList });
+            resolve(spaces);
           } else {
             if (!silent) {
               wx.showToast({ title: res.data?.detail || '加载失败', icon: 'none' });
@@ -209,6 +258,66 @@ Page({
         fail: () => {
           if (!silent) {
             wx.showToast({ title: '网络异常', icon: 'none' });
+          }
+          reject(new Error('network'));
+        }
+      });
+    });
+  },
+
+  fetchRecentMessages(opts = {}) {
+    const { adminOpenId, adminRoomCode } = this.data;
+    const silent = !!opts.silent;
+    if (!adminOpenId || !adminRoomCode) {
+      if (!silent) {
+        wx.showToast({ title: '缺少管理员信息', icon: 'none' });
+      }
+      return Promise.reject(new Error('missing-admin'));
+    }
+    this.setData({ messagesLoading: true });
+    return new Promise((resolve, reject) => {
+      wx.request({
+        url: `${BASE_URL}/api/settings/admin/recent-messages`,
+        data: { user_id: adminOpenId, room_code: adminRoomCode, limit: 10 },
+        success: (res) => {
+          const list = Array.isArray(res.data?.messages) ? res.data.messages : [];
+          this.setData({ recentMessages: list, messagesLoading: false });
+          resolve(list);
+        },
+        fail: () => {
+          this.setData({ messagesLoading: false });
+          if (!silent) {
+            wx.showToast({ title: '消息加载失败', icon: 'none' });
+          }
+          reject(new Error('network'));
+        }
+      });
+    });
+  },
+
+  fetchRecentPosts(opts = {}) {
+    const { adminOpenId, adminRoomCode } = this.data;
+    const silent = !!opts.silent;
+    if (!adminOpenId || !adminRoomCode) {
+      if (!silent) {
+        wx.showToast({ title: '缺少管理员信息', icon: 'none' });
+      }
+      return Promise.reject(new Error('missing-admin'));
+    }
+    this.setData({ postsLoading: true });
+    return new Promise((resolve, reject) => {
+      wx.request({
+        url: `${BASE_URL}/api/settings/admin/recent-posts`,
+        data: { user_id: adminOpenId, room_code: adminRoomCode, limit: 10 },
+        success: (res) => {
+          const list = Array.isArray(res.data?.posts) ? res.data.posts : [];
+          this.setData({ recentPosts: list, postsLoading: false });
+          resolve(list);
+        },
+        fail: () => {
+          this.setData({ postsLoading: false });
+          if (!silent) {
+            wx.showToast({ title: '动态加载失败', icon: 'none' });
           }
           reject(new Error('network'));
         }
@@ -230,8 +339,8 @@ Page({
           this.setData({
             spaceDetail: res.data.space,
             spaceMembers: res.data.members || [],
-            recentPosts: res.data.recent_posts || [],
-            recentMessages: res.data.recent_messages || [],
+            spaceRecentPosts: res.data.recent_posts || [],
+            spaceRecentMessages: res.data.recent_messages || [],
             showSpaceModal: true
           });
         } else {
@@ -246,7 +355,57 @@ Page({
   },
 
   closeSpaceDetail() {
-    this.setData({ showSpaceModal: false, spaceDetail: null });
+    this.setData({
+      showSpaceModal: false,
+      spaceDetail: null,
+      spaceMembers: [],
+      spaceRecentPosts: [],
+      spaceRecentMessages: []
+    });
+  },
+
+  openSpaceLogs(e) {
+    const spaceId = e.currentTarget.dataset.id;
+    const spaceCode = e.currentTarget.dataset.code || '';
+    if (!spaceId) return;
+    this.setData({
+      showLogModal: true,
+      logSpace: { space_id: spaceId, code: spaceCode },
+      logEntries: [],
+      logLoading: true
+    });
+    this.fetchSpaceLogs(spaceId);
+  },
+
+  closeSpaceLogs() {
+    this.setData({ showLogModal: false, logSpace: null, logEntries: [] });
+  },
+
+  fetchSpaceLogs(spaceId) {
+    const { adminOpenId, adminRoomCode, logLimit } = this.data;
+    if (!adminOpenId || !adminRoomCode) {
+      this.setData({ logLoading: false });
+      wx.showToast({ title: '缺少管理员信息', icon: 'none' });
+      return;
+    }
+    wx.request({
+      url: `${BASE_URL}/api/logs/admin/list`,
+      data: {
+        user_id: adminOpenId,
+        room_code: adminRoomCode,
+        space_id: spaceId,
+        limit: logLimit,
+        offset: 0
+      },
+      success: (res) => {
+        const list = Array.isArray(res.data?.logs) ? res.data.logs : [];
+        this.setData({ logEntries: list, logLoading: false });
+      },
+      fail: () => {
+        this.setData({ logLoading: false });
+        wx.showToast({ title: '日志加载失败', icon: 'none' });
+      }
+    });
   },
 
   fetchSystemFlags(opts = {}) {
