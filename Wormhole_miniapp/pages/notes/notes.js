@@ -33,7 +33,6 @@ Page({
     this.setData({ spaceId, myUserId, reviewMode });
     this.syncTabBar();
     this.fetchSpaceInfo();
-    this.getPosts();
   },
 
   onShow() {
@@ -41,10 +40,17 @@ Page({
     if (this._previewHoldActive && app && typeof app.leaveForegroundHold === 'function') {
       this._previewHoldActive = false;
       setTimeout(() => app.leaveForegroundHold(), 200);
+      this.setData({ reviewMode: !!wx.getStorageSync('reviewMode') });
+      this.syncTabBar();
+      return;
     }
     this.setData({ reviewMode: !!wx.getStorageSync('reviewMode') });
     this.syncTabBar();
     this.getPosts();
+  },
+
+  onPullDownRefresh() {
+    this.getPosts({ stopPullDown: true });
   },
 
   syncTabBar() {
@@ -73,7 +79,7 @@ Page({
     });
   },
 
-  getPosts() {
+  getPosts({ stopPullDown = false } = {}) {
     this.setData({ loading: true });
     wx.request({
       url: `${BASE_URL}/api/feed/list`,
@@ -87,7 +93,12 @@ Page({
         }
       },
       fail: () => { wx.showToast({ title: '加载失败', icon: 'none' }); },
-      complete: () => { this.setData({ loading: false }); }
+      complete: () => {
+        this.setData({ loading: false });
+        if (stopPullDown) {
+          try { wx.stopPullDownRefresh(); } catch (e) {}
+        }
+      }
     });
   },
 
@@ -147,14 +158,34 @@ Page({
       url: `${BASE_URL}/api/feed/comment`,
       method: 'POST',
       data: { post_id: id, user_id: userId, content: payloadContent },
-      success: () => {
+      success: (res) => {
         this.setData({
           [`commentInputs.${id}`]: '',
           [`commentPlaceholders.${id}`]: '',
           [`replyTargets.${id}`]: null,
           activeCommentInput: null
         });
-        this.getPosts();
+        const comment = res.data || {};
+        if (comment && comment.id) {
+          const posts = [...this.data.posts];
+          const targetIndex = posts.findIndex(p => p.id === id);
+          if (targetIndex >= 0) {
+            const post = { ...posts[targetIndex] };
+            const comments = Array.isArray(post.comments) ? [...post.comments] : [];
+            const decorated = {
+              ...comment,
+              postId: id,
+              avatar: comment.avatar_url || '',
+              initial: (comment.alias || comment.user_id || '匿').charAt(0),
+              canDelete: this.data.isOwner || comment.user_id === this.data.myUserId,
+              displayTime: this.formatFriendlyTime(comment.created_at)
+            };
+            comments.push(decorated);
+            post.comments = comments;
+            posts[targetIndex] = post;
+            this.setData({ posts });
+          }
+        }
       }
     });
   },
@@ -198,7 +229,8 @@ Page({
           data: { post_id: postId, operator_user_id: operator },
           success: () => {
             wx.showToast({ title: '已删除', icon: 'none' });
-            this.getPosts();
+            const posts = (this.data.posts || []).filter(p => p.id !== postId);
+            this.setData({ posts });
           },
           fail: () => wx.showToast({ title: '删除失败', icon: 'none' })
         });
@@ -226,7 +258,13 @@ Page({
           data: { comment_id: commentId, operator_user_id: operator },
           success: () => {
             wx.showToast({ title: '已删除', icon: 'none' });
-            this.getPosts();
+            const posts = [...this.data.posts];
+            posts.forEach((post) => {
+              if (Array.isArray(post.comments)) {
+                post.comments = post.comments.filter(c => c.id !== commentId);
+              }
+            });
+            this.setData({ posts });
           },
           fail: () => wx.showToast({ title: '删除失败', icon: 'none' })
         });
@@ -260,10 +298,27 @@ Page({
           if (updated[index]) {
             updated[index].likeCount = res.data.like_count;
             updated[index].likedByMe = !!res.data.liked;
+            const likes = Array.isArray(updated[index].likes) ? [...updated[index].likes] : [];
+            const myUserId = this.data.myUserId;
+            const existingIdx = likes.findIndex(l => l.user_id === myUserId);
+            if (res.data.liked) {
+              if (existingIdx === -1) {
+                const alias = wx.getStorageSync(`myAlias_${this.data.spaceId}`) || '';
+                likes.push({
+                  user_id: myUserId,
+                  alias,
+                  avatar_url: '',
+                  avatar: '',
+                  initial: (alias || myUserId || '匿').charAt(0)
+                });
+              }
+            } else if (existingIdx >= 0) {
+              likes.splice(existingIdx, 1);
+            }
+            updated[index].likes = likes;
             this.setData({ posts: updated });
           }
         }
-        this.getPosts();
       },
       fail: () => {
         const rollback = [...this.data.posts];
