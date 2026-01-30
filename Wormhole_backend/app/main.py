@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 from app.database import AsyncSessionLocal
 from models.chat import Message
+from models.space import SpaceMember, Space
 from models.user import UserAlias
 from app.ws import chat_manager, event_manager
 from app.utils.media import process_avatar_url, process_message_media_url, strip_url
@@ -61,11 +62,69 @@ async def websocket_endpoint(websocket: WebSocket, space_id: int):
     try:
         while True:
             data = await websocket.receive_json()
+            event = data.get("event")
+            if event:
+                user_id = str(data.get("user_id") or "")
+                if event == "presence":
+                    chat_manager.register_user(space_id, websocket, user_id)
+                    await chat_manager.broadcast_presence(space_id)
+                elif event == "typing":
+                    typing = bool(data.get("typing"))
+                    chat_manager.register_user(space_id, websocket, user_id)
+                    chat_manager.set_typing(space_id, user_id, typing)
+                    await chat_manager.broadcast(space_id, {
+                        "event": "typing",
+                        "user_id": user_id,
+                        "typing": typing
+                    })
+                elif event == "read":
+                    last_read_message_id = data.get("last_read_message_id")
+                    try:
+                        last_read_message_id = int(last_read_message_id or 0)
+                    except Exception:
+                        last_read_message_id = 0
+                    chat_manager.register_user(space_id, websocket, user_id)
+                    if user_id and last_read_message_id:
+                        async with AsyncSessionLocal() as session:
+                            space = (await session.execute(select(Space).where(Space.id == space_id, Space.deleted_at.is_(None)))).scalar_one_or_none()
+                            if space:
+                                mem_res = await session.execute(
+                                    select(SpaceMember).where(SpaceMember.space_id == space_id, SpaceMember.user_id == user_id)
+                                )
+                                mem = mem_res.scalar_one_or_none()
+                                now = datetime.utcnow()
+                                if not mem:
+                                    mem = SpaceMember(space_id=space_id, user_id=user_id, last_read_message_id=last_read_message_id, last_read_at=now)
+                                    session.add(mem)
+                                else:
+                                    if mem.last_read_message_id is None or last_read_message_id > mem.last_read_message_id:
+                                        mem.last_read_message_id = last_read_message_id
+                                    mem.last_read_at = now
+                                await session.commit()
+                                await chat_manager.broadcast(space_id, {
+                                    "event": "read_update",
+                                    "user_id": user_id,
+                                    "last_read_message_id": mem.last_read_message_id,
+                                })
+                continue
             content = data.get("content", "")
             user_id = str(data.get("user_id") or "")
             message_type = data.get("message_type") or "text"
             media_url = strip_url(data.get("media_url"))
             media_duration = data.get("media_duration")
+            reply_to_id = data.get("reply_to_id")
+            reply_to_user_id = data.get("reply_to_user_id")
+            reply_to_content = data.get("reply_to_content")
+            reply_to_type = data.get("reply_to_type")
+            try:
+                media_duration = int(media_duration) if media_duration is not None else None
+            except Exception:
+                media_duration = None
+            try:
+                reply_to_id = int(reply_to_id) if reply_to_id is not None else None
+            except Exception:
+                reply_to_id = None
+            chat_manager.register_user(space_id, websocket, user_id)
             if message_type == "text":
                 content = (content or "").strip()
                 if not content:
@@ -81,6 +140,10 @@ async def websocket_endpoint(websocket: WebSocket, space_id: int):
                     message_type=message_type,
                     media_url=media_url,
                     media_duration=media_duration,
+                    reply_to_id=reply_to_id,
+                    reply_to_user_id=reply_to_user_id,
+                    reply_to_content=reply_to_content,
+                    reply_to_type=reply_to_type,
                 )
                 session.add(msg)
                 await session.commit()
@@ -88,12 +151,24 @@ async def websocket_endpoint(websocket: WebSocket, space_id: int):
                 # 查找别名
                 alias = None
                 avatar_url = None
+                reply_alias = None
+                reply_avatar_url = None
                 try:
-                    res = await session.execute(select(UserAlias).where(UserAlias.space_id == space_id, UserAlias.user_id == user_id))
-                    ua = res.scalar_one_or_none()
+                    alias_targets = [user_id]
+                    if reply_to_user_id:
+                        alias_targets.append(reply_to_user_id)
+                    res = await session.execute(
+                        select(UserAlias).where(UserAlias.space_id == space_id, UserAlias.user_id.in_(alias_targets))
+                    )
+                    alias_map = {r.user_id: r for r in res.scalars().all()}
+                    ua = alias_map.get(user_id)
                     if ua:
                         alias = ua.alias
                         avatar_url = ua.avatar_url
+                    reply_ua = alias_map.get(reply_to_user_id) if reply_to_user_id else None
+                    if reply_ua:
+                        reply_alias = reply_ua.alias
+                        reply_avatar_url = reply_ua.avatar_url
                 except Exception:
                     alias = None
                     avatar_url = None
@@ -107,10 +182,29 @@ async def websocket_endpoint(websocket: WebSocket, space_id: int):
                     "created_at": msg.created_at.isoformat() if msg.created_at else datetime.utcnow().isoformat(),
                     "alias": alias,
                     "avatar_url": process_avatar_url(avatar_url),
+                    "reply_to_id": msg.reply_to_id,
+                    "reply_to_user_id": msg.reply_to_user_id,
+                    "reply_to_content": msg.reply_to_content,
+                    "reply_to_type": msg.reply_to_type,
+                    "reply_to_alias": reply_alias,
+                    "reply_to_avatar_url": process_avatar_url(reply_avatar_url),
                 }
+                chat_manager.set_typing(space_id, user_id, False)
+                await chat_manager.broadcast(space_id, {
+                    "event": "typing",
+                    "user_id": user_id,
+                    "typing": False
+                })
                 await chat_manager.broadcast(space_id, payload)
     except WebSocketDisconnect:
-        chat_manager.disconnect(space_id, websocket)
+        user_id = chat_manager.disconnect(space_id, websocket)
+        if user_id:
+            await chat_manager.broadcast(space_id, {
+                "event": "typing",
+                "user_id": user_id,
+                "typing": False
+            })
+        await chat_manager.broadcast_presence(space_id)
 
 
 @app.websocket("/ws/space/{space_id}")

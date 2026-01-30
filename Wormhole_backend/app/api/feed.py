@@ -247,3 +247,23 @@ async def like_post(payload: PostLikeRequest, db: AsyncSession = Depends(get_db)
     count_row = await db.execute(select(func.count(PostLike.id)).where(PostLike.post_id == payload.post_id))
     like_count = count_row.scalar_one() or 0
     return {"success": True, "like_count": like_count, "liked": payload.like}
+
+
+@router.get("/unread-count")
+async def unread_count(space_id: int, since_ts: int | None = None, db: AsyncSession = Depends(get_db)):
+    space = (await db.execute(select(Space).where(Space.id == space_id, Space.deleted_at.is_(None)))).scalar_one_or_none()
+    if not space:
+        raise HTTPException(status_code=404, detail="空间不存在")
+    if not since_ts:
+        return {"count": 0}
+    try:
+        since_ts = int(since_ts)
+    except Exception:
+        return {"count": 0}
+    since_dt = datetime.utcfromtimestamp(since_ts / 1000)
+    count_row = await db.execute(
+        select(func.count(Post.id))
+        .where(Post.space_id == space_id, Post.deleted_at.is_(None), Post.created_at > since_dt)
+    )
+    count = count_row.scalar_one() or 0
+    return {"count": count}

@@ -49,6 +49,8 @@ class SpaceMember(Base):
     space_id = Column(Integer, ForeignKey("spaces.id"), index=True)
     user_id = Column(String, index=True)
     joined_at = Column(DateTime(timezone=True), server_default=func.now())
+    last_read_message_id = Column(Integer, nullable=True)
+    last_read_at = Column(DateTime(timezone=True), nullable=True)
 
 class SpaceBlock(Base):
     __tablename__ = "space_blocks"

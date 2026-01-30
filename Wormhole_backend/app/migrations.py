@@ -103,6 +103,24 @@ async def add_operation_logs(conn):
     await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_operation_logs_space_id ON operation_logs(space_id)"))
 
 
+async def add_space_member_read_columns(conn):
+    if not await column_exists(conn, "space_members", "last_read_message_id"):
+        await conn.execute(text("ALTER TABLE space_members ADD COLUMN last_read_message_id INTEGER"))
+    if not await column_exists(conn, "space_members", "last_read_at"):
+        await conn.execute(text("ALTER TABLE space_members ADD COLUMN last_read_at DATETIME"))
+
+
+async def add_message_reply_columns(conn):
+    if not await column_exists(conn, "messages", "reply_to_id"):
+        await conn.execute(text("ALTER TABLE messages ADD COLUMN reply_to_id INTEGER"))
+    if not await column_exists(conn, "messages", "reply_to_user_id"):
+        await conn.execute(text("ALTER TABLE messages ADD COLUMN reply_to_user_id TEXT"))
+    if not await column_exists(conn, "messages", "reply_to_content"):
+        await conn.execute(text("ALTER TABLE messages ADD COLUMN reply_to_content TEXT"))
+    if not await column_exists(conn, "messages", "reply_to_type"):
+        await conn.execute(text("ALTER TABLE messages ADD COLUMN reply_to_type TEXT"))
+
+
 MIGRATIONS = [
     ("202401_add_deleted_at_to_posts", add_deleted_at_to_posts),
     ("202402_add_share_code_expiry", add_share_code_expiry),
@@ -110,6 +128,8 @@ MIGRATIONS = [
     ("202402_add_message_media", add_message_media_columns),
     ("202601_add_operation_logs", add_operation_logs),
     ("202601_add_soft_delete_columns", add_soft_delete_columns),
+    ("202601_add_space_member_read_columns", add_space_member_read_columns),
+    ("202601_add_message_reply_columns", add_message_reply_columns),
 ]
 
 

@@ -76,6 +76,10 @@ Page({
       success: (res) => {
         const posts = (res.data.posts || []).map(item => this.decoratePost(item));
         this.setData({ posts });
+        const app = getApp && getApp();
+        if (app && typeof app.markNotesRead === 'function') {
+          app.markNotesRead(this.data.spaceId);
+        }
       },
       fail: () => { wx.showToast({ title: '加载失败', icon: 'none' }); },
       complete: () => { this.setData({ loading: false }); }

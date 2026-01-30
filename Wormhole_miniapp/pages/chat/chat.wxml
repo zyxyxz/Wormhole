@@ -1,18 +1,37 @@
-<navigation-bar title="聊天" back="{{false}}" home-button="{{true}}" bind:home="goHome" background="#FFFFFF" color="#0F172A" />
+<navigation-bar title="聊天" back="{{false}}" home-button="{{true}}" bind:home="goHome" background="#FFFFFF" color="#0F172A">
+  <view slot="right" class="nav-chips">
+    <view class="nav-chip" bindtap="openMembers">人数 {{memberCount}}</view>
+    <view class="nav-chip online" bindtap="openOnline">在线 {{onlineCount}}</view>
+  </view>
+</navigation-bar>
 <view class="chat-container">
-  <scroll-view class="message-list" scroll-y="true" scroll-with-animation="true" scroll-into-view="{{scrollTargetId}}" enable-flex="true" upper-threshold="80" bindscrolltoupper="loadOlderMessages" style="padding-bottom: {{bottomPadding}}px;">
+  <scroll-view class="message-list" scroll-y="true" scroll-with-animation="true" scroll-into-view="{{scrollTargetId}}" enable-flex="true" upper-threshold="80" bindscrolltoupper="loadOlderMessages" bindscrolltolower="onScrollToLower" bindscroll="onScroll" style="padding-bottom: {{bottomPadding}}px;">
     <view class="history-hint">
       <text wx:if="{{historyLoading}}">加载中...</text>
       <text wx:elif="{{!historyHasMore}}">没有更多消息</text>
       <text wx:else>上拉加载更多</text>
     </view>
-    <view wx:for="{{messages}}" wx:key="id" class="message-item {{item.isSelf ? 'self' : ''}}" id="msg-{{item.id}}">
+    <view wx:for="{{messages}}" wx:key="id">
+      <view wx:if="{{item.showUnreadDivider}}" class="unread-divider">
+        <text>以下为未读消息</text>
+      </view>
+      <view class="message-item {{item.isSelf ? 'self' : ''}}" id="msg-{{item.id}}"
+            bindlongpress="startReply"
+            data-id="{{item.id}}"
+            data-user-id="{{item.userId}}"
+            data-nickname="{{item.nickname}}"
+            data-content="{{item.content}}"
+            data-message-type="{{item.messageType}}">
       <view class="avatar">
         <image wx:if="{{item.avatar}}" src="{{item.avatar}}" mode="aspectFill"></image>
         <text wx:else>{{item.initial}}</text>
       </view>
       <view class="message-content">
         <view class="nickname">{{item.nickname}}</view>
+        <view wx:if="{{item.reply}}" class="reply-snippet">
+          <text class="reply-snippet-name">{{item.reply.nickname}}</text>
+          <text class="reply-snippet-text">{{item.reply.content}}</text>
+        </view>
         <block wx:if="{{item.messageType === 'text'}}">
           <view class="message-bubble">{{item.content}}</view>
         </block>
@@ -26,12 +45,32 @@
             <text wx:if="{{audioPlayingId === item.id}}" class="playing">播放中</text>
           </view>
         </block>
-        <view class="message-time">{{item.displayTime}}</view>
+        <view class="message-meta">
+          <view class="message-time">{{item.displayTime}}</view>
+          <view wx:if="{{item.isSelf && memberCount > 1}}" class="read-state" bindtap="openReadList" data-id="{{item.id}}">
+            <text wx:if="{{item.readCount}}">已读 {{item.readCount}}</text>
+            <text wx:else>未读</text>
+          </view>
+        </view>
       </view>
+    </view>
+    </view>
+    <view wx:if="{{typingDisplay.length}}" class="typing-row">
+      <view class="typing-avatars">
+        <view wx:for="{{typingDisplay}}" wx:key="user_id" class="typing-avatar">
+          <image wx:if="{{item.avatar_url}}" src="{{item.avatar_url}}" mode="aspectFill"></image>
+          <text wx:else>{{item.initial}}</text>
+        </view>
+      </view>
+      <text class="typing-text">正在输入...</text>
     </view>
   </scroll-view>
 
   <view class="input-area" style="bottom: {{keyboardHeight}}px;">
+    <view wx:if="{{replyingTo}}" class="reply-bar">
+      <view class="reply-text">回复 {{replyingTo.nickname}}：{{replyingTo.content}}</view>
+      <view class="reply-cancel" bindtap="cancelReply">×</view>
+    </view>
     <view class="input-row">
       <button class="tool-btn" bindtap="toggleInputMode">{{inputMode === 'text' ? '🎤' : '⌨️'}}</button>
       <block wx:if="{{inputMode === 'text'}}">
@@ -49,7 +88,60 @@
         </view>
       </block>
       <button class="send-button" wx:if="{{inputMode === 'text' && inputMessage}}" bindtap="sendMessage">发送</button>
-      <button class="plus-button" wx:else bindtap="openAttachmentMenu">＋</button>
+      <button class="plus-button" wx:if="{{!(inputMode === 'text' && inputMessage)}}" bindtap="openAttachmentMenu">＋</button>
+      <button class="emoji-button" wx:if="{{inputMode === 'text'}}" bindtap="toggleEmojiPanel">😊</button>
+    </view>
+    <view wx:if="{{emojiPanelVisible}}" class="emoji-panel">
+      <view class="emoji-grid">
+        <text wx:for="{{emojiList}}" wx:key="*this" class="emoji-item" data-emoji="{{item}}" bindtap="addEmoji">{{item}}</text>
+      </view>
     </view>
   </view>
-</view> 
+</view>
+
+<view wx:if="{{showMemberModal}}" class="modal-mask" bindtap="closeMembers">
+  <view class="modal-card" catchtap="noop">
+    <view class="modal-title">成员 ({{memberCount}})</view>
+    <scroll-view class="modal-list" scroll-y="true">
+      <view wx:for="{{members}}" wx:key="user_id" class="modal-item">
+        <view class="modal-avatar">
+          <image wx:if="{{item.avatar_url}}" src="{{item.avatar_url}}" mode="aspectFill"></image>
+          <text wx:else>{{item.initial}}</text>
+        </view>
+        <view class="modal-name">{{item.displayName}}</view>
+      </view>
+    </scroll-view>
+  </view>
+</view>
+
+<view wx:if="{{showOnlineModal}}" class="modal-mask" bindtap="closeOnline">
+  <view class="modal-card" catchtap="noop">
+    <view class="modal-title">在线 ({{onlineCount}})</view>
+    <scroll-view class="modal-list" scroll-y="true">
+      <view wx:for="{{onlineMembers}}" wx:key="user_id" class="modal-item">
+        <view class="modal-avatar">
+          <image wx:if="{{item.avatar_url}}" src="{{item.avatar_url}}" mode="aspectFill"></image>
+          <text wx:else>{{item.initial}}</text>
+        </view>
+        <view class="modal-name">{{item.displayName}}</view>
+      </view>
+      <view wx:if="{{!onlineMembers.length}}" class="modal-empty">暂无在线</view>
+    </scroll-view>
+  </view>
+</view>
+
+<view wx:if="{{showReadModal}}" class="modal-mask" bindtap="closeReadModal">
+  <view class="modal-card" catchtap="noop">
+    <view class="modal-title">已读成员</view>
+    <scroll-view class="modal-list" scroll-y="true">
+      <view wx:for="{{readModalUsers}}" wx:key="user_id" class="modal-item">
+        <view class="modal-avatar">
+          <image wx:if="{{item.avatar_url}}" src="{{item.avatar_url}}" mode="aspectFill"></image>
+          <text wx:else>{{item.initial}}</text>
+        </view>
+        <view class="modal-name">{{item.displayName}}</view>
+      </view>
+      <view wx:if="{{!readModalUsers.length}}" class="modal-empty">暂无已读</view>
+    </scroll-view>
+  </view>
+</view>
