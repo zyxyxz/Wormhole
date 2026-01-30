@@ -120,6 +120,11 @@ Page({
             avatarUrl,
             aliasInitial: (alias || openid || '我').charAt(0)
           });
+          try {
+            wx.setStorageSync(`myAlias_${this.data.spaceId}`, alias);
+            wx.setStorageSync(`myAvatar_${this.data.spaceId}`, avatarUrl);
+            wx.setStorageSync('aliasUpdatedAt', Date.now());
+          } catch (e) {}
         }
       }
     });
@@ -330,6 +335,7 @@ Page({
         this.setData({ alias, avatarUrl, aliasInitial, showAliasModal: closeModal ? false : this.data.showAliasModal });
         try {
           wx.setStorageSync(`myAlias_${this.data.spaceId}`, alias);
+          wx.setStorageSync(`myAvatar_${this.data.spaceId}`, avatarUrl);
           wx.setStorageSync('aliasUpdatedAt', Date.now());
         } catch (e) {}
         wx.showToast({ title: '已保存', icon: 'none' });

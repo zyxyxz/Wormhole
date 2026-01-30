@@ -19,6 +19,8 @@ Page({
     activeCommentInput: null,
     loading: true,
     myUserId: '',
+    myAlias: '',
+    myAvatarUrl: '',
     isOwner: false,
     ownerUserId: '',
     reviewMode: false,
@@ -31,6 +33,7 @@ Page({
     const myUserId = wx.getStorageSync('openid') || '';
     const reviewMode = !!wx.getStorageSync('reviewMode');
     this.setData({ spaceId, myUserId, reviewMode });
+    this.refreshMyProfileCache(spaceId);
     this.syncTabBar();
     this.fetchSpaceInfo();
   },
@@ -44,9 +47,22 @@ Page({
       this.syncTabBar();
       return;
     }
+    this.refreshMyProfileCache(this.data.spaceId);
     this.setData({ reviewMode: !!wx.getStorageSync('reviewMode') });
     this.syncTabBar();
     this.getPosts();
+  },
+
+  refreshMyProfileCache(spaceId) {
+    const sid = spaceId || this.data.spaceId;
+    if (!sid) return;
+    let alias = '';
+    let avatarUrl = '';
+    try {
+      alias = wx.getStorageSync(`myAlias_${sid}`) || '';
+      avatarUrl = wx.getStorageSync(`myAvatar_${sid}`) || '';
+    } catch (e) {}
+    this.setData({ myAlias: alias, myAvatarUrl: avatarUrl });
   },
 
   onPullDownRefresh() {
@@ -87,6 +103,21 @@ Page({
       success: (res) => {
         const posts = (res.data.posts || []).map(item => this.decoratePost(item));
         this.setData({ posts });
+        const myId = this.data.myUserId;
+        if (myId) {
+          const mine = posts.find(p => p.user_id === myId);
+          if (mine) {
+            const alias = mine.alias || '';
+            const avatarUrl = mine.avatar || '';
+            if (alias || avatarUrl) {
+              try {
+                if (alias) wx.setStorageSync(`myAlias_${this.data.spaceId}`, alias);
+                if (avatarUrl) wx.setStorageSync(`myAvatar_${this.data.spaceId}`, avatarUrl);
+              } catch (e) {}
+              this.setData({ myAlias: alias || this.data.myAlias, myAvatarUrl: avatarUrl || this.data.myAvatarUrl });
+            }
+          }
+        }
         const app = getApp && getApp();
         if (app && typeof app.markNotesRead === 'function') {
           app.markNotesRead(this.data.spaceId);
@@ -303,13 +334,14 @@ Page({
             const existingIdx = likes.findIndex(l => l.user_id === myUserId);
             if (res.data.liked) {
               if (existingIdx === -1) {
-                const alias = wx.getStorageSync(`myAlias_${this.data.spaceId}`) || '';
+                const alias = this.data.myAlias || wx.getStorageSync(`myAlias_${this.data.spaceId}`) || '';
+                const avatarUrl = this.data.myAvatarUrl || wx.getStorageSync(`myAvatar_${this.data.spaceId}`) || '';
                 likes.push({
                   user_id: myUserId,
                   alias,
-                  avatar_url: '',
-                  avatar: '',
-                  initial: (alias || myUserId || '匿').charAt(0)
+                  avatar_url: avatarUrl,
+                  avatar: avatarUrl,
+                  initial: (alias || '我').charAt(0)
                 });
               }
             } else if (existingIdx >= 0) {
