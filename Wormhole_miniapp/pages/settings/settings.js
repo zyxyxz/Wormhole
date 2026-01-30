@@ -32,7 +32,7 @@ Page({
     shareInfoText: '',
     blocks: [],
     showAutoLockModal: false,
-    autoLockOptions: ['1分钟', '5分钟', '10分钟', '30分钟', '1小时']
+    autoLockOptions: ['不锁定', '1分钟', '3分钟', '5分钟']
   },
   onBack() {
     wx.reLaunch({ url: '/pages/index/index' });
@@ -201,12 +201,14 @@ Page({
     let label = '未设置';
     const options = this.data.autoLockOptions;
     let index = -1;
-    const map = [60, 300, 600, 1800, 3600];
-    if (seconds) {
-      const idx = map.indexOf(seconds);
+    const map = [0, 60, 180, 300];
+    if (seconds !== undefined && seconds !== null) {
+      const idx = map.indexOf(Number(seconds) || 0);
       if (idx >= 0) {
         index = idx;
         label = options[idx];
+      } else if (seconds === 0) {
+        label = options[0];
       } else {
         label = `${Math.round(seconds / 60)}分钟`;
       }
@@ -227,7 +229,7 @@ Page({
   },
 
   confirmAutoLock() {
-    const map = [60, 300, 600, 1800, 3600];
+    const map = [0, 60, 180, 300];
     const seconds = map[this.data.autoLockIndex] || 0;
     wx.setStorageSync('autoLockSeconds', seconds);
     this.updateAutoLockDisplay(seconds);
