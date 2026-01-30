@@ -47,7 +47,7 @@ page {
   padding: 40rpx 40rpx calc(50rpx + env(safe-area-inset-bottom));
   display: flex;
   flex-direction: column;
-  gap: 32rpx;
+  gap: 24rpx;
 }
 
 .header {
@@ -92,6 +92,13 @@ page {
   backdrop-filter: blur(6rpx);
 }
 
+.bottom-stack {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
+}
+
 .enter-card {
   padding: 28rpx;
   border-radius: 24rpx;
@@ -126,10 +133,7 @@ page {
   box-shadow: 0 0 14rpx rgba(15,23,42,0.2);
 }
 
-.keypad-wrap {
-  margin-top: auto;
-  padding-bottom: 10rpx;
-}
+.keypad-wrap { padding-bottom: 10rpx; }
 
 .keypad {
   display: grid;
