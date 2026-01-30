@@ -55,12 +55,11 @@
         <view class="space-card" wx:for="{{spaceList}}" wx:key="space_id">
           <view class="space-head">
             <view>
-              <text class="space-code">空间号 {{item.code}}</text>
-              <text class="space-owner">房主：{{item.owner_user_id || '未设置'}}</text>
+              <text class="space-code">房间号 {{item.code}}@{{item.owner_alias || item.owner_user_id || '未设置'}}</text>
             </view>
             <view class="space-actions">
               <button size="mini" data-id="{{item.space_id}}" bindtap="openSpaceDetail">详情</button>
-              <button size="mini" data-id="{{item.space_id}}" data-code="{{item.code}}" bindtap="openSpaceLogs">日志</button>
+              <button size="mini" data-id="{{item.space_id}}" data-code="{{item.code}}" data-owner="{{item.owner_alias || item.owner_user_id || '未设置'}}" bindtap="openSpaceLogs">日志</button>
             </view>
           </view>
           <view class="space-stats">
@@ -82,7 +81,10 @@
             <text class="user-alias">{{item.alias || '未命名'}}</text>
             <text class="user-id">{{item.user_id}}</text>
           </view>
-          <button size="mini" bindtap="viewSpaces" data-userid="{{item.user_id}}">房间</button>
+          <view class="user-actions">
+            <button size="mini" bindtap="viewSpaces" data-userid="{{item.user_id}}">房间</button>
+            <button size="mini" bindtap="openUserLogs" data-userid="{{item.user_id}}" data-alias="{{item.alias || ''}}">日志</button>
+          </view>
         </view>
       </view>
       <view class="section-empty" wx:if="{{!users.length}}">暂无用户</view>
@@ -94,7 +96,7 @@
       <view wx:if="{{!messagesLoading && recentMessages.length}}">
         <view class="activity-row" wx:for="{{recentMessages}}" wx:key="id">
           <text class="activity-meta">
-            {{item.alias || item.user_id}} · 空间 {{item.space_code || item.space_id}} · {{item.created_at}}
+            {{item.alias || item.user_id}} · 房间号 {{item.space_code || item.space_id}}@{{item.space_owner_alias || item.space_owner_id || '未设置'}} · {{item.created_at}}
           </text>
           <text class="activity-content">{{item.content || '[媒体]'}}</text>
         </view>
@@ -108,7 +110,7 @@
       <view wx:if="{{!postsLoading && recentPosts.length}}">
         <view class="activity-row" wx:for="{{recentPosts}}" wx:key="id">
           <text class="activity-meta">
-            {{item.alias || item.user_id}} · 空间 {{item.space_code || item.space_id}} · {{item.created_at}}
+            {{item.alias || item.user_id}} · 房间号 {{item.space_code || item.space_id}}@{{item.space_owner_alias || item.space_owner_id || '未设置'}} · {{item.created_at}}
           </text>
           <text class="activity-content">{{item.content || '[媒体]'}}</text>
         </view>
@@ -120,9 +122,9 @@
 
 <view class="modal" wx:if="{{showSpaceModal}}">
   <view class="modal-content space-modal">
-    <view class="modal-title">空间 {{spaceDetail.code}}</view>
+    <view class="modal-title">房间详情</view>
     <view class="modal-meta">
-      <text>房主：{{spaceDetail.owner_user_id || '未设置'}}</text>
+      <text>房间号：{{spaceDetail.code}}@{{spaceDetail.owner_alias || spaceDetail.owner_user_id || '未设置'}}</text>
       <text>创建：{{spaceDetail.created_at}}</text>
     </view>
     <view class="modal-stats">
@@ -158,11 +160,12 @@
 
 <view class="modal" wx:if="{{showLogModal}}">
   <view class="modal-content">
-    <view class="modal-title">空间 {{logSpace.code || logSpace.space_id}} 日志</view>
+    <view class="modal-title" wx:if="{{logTargetType === 'space'}}">房间号 {{logSpace.code || logSpace.space_id}}@{{logSpace.owner || '未设置'}} 日志</view>
+    <view class="modal-title" wx:if="{{logTargetType === 'user'}}">用户 {{logUser.alias || logUser.user_id || '未知用户'}} 日志</view>
     <view class="modal-section" wx:if="{{logEntries.length}}">
       <view class="log-row" wx:for="{{logEntries}}" wx:key="id">
         <view class="log-main">
-          <text class="log-user">{{item.user_id || '未知用户'}}</text>
+          <text class="log-user">{{item.alias || item.user_id || '未知用户'}}</text>
           <text class="log-action">{{item.action}}</text>
         </view>
         <view class="log-meta">

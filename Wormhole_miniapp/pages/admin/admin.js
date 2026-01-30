@@ -23,7 +23,9 @@ Page({
     messagesLoading: false,
     postsLoading: false,
     showLogModal: false,
+    logTargetType: '',
     logSpace: null,
+    logUser: null,
     logEntries: [],
     logLoading: false,
     logLimit: 30
@@ -367,10 +369,13 @@ Page({
   openSpaceLogs(e) {
     const spaceId = e.currentTarget.dataset.id;
     const spaceCode = e.currentTarget.dataset.code || '';
+    const owner = e.currentTarget.dataset.owner || '';
     if (!spaceId) return;
     this.setData({
       showLogModal: true,
-      logSpace: { space_id: spaceId, code: spaceCode },
+      logTargetType: 'space',
+      logSpace: { space_id: spaceId, code: spaceCode, owner },
+      logUser: null,
       logEntries: [],
       logLoading: true
     });
@@ -378,7 +383,28 @@ Page({
   },
 
   closeSpaceLogs() {
-    this.setData({ showLogModal: false, logSpace: null, logEntries: [] });
+    this.setData({
+      showLogModal: false,
+      logTargetType: '',
+      logSpace: null,
+      logUser: null,
+      logEntries: []
+    });
+  },
+
+  openUserLogs(e) {
+    const userId = e.currentTarget.dataset.userid;
+    const alias = e.currentTarget.dataset.alias || '';
+    if (!userId) return;
+    this.setData({
+      showLogModal: true,
+      logTargetType: 'user',
+      logUser: { user_id: userId, alias },
+      logSpace: null,
+      logEntries: [],
+      logLoading: true
+    });
+    this.fetchUserLogs(userId);
   },
 
   fetchSpaceLogs(spaceId) {
@@ -394,6 +420,33 @@ Page({
         user_id: adminOpenId,
         room_code: adminRoomCode,
         space_id: spaceId,
+        limit: logLimit,
+        offset: 0
+      },
+      success: (res) => {
+        const list = Array.isArray(res.data?.logs) ? res.data.logs : [];
+        this.setData({ logEntries: list, logLoading: false });
+      },
+      fail: () => {
+        this.setData({ logLoading: false });
+        wx.showToast({ title: '日志加载失败', icon: 'none' });
+      }
+    });
+  },
+
+  fetchUserLogs(targetUserId) {
+    const { adminOpenId, adminRoomCode, logLimit } = this.data;
+    if (!adminOpenId || !adminRoomCode) {
+      this.setData({ logLoading: false });
+      wx.showToast({ title: '缺少管理员信息', icon: 'none' });
+      return;
+    }
+    wx.request({
+      url: `${BASE_URL}/api/logs/admin/list`,
+      data: {
+        user_id: adminOpenId,
+        room_code: adminRoomCode,
+        target_user_id: targetUserId,
         limit: logLimit,
         offset: 0
       },

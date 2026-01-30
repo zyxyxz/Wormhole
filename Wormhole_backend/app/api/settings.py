@@ -187,6 +187,17 @@ async def admin_recent_messages(
     if space_ids:
         space_rows = await db.execute(select(Space).where(Space.id.in_(space_ids)))
         spaces_map = {s.id: s for s in space_rows.scalars().all()}
+    owner_alias_map = {}
+    if spaces_map:
+        owner_pairs = {(s.id, s.owner_user_id) for s in spaces_map.values() if s.owner_user_id}
+        if owner_pairs:
+            alias_rows = await db.execute(
+                select(UserAlias).where(
+                    UserAlias.space_id.in_([sid for sid, _ in owner_pairs]),
+                    UserAlias.user_id.in_([uid for _, uid in owner_pairs])
+                )
+            )
+            owner_alias_map = {(a.space_id, a.user_id): a.alias for a in alias_rows.scalars().all()}
     alias_map = {}
     if messages:
         alias_filters = [
@@ -202,6 +213,8 @@ async def admin_recent_messages(
                 "id": m.id,
                 "space_id": m.space_id,
                 "space_code": spaces_map.get(m.space_id).code if spaces_map.get(m.space_id) else None,
+                "space_owner_id": spaces_map.get(m.space_id).owner_user_id if spaces_map.get(m.space_id) else None,
+                "space_owner_alias": owner_alias_map.get((m.space_id, spaces_map.get(m.space_id).owner_user_id)) if spaces_map.get(m.space_id) and spaces_map.get(m.space_id).owner_user_id else None,
                 "user_id": m.user_id,
                 "alias": alias_map.get((m.space_id, m.user_id)).alias if alias_map.get((m.space_id, m.user_id)) else None,
                 "content": m.content,
@@ -233,6 +246,17 @@ async def admin_recent_posts(
     if space_ids:
         space_rows = await db.execute(select(Space).where(Space.id.in_(space_ids)))
         spaces_map = {s.id: s for s in space_rows.scalars().all()}
+    owner_alias_map = {}
+    if spaces_map:
+        owner_pairs = {(s.id, s.owner_user_id) for s in spaces_map.values() if s.owner_user_id}
+        if owner_pairs:
+            alias_rows = await db.execute(
+                select(UserAlias).where(
+                    UserAlias.space_id.in_([sid for sid, _ in owner_pairs]),
+                    UserAlias.user_id.in_([uid for _, uid in owner_pairs])
+                )
+            )
+            owner_alias_map = {(a.space_id, a.user_id): a.alias for a in alias_rows.scalars().all()}
     alias_map = {}
     if posts:
         alias_filters = [
@@ -248,6 +272,8 @@ async def admin_recent_posts(
                 "id": p.id,
                 "space_id": p.space_id,
                 "space_code": spaces_map.get(p.space_id).code if spaces_map.get(p.space_id) else None,
+                "space_owner_id": spaces_map.get(p.space_id).owner_user_id if spaces_map.get(p.space_id) else None,
+                "space_owner_alias": owner_alias_map.get((p.space_id, spaces_map.get(p.space_id).owner_user_id)) if spaces_map.get(p.space_id) and spaces_map.get(p.space_id).owner_user_id else None,
                 "user_id": p.user_id,
                 "alias": alias_map.get((p.space_id, p.user_id)).alias if alias_map.get((p.space_id, p.user_id)) else None,
                 "content": p.content,
@@ -299,16 +325,30 @@ async def admin_spaces(user_id: str, room_code: str, db: AsyncSession = Depends(
     res = await db.execute(select(Space).order_by(Space.created_at.desc()))
     spaces = res.scalars().all()
     space_ids = [s.id for s in spaces]
+    owner_ids = [s.owner_user_id for s in spaces if s.owner_user_id]
     member_counts = await aggregate_counts(db, SpaceMember, space_ids)
     message_counts = await aggregate_counts(db, Message, space_ids)
     post_counts = await aggregate_counts(db, Post, space_ids)
     note_counts = await aggregate_counts(db, Note, space_ids)
+    owner_alias_map = {}
+    if space_ids and owner_ids:
+        alias_rows = await db.execute(
+            select(UserAlias).where(
+                UserAlias.space_id.in_(space_ids),
+                UserAlias.user_id.in_(owner_ids)
+            )
+        )
+        owner_alias_map = {
+            (a.space_id, a.user_id): a.alias
+            for a in alias_rows.scalars().all()
+        }
     return {
         "spaces": [
             {
                 "space_id": s.id,
                 "code": s.code,
                 "owner_user_id": s.owner_user_id,
+                "owner_alias": owner_alias_map.get((s.id, s.owner_user_id)) if s.owner_user_id else None,
                 "created_at": s.created_at,
                 "member_count": member_counts.get(s.id, 0),
                 "message_count": message_counts.get(s.id, 0),
@@ -329,6 +369,7 @@ async def admin_space_detail(user_id: str, room_code: str, space_id: int, db: As
     members = member_rows.scalars().all()
     alias_rows = await db.execute(select(UserAlias).where(UserAlias.space_id == space_id))
     alias_map = {a.user_id: a for a in alias_rows.scalars().all()}
+    owner_alias = alias_map.get(space.owner_user_id).alias if alias_map.get(space.owner_user_id) else None
     member_payload = [
         {
             "user_id": m.user_id,
@@ -354,6 +395,7 @@ async def admin_space_detail(user_id: str, room_code: str, space_id: int, db: As
             "space_id": space.id,
             "code": space.code,
             "owner_user_id": space.owner_user_id,
+            "owner_alias": owner_alias,
             "created_at": space.created_at,
             "member_count": member_count,
             "message_count": message_count,

@@ -1,6 +1,11 @@
 <navigation-bar title="聊天" back="{{false}}" home-button="{{true}}" bind:home="goHome" background="#FFFFFF" color="#0F172A" />
 <view class="chat-container">
-  <scroll-view class="message-list" scroll-y="true" scroll-with-animation="true" scroll-into-view="{{lastMessageId}}" enable-flex="true" style="padding-bottom: {{bottomPadding}}px;">
+  <scroll-view class="message-list" scroll-y="true" scroll-with-animation="true" scroll-into-view="{{scrollTargetId}}" enable-flex="true" upper-threshold="80" bindscrolltoupper="loadOlderMessages" style="padding-bottom: {{bottomPadding}}px;">
+    <view class="history-hint">
+      <text wx:if="{{historyLoading}}">加载中...</text>
+      <text wx:elif="{{!historyHasMore}}">没有更多消息</text>
+      <text wx:else>上拉加载更多</text>
+    </view>
     <view wx:for="{{messages}}" wx:key="id" class="message-item {{item.isSelf ? 'self' : ''}}" id="msg-{{item.id}}">
       <view class="avatar">
         <image wx:if="{{item.avatar}}" src="{{item.avatar}}" mode="aspectFill"></image>

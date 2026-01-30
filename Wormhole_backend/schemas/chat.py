@@ -28,3 +28,5 @@ class MessageResponse(MessageBase):
 class ChatHistoryResponse(BaseModel):
     messages: List[MessageResponse]
     last_message_id: Optional[int]
+    has_more: Optional[bool] = None
+    next_before_id: Optional[int] = None

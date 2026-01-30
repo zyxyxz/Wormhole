@@ -13,6 +13,7 @@ class LogCreateRequest(BaseModel):
 class LogEntry(BaseModel):
     id: int
     user_id: str | None = None
+    alias: str | None = None
     action: str
     page: str | None = None
     detail: str | None = None

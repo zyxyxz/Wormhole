@@ -9,6 +9,7 @@
 .section-title { font-size: 30rpx; font-weight: 600; margin-bottom: 16rpx; }
 .user-row { display: flex; justify-content: space-between; align-items: center; padding: 16rpx 0; border-bottom: 1rpx solid #F1F5F9; }
 .user-row:last-child { border-bottom: none; }
+.user-actions { display: flex; gap: 12rpx; }
 .user-alias { display: block; font-size: 30rpx; color: #0F172A; }
 .user-id { display: block; font-size: 24rpx; color: #94A3B8; }
 .space-row { padding: 16rpx 0; border-bottom: 1rpx solid #F1F5F9; }

@@ -13,11 +13,20 @@ router = APIRouter()
 @router.get("/history", response_model=ChatHistoryResponse)
 async def get_chat_history(
     space_id: int,
+    limit: int = 50,
+    before_id: int | None = None,
     db: AsyncSession = Depends(get_db)
 ):
-    query = select(Message).where(Message.space_id == space_id).order_by(Message.created_at)
+    limit = max(1, min(limit, 100))
+    query = select(Message).where(Message.space_id == space_id)
+    if before_id:
+        query = query.where(Message.id < before_id)
+    query = query.order_by(Message.id.desc()).limit(limit + 1)
     result = await db.execute(query)
-    messages = result.scalars().all()
+    rows = result.scalars().all()
+    has_more = len(rows) > limit
+    messages = rows[:limit]
+    messages = list(reversed(messages))
 
     # 拉取别名字典
     alias_rows = await db.execute(select(UserAlias).where(UserAlias.space_id == space_id))
@@ -39,7 +48,9 @@ async def get_chat_history(
 
     return ChatHistoryResponse(
         messages=resp_msgs,
-        last_message_id=resp_msgs[-1].id if resp_msgs else None
+        last_message_id=resp_msgs[-1].id if resp_msgs else None,
+        has_more=has_more,
+        next_before_id=resp_msgs[0].id if has_more and resp_msgs else None
     )
 
 @router.post("/send")

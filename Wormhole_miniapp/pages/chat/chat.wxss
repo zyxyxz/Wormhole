@@ -9,6 +9,7 @@ page { overflow: hidden; }
 }
 /* 保证消息只在内部滚动，输入区固定在底部 */
 .message-list { flex: 1; padding: 20rpx; height: calc(100vh - 120rpx); box-sizing: border-box; }
+.history-hint { text-align: center; font-size: 22rpx; color: #94A3B8; padding: 12rpx 0 20rpx; }
 .message-item { display: flex; margin-bottom: 24rpx; }
 .message-item.self { flex-direction: row-reverse; }
 .avatar {

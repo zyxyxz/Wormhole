@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from app.database import get_db
 from models.logs import OperationLog
+from models.user import UserAlias
 from schemas.logs import LogCreateRequest, LogListResponse, LogEntry
 from app.api.settings import verify_admin
 
@@ -63,12 +64,25 @@ async def admin_list_logs(
         .limit(limit)
     )
     logs = rows.scalars().all()
+    alias_map = {}
+    if logs:
+        space_ids = {log.space_id for log in logs if log.space_id is not None}
+        user_ids = {log.user_id for log in logs if log.user_id}
+        if space_ids and user_ids:
+            alias_rows = await db.execute(
+                select(UserAlias).where(
+                    UserAlias.space_id.in_(space_ids),
+                    UserAlias.user_id.in_(user_ids)
+                )
+            )
+            alias_map = {(a.space_id, a.user_id): a for a in alias_rows.scalars().all()}
 
     return LogListResponse(
         logs=[
             LogEntry(
                 id=log.id,
                 user_id=log.user_id,
+                alias=(alias_map.get((log.space_id, log.user_id)).alias if alias_map.get((log.space_id, log.user_id)) else None),
                 action=log.action,
                 page=log.page,
                 detail=log.detail,

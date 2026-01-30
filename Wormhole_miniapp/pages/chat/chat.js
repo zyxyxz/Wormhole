@@ -33,6 +33,7 @@ Page({
     messages: [],
     inputMessage: '',
     lastMessageId: '',
+    scrollTargetId: '',
     spaceId: '',
     keyboardHeight: 0,
     bottomPadding: 120,
@@ -40,6 +41,9 @@ Page({
     recording: false,
     audioPlayingId: null,
     inputMode: 'text',
+    historyLoading: false,
+    historyHasMore: true,
+    historyLimit: 50,
   },
   goHome() {
     wx.reLaunch({ url: '/pages/index/index' });
@@ -76,7 +80,7 @@ Page({
     this.initWebSocket();
     
     // 获取历史消息
-    this.getHistoryMessages();
+    this.getHistoryMessages({ reset: true });
 
     if (wx.getRecorderManager) {
       this.recorder = wx.getRecorderManager();
@@ -108,7 +112,7 @@ Page({
     // 若昵称更新，刷新历史以展示新昵称
     const updated = wx.getStorageSync('aliasUpdatedAt');
     if (updated) {
-      this.getHistoryMessages();
+      this.getHistoryMessages({ reset: true });
     }
   },
   onBack() {
@@ -146,19 +150,40 @@ Page({
     this.ws = ws;
   },
 
-  getHistoryMessages() {
+  getHistoryMessages(opts = {}) {
+    const { reset, beforeId, prepend } = opts;
+    if (this.data.historyLoading) return;
+    this.setData({ historyLoading: true });
+    const limit = this.data.historyLimit || 50;
     wx.request({
       url: `${BASE_URL}/api/chat/history`,
-      data: { space_id: this.data.spaceId },
+      data: { space_id: this.data.spaceId, limit, before_id: beforeId || undefined },
       success: (res) => {
         const myid = wx.getStorageSync('openid');
         const msgs = (res.data.messages || []).map(m => this.decorateMessage(m, myid));
-        this.setData({ 
-          messages: msgs,
-          lastMessageId: msgs.length ? `msg-${msgs[msgs.length - 1].id}` : ''
-        });
+        const hasMore = res.data.has_more !== undefined ? !!res.data.has_more : (msgs.length >= limit);
+        if (prepend) {
+          const existing = this.data.messages || [];
+          const anchorId = existing.length ? existing[0].id : null;
+          const merged = msgs.concat(existing);
+          this.setData({
+            messages: merged,
+            historyHasMore: hasMore,
+            scrollTargetId: anchorId ? `msg-${anchorId}` : '',
+            historyLoading: false
+          });
+        } else {
+          this.setData({
+            messages: msgs,
+            lastMessageId: msgs.length ? `msg-${msgs[msgs.length - 1].id}` : '',
+            scrollTargetId: msgs.length ? `msg-${msgs[msgs.length - 1].id}` : '',
+            historyHasMore: hasMore,
+            historyLoading: false
+          });
+        }
       },
       fail: () => {
+        this.setData({ historyLoading: false });
         wx.showToast({ title: '加载失败', icon: 'none' });
       },
       complete: () => {
@@ -299,7 +324,8 @@ Page({
     const messages = [...this.data.messages, message];
     this.setData({ 
       messages,
-      lastMessageId: `msg-${message.id}`
+      lastMessageId: `msg-${message.id}`,
+      scrollTargetId: `msg-${message.id}`
     });
   },
 
@@ -332,8 +358,15 @@ Page({
     const arr = this.data.messages || [];
     if (arr.length) {
       const id = arr[arr.length - 1].id;
-      this.setData({ lastMessageId: `msg-${id}` });
+      this.setData({ lastMessageId: `msg-${id}`, scrollTargetId: `msg-${id}` });
     }
+  },
+
+  loadOlderMessages() {
+    if (this.data.historyLoading || !this.data.historyHasMore) return;
+    const first = (this.data.messages || [])[0];
+    if (!first) return;
+    this.getHistoryMessages({ prepend: true, beforeId: first.id });
   },
 
   onUnload() {

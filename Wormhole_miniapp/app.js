@@ -1,6 +1,16 @@
 // app.js
 const { BASE_URL } = require('./utils/config.js');
 
+const SPACE_ROUTES = new Set([
+  'pages/chat/chat',
+  'pages/notes/notes',
+  'pages/space/space',
+  'pages/wallet/wallet',
+  'pages/post-create/post-create',
+  'pages/note-edit/note-edit',
+  'pages/recharge/recharge'
+]);
+
 const originalPage = Page;
 Page = function (pageConfig) {
   const originalOnShow = pageConfig.onShow;
@@ -80,7 +90,7 @@ App({
   },
 
   logPageView(route, options = {}) {
-    const spaceId = wx.getStorageSync('currentSpaceId') || null;
+    const spaceId = SPACE_ROUTES.has(route) ? (wx.getStorageSync('currentSpaceId') || null) : null;
     let detail = '';
     try {
       if (options && Object.keys(options).length) {
