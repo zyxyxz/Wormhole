@@ -40,6 +40,7 @@ page { overflow: hidden; }
 .message-bubble { background: #E0F2FE; padding: 16rpx 20rpx; border-radius: 16rpx; word-break: break-word; border: none; color: #0F172A; box-shadow: 0 4rpx 12rpx rgba(15,23,42,0.08); }
 .self .message-bubble { background: #DCFCE7; color: #0F172A; }
 .message-image { width: 360rpx; max-width: 60vw; border-radius: 16rpx; margin: 8rpx 0; }
+.message-video { width: 360rpx; max-width: 60vw; border-radius: 16rpx; margin: 8rpx 0; background: #000000; }
 .audio-bubble { display: inline-flex; align-items: center; gap: 12rpx; padding: 16rpx 20rpx; border-radius: 999rpx; background: #F1F5F9; color: #0F172A; margin: 8rpx 0; }
 .audio-bubble .audio-icon { font-size: 28rpx; }
 .audio-bubble .playing { font-size: 22rpx; color: #0F766E; }
@@ -67,6 +68,11 @@ page { overflow: hidden; }
 .emoji-panel { margin-top: 12rpx; background: #F8FAFC; border-radius: 16rpx; padding: 16rpx; border: 1rpx solid #E2E8F0; }
 .emoji-grid { display: flex; flex-wrap: wrap; gap: 12rpx; }
 .emoji-item { width: 64rpx; height: 64rpx; line-height: 64rpx; text-align: center; border-radius: 12rpx; background: #FFFFFF; border: 1rpx solid #E2E8F0; font-size: 30rpx; }
+.plus-panel { margin-top: 12rpx; background: #F8FAFC; border-radius: 16rpx; padding: 20rpx 16rpx; border: 1rpx solid #E2E8F0; }
+.plus-grid { display: flex; flex-wrap: wrap; gap: 18rpx; }
+.plus-item { width: 120rpx; display: flex; flex-direction: column; align-items: center; gap: 10rpx; padding: 10rpx 6rpx; border-radius: 16rpx; background: #FFFFFF; border: 1rpx solid #E2E8F0; }
+.plus-icon { width: 64rpx; height: 64rpx; line-height: 64rpx; text-align: center; font-size: 34rpx; background: #F1F5F9; border-radius: 18rpx; }
+.plus-label { font-size: 22rpx; color: #475569; text-align: center; }
 .modal-mask { position: fixed; left: 0; right: 0; top: 0; bottom: 0; background: rgba(15,23,42,0.45); display: flex; align-items: center; justify-content: center; z-index: 200; }
 .modal-card { width: 80vw; max-height: 70vh; background: #FFFFFF; border-radius: 24rpx; padding: 24rpx; box-shadow: 0 12rpx 40rpx rgba(15,23,42,0.2); }
 .modal-title { font-size: 28rpx; font-weight: 600; color: #0F172A; margin-bottom: 16rpx; }

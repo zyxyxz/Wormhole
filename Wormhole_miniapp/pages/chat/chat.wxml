@@ -38,6 +38,9 @@
         <block wx:elif="{{item.messageType === 'image'}}">
           <image class="message-image" src="{{item.mediaUrl}}" mode="aspectFill" bindtap="previewChatImage" data-url="{{item.mediaUrl}}"></image>
         </block>
+        <block wx:elif="{{item.messageType === 'video'}}">
+          <video class="message-video" src="{{item.mediaUrl}}" controls="true" show-mute-btn="true" object-fit="cover"></video>
+        </block>
         <block wx:elif="{{item.messageType === 'audio'}}">
           <view class="audio-bubble" data-url="{{item.mediaUrl}}" data-id="{{item.id}}" bindtap="playAudio">
             <text class="audio-icon">♪</text>
@@ -88,12 +91,20 @@
         </view>
       </block>
       <button class="send-button" wx:if="{{inputMode === 'text' && inputMessage}}" bindtap="sendMessage">发送</button>
-      <button class="plus-button" wx:if="{{!(inputMode === 'text' && inputMessage)}}" bindtap="openAttachmentMenu">＋</button>
       <button class="emoji-button" wx:if="{{inputMode === 'text'}}" bindtap="toggleEmojiPanel">😊</button>
+      <button class="plus-button" bindtap="togglePlusPanel">＋</button>
     </view>
     <view wx:if="{{emojiPanelVisible}}" class="emoji-panel">
       <view class="emoji-grid">
         <text wx:for="{{emojiList}}" wx:key="*this" class="emoji-item" data-emoji="{{item}}" bindtap="addEmoji">{{item}}</text>
+      </view>
+    </view>
+    <view wx:if="{{plusPanelVisible}}" class="plus-panel">
+      <view class="plus-grid">
+        <view wx:for="{{plusActions}}" wx:key="id" class="plus-item" data-action="{{item.id}}" bindtap="handlePlusAction">
+          <view class="plus-icon">{{item.icon}}</view>
+          <text class="plus-label">{{item.label}}</text>
+        </view>
       </view>
     </view>
   </view>

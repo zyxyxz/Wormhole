@@ -3,6 +3,14 @@ const { ensureDiaryMode } = require('../../utils/review.js');
 
 const CHAT_CACHE_LIMIT = 50;
 const EMOJI_LIST = ['😀','😄','😁','😆','😊','😍','😘','😜','🤔','😎','😭','😡','👍','👎','🙏','🎉','🔥','🌟','💬','❤️','🫶','👏','🤝','😴','🤗','😅','😇','🤩','🥳','🤯','😶‍🌫️','🤤','🤓','🫠','🥹','😮','😱','😏'];
+const PLUS_ACTIONS = [
+  { id: 'album', label: '照片/视频', icon: '🖼️' },
+  { id: 'camera', label: '拍照', icon: '📷' },
+  { id: 'location', label: '位置', icon: '📍' },
+  { id: 'file', label: '文件', icon: '📄' },
+  { id: 'contact', label: '名片', icon: '👤' },
+  { id: 'more', label: '更多', icon: '✨' },
+];
 
 function normalizeDateString(str) {
   if (!str) return '';
@@ -55,6 +63,8 @@ Page({
     replyingTo: null,
     emojiPanelVisible: false,
     emojiList: EMOJI_LIST,
+    plusPanelVisible: false,
+    plusActions: PLUS_ACTIONS,
     isAtBottom: true,
     keyboardHeight: 0,
     bottomPadding: 120,
@@ -85,6 +95,7 @@ Page({
       const rpx = sys.windowWidth / 750;
       const base = Math.ceil(150 * rpx + 24); // 输入区 + 安全距离
       this._emojiPanelPx = Math.ceil(260 * rpx);
+      this._plusPanelPx = Math.ceil(280 * rpx);
       this.setData({ _baseBottomPadding: base, bottomPadding: base });
     } catch(e) {}
 
@@ -132,6 +143,10 @@ Page({
     }
   },
   onInputFocus() {
+    if (this.data.emojiPanelVisible || this.data.plusPanelVisible) {
+      this.setData({ emojiPanelVisible: false, plusPanelVisible: false });
+      this.updateBottomPadding();
+    }
     this.scrollToBottom();
   },
   onInputBlur() {
@@ -505,6 +520,7 @@ Page({
     const type = dataset.messageType || 'text';
     const content = dataset.content || '';
     if (type === 'image') return '[图片]';
+    if (type === 'video') return '[视频]';
     if (type === 'audio') return '[语音]';
     const trimmed = (content || '').trim();
     return trimmed ? trimmed.slice(0, 80) : '[消息]';
@@ -518,11 +534,15 @@ Page({
     const base = this.data._baseBottomPadding || 120;
     const kh = this.data.keyboardHeight || 0;
     const emoji = this.data.emojiPanelVisible ? (this._emojiPanelPx || 0) : 0;
-    this.setData({ bottomPadding: base + kh + emoji });
+    const plus = this.data.plusPanelVisible ? (this._plusPanelPx || 0) : 0;
+    this.setData({ bottomPadding: base + kh + emoji + plus });
   },
 
   toggleEmojiPanel() {
     const next = !this.data.emojiPanelVisible;
+    if (next && this.data.plusPanelVisible) {
+      this.setData({ plusPanelVisible: false });
+    }
     this.setData({ emojiPanelVisible: next });
     this.updateBottomPadding();
   },
@@ -533,6 +553,85 @@ Page({
     const nextValue = `${this.data.inputMessage || ''}${emoji}`;
     this.setData({ inputMessage: nextValue });
     this.sendTyping(true);
+  },
+
+  togglePlusPanel() {
+    const next = !this.data.plusPanelVisible;
+    if (next && this.data.emojiPanelVisible) {
+      this.setData({ emojiPanelVisible: false });
+    }
+    this.setData({ plusPanelVisible: next });
+    if (next) {
+      try { wx.hideKeyboard(); } catch (e) {}
+    }
+    this.updateBottomPadding();
+  },
+
+  closePlusPanel() {
+    if (!this.data.plusPanelVisible) return;
+    this.setData({ plusPanelVisible: false });
+    this.updateBottomPadding();
+  },
+
+  handlePlusAction(e) {
+    const action = e.currentTarget.dataset.action;
+    if (!action) return;
+    if (action === 'album') {
+      this.chooseMedia(['album']);
+      return;
+    }
+    if (action === 'camera') {
+      this.chooseMedia(['camera']);
+      return;
+    }
+    if (action === 'location') {
+      wx.showToast({ title: '位置功能开发中', icon: 'none' });
+      this.closePlusPanel();
+      return;
+    }
+    if (action === 'file') {
+      wx.showToast({ title: '文件功能开发中', icon: 'none' });
+      this.closePlusPanel();
+      return;
+    }
+    if (action === 'contact') {
+      wx.showToast({ title: '名片功能开发中', icon: 'none' });
+      this.closePlusPanel();
+      return;
+    }
+    wx.showToast({ title: '更多功能开发中', icon: 'none' });
+    this.closePlusPanel();
+  },
+
+  chooseMedia(sourceType) {
+    const app = typeof getApp === 'function' ? getApp() : null;
+    if (app && typeof app.enterForegroundHold === 'function') {
+      app.enterForegroundHold(60000);
+    }
+    wx.chooseMedia({
+      count: 9,
+      mediaType: ['image', 'video'],
+      sourceType,
+      maxDuration: 60,
+      camera: 'back',
+      success: (res) => {
+        const files = res.tempFiles || [];
+        files.forEach(file => {
+          const fileType = file.fileType || file.type;
+          if (fileType === 'video') {
+            this.uploadMedia(file.tempFilePath, 'video', Math.round((file.duration || 0) * 1000));
+          } else {
+            this.uploadMedia(file.tempFilePath, 'image');
+          }
+        });
+      },
+      complete: () => {
+        if (app && typeof app.leaveForegroundHold === 'function') {
+          app.leaveForegroundHold();
+        }
+        this.closePlusPanel();
+      }
+    });
   },
 
   getHistoryMessages(opts = {}) {
@@ -738,6 +837,10 @@ Page({
             this.setData({ emojiPanelVisible: false });
             this.updateBottomPadding();
           }
+          if (this.data.plusPanelVisible) {
+            this.setData({ plusPanelVisible: false });
+            this.updateBottomPadding();
+          }
         },
         fail: () => {
           this.sendViaHttp(message);
@@ -765,6 +868,10 @@ Page({
           this.setData({ emojiPanelVisible: false });
           this.updateBottomPadding();
         }
+        if (this.data.plusPanelVisible) {
+          this.setData({ plusPanelVisible: false });
+          this.updateBottomPadding();
+        }
         this.getHistoryMessages();
       }
     });
@@ -789,6 +896,10 @@ Page({
     this.setData({ inputMode: nextMode, recording: false });
     if (nextMode !== 'text') {
       this.sendTyping(false);
+      if (this.data.emojiPanelVisible || this.data.plusPanelVisible) {
+        this.setData({ emojiPanelVisible: false, plusPanelVisible: false });
+        this.updateBottomPadding();
+      }
     }
   },
 
@@ -800,7 +911,7 @@ Page({
     let reply = null;
     if (message.reply_to_id) {
       const replyNickname = message.reply_to_alias || message.reply_to_user_id || '匿名';
-      const replyContent = message.reply_to_content || (message.reply_to_type === 'image' ? '[图片]' : message.reply_to_type === 'audio' ? '[语音]' : '[消息]');
+      const replyContent = message.reply_to_content || (message.reply_to_type === 'image' ? '[图片]' : message.reply_to_type === 'video' ? '[视频]' : message.reply_to_type === 'audio' ? '[语音]' : '[消息]');
       reply = {
         id: message.reply_to_id,
         userId: message.reply_to_user_id,
