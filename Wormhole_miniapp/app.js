@@ -13,10 +13,35 @@ const SPACE_ROUTES = new Set([
 
 const originalPage = Page;
 Page = function (pageConfig) {
+  const lifecycleHooks = new Set([
+    'onLoad', 'onShow', 'onReady', 'onHide', 'onUnload',
+    'onPullDownRefresh', 'onReachBottom', 'onPageScroll',
+    'onShareAppMessage', 'onAddToFavorites', 'onPageResize', 'onTabItemTap'
+  ]);
+  Object.keys(pageConfig).forEach((key) => {
+    const fn = pageConfig[key];
+    if (typeof fn !== 'function' || lifecycleHooks.has(key)) return;
+    pageConfig[key] = function () {
+      try {
+        const app = getApp();
+        if (app && typeof app.recordUserActivity === 'function') {
+          app.recordUserActivity();
+        }
+      } catch (e) {}
+      return fn.apply(this, arguments);
+    };
+  });
+
   const originalOnShow = pageConfig.onShow;
   pageConfig.onShow = function () {
     try {
       const app = getApp();
+      if (app && typeof app.recordUserActivity === 'function') {
+        app.recordUserActivity();
+      }
+      if (app && typeof app.startInactivityTimer === 'function') {
+        app.startInactivityTimer();
+      }
       if (app && typeof app.logPageView === 'function') {
         app.logPageView(this.route, this.options || {});
       }
@@ -28,6 +53,20 @@ Page = function (pageConfig) {
       return originalOnShow.apply(this, arguments);
     }
   };
+
+  const originalOnHide = pageConfig.onHide;
+  pageConfig.onHide = function () {
+    try {
+      const app = getApp();
+      if (app && typeof app.stopInactivityTimer === 'function') {
+        app.stopInactivityTimer();
+      }
+    } catch (e) {}
+    if (typeof originalOnHide === 'function') {
+      return originalOnHide.apply(this, arguments);
+    }
+  };
+
   return originalPage(pageConfig);
 };
 
@@ -41,6 +80,7 @@ App({
     lastHideTimestamp: 0,
     autoLockSeconds: 3600,
     reviewMode: false,
+    inactivityTimer: null,
   },
 
   enterForegroundHold(ms = 60000) {
@@ -74,6 +114,41 @@ App({
       clearTimeout(this.globalData.hideTimer);
       this.globalData.hideTimer = null;
     }
+  },
+
+  getAutoLockSeconds() {
+    const stored = wx.getStorageSync('autoLockSeconds');
+    if (stored === undefined || stored === null || stored === '') {
+      return this.globalData.autoLockSeconds || 0;
+    }
+    return Number(stored) || 0;
+  },
+
+  startInactivityTimer() {
+    this.stopInactivityTimer();
+    const seconds = this.getAutoLockSeconds();
+    if (!seconds || seconds <= 0) return;
+    this.globalData.inactivityTimer = setTimeout(() => {
+      this.globalData.inactivityTimer = null;
+      const pages = getCurrentPages();
+      const currentPage = pages[pages.length - 1];
+      if (!currentPage || currentPage.route !== 'pages/index/index') {
+        wx.reLaunch({ url: '/pages/index/index' });
+      } else if (typeof currentPage.resetSpaceCode === 'function') {
+        currentPage.resetSpaceCode(true);
+      }
+    }, seconds * 1000);
+  },
+
+  stopInactivityTimer() {
+    if (this.globalData.inactivityTimer) {
+      clearTimeout(this.globalData.inactivityTimer);
+      this.globalData.inactivityTimer = null;
+    }
+  },
+
+  recordUserActivity() {
+    this.startInactivityTimer();
   },
 
   logOperation(payload = {}) {
@@ -194,23 +269,18 @@ App({
     if (now < (this.globalData.holdUntil || 0)) {
       return;
     }
-    const lastHide = this.globalData.lastHideTimestamp || 0;
-    if (!lastHide) {
-      this.globalData.lastHideTimestamp = now;
+    if (this.globalData.shouldReturnToIndex) {
+      this.globalData.shouldReturnToIndex = false;
+      const pages = getCurrentPages();
+      const currentPage = pages[pages.length - 1];
+      if (!currentPage || currentPage.route !== 'pages/index/index') {
+        wx.reLaunch({ url: '/pages/index/index' });
+      } else if (typeof currentPage.resetSpaceCode === 'function') {
+        currentPage.resetSpaceCode(true);
+      }
       return;
     }
-    const storedSeconds = wx.getStorageSync('autoLockSeconds');
-    const baseSeconds = storedSeconds === undefined ? this.globalData.autoLockSeconds : storedSeconds;
-    const autoLockMs = (baseSeconds || 0) * 1000;
-    if (autoLockMs <= 0) return;
-    if (now - lastHide < autoLockMs) return;
-    const pages = getCurrentPages();
-    const currentPage = pages[pages.length - 1];
-    if (!currentPage || currentPage.route !== 'pages/index/index') {
-      wx.reLaunch({ url: '/pages/index/index' });
-    } else if (typeof currentPage.resetSpaceCode === 'function') {
-      currentPage.resetSpaceCode(true);
-    }
+    this.startInactivityTimer();
   },
 
   onHide() {
@@ -220,8 +290,9 @@ App({
       this.globalData.lastHideTimestamp = now;
       return;
     }
+    this.stopInactivityTimer();
     this.clearHideTimer();
-    this.globalData.shouldReturnToIndex = false;
+    this.globalData.shouldReturnToIndex = true;
     this.globalData.lastHideTimestamp = now;
   }
   ,
