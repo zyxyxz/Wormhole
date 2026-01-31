@@ -223,9 +223,10 @@ App({
       return;
     }
     this._notesBadgeLoading = true;
+    const uid = wx.getStorageSync('openid') || '';
     wx.request({
       url: `${BASE_URL}/api/feed/unread-count`,
-      data: { space_id: sid, since_ts: since },
+      data: { space_id: sid, since_ts: since, user_id: uid },
       success: (res) => {
         const count = Math.max(0, res.data?.count || 0);
         if (count > 0) {

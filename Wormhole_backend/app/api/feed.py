@@ -250,7 +250,7 @@ async def like_post(payload: PostLikeRequest, db: AsyncSession = Depends(get_db)
 
 
 @router.get("/unread-count")
-async def unread_count(space_id: int, since_ts: int | None = None, db: AsyncSession = Depends(get_db)):
+async def unread_count(space_id: int, since_ts: int | None = None, user_id: str | None = None, db: AsyncSession = Depends(get_db)):
     space = (await db.execute(select(Space).where(Space.id == space_id, Space.deleted_at.is_(None)))).scalar_one_or_none()
     if not space:
         raise HTTPException(status_code=404, detail="空间不存在")
@@ -261,9 +261,42 @@ async def unread_count(space_id: int, since_ts: int | None = None, db: AsyncSess
     except Exception:
         return {"count": 0}
     since_dt = datetime.utcfromtimestamp(since_ts / 1000)
-    count_row = await db.execute(
-        select(func.count(Post.id))
-        .where(Post.space_id == space_id, Post.deleted_at.is_(None), Post.created_at > since_dt)
+    post_query = select(func.count(Post.id)).where(
+        Post.space_id == space_id,
+        Post.deleted_at.is_(None),
+        Post.created_at > since_dt
     )
-    count = count_row.scalar_one() or 0
-    return {"count": count}
+    if user_id:
+        post_query = post_query.where(Post.user_id != user_id)
+    post_count = (await db.execute(post_query)).scalar_one() or 0
+
+    comment_query = (
+        select(func.count(Comment.id))
+        .select_from(Comment)
+        .join(Post, Comment.post_id == Post.id)
+        .where(
+            Post.space_id == space_id,
+            Post.deleted_at.is_(None),
+            Comment.deleted_at.is_(None),
+            Comment.created_at > since_dt
+        )
+    )
+    if user_id:
+        comment_query = comment_query.where(Comment.user_id != user_id)
+    comment_count = (await db.execute(comment_query)).scalar_one() or 0
+
+    like_query = (
+        select(func.count(PostLike.id))
+        .select_from(PostLike)
+        .join(Post, PostLike.post_id == Post.id)
+        .where(
+            Post.space_id == space_id,
+            Post.deleted_at.is_(None),
+            PostLike.created_at > since_dt
+        )
+    )
+    if user_id:
+        like_query = like_query.where(PostLike.user_id != user_id)
+    like_count = (await db.execute(like_query)).scalar_one() or 0
+
+    return {"count": post_count + comment_count + like_count}
