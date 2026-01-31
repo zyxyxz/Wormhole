@@ -39,18 +39,22 @@ Page({
 
   onLoad(options = {}) {
     const targetType = options.type || '';
+    const decode = (val) => {
+      if (!val) return '';
+      try { return decodeURIComponent(val); } catch (e) { return val; }
+    };
     this.setData({
       adminOpenId: options.user_id || '',
       adminRoomCode: options.room_code || '',
       targetType,
       space: {
         space_id: options.space_id || '',
-        code: options.space_code || '',
-        owner: options.owner || ''
+        code: decode(options.space_code || ''),
+        owner: decode(options.owner || '')
       },
       user: {
         user_id: options.target_user_id || '',
-        alias: options.alias || ''
+        alias: decode(options.alias || '')
       }
     });
     this.fetchLogs({ reset: true });

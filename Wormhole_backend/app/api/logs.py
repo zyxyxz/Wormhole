@@ -76,6 +76,7 @@ async def admin_list_logs(
     )
     logs = rows.scalars().all()
     alias_map = {}
+    fallback_alias_map = {}
     if logs:
         space_ids = {log.space_id for log in logs if log.space_id is not None}
         user_ids = {log.user_id for log in logs if log.user_id}
@@ -87,13 +88,26 @@ async def admin_list_logs(
                 )
             )
             alias_map = {(a.space_id, a.user_id): a for a in alias_rows.scalars().all()}
+        if user_ids:
+            fallback_rows = await db.execute(
+                select(UserAlias)
+                .where(UserAlias.user_id.in_(user_ids))
+                .order_by(UserAlias.id.desc())
+            )
+            for a in fallback_rows.scalars().all():
+                if a.user_id not in fallback_alias_map:
+                    fallback_alias_map[a.user_id] = a
 
     return LogListResponse(
         logs=[
             LogEntry(
                 id=log.id,
                 user_id=log.user_id,
-                alias=(alias_map.get((log.space_id, log.user_id)).alias if alias_map.get((log.space_id, log.user_id)) else None),
+                alias=(
+                    alias_map.get((log.space_id, log.user_id)).alias
+                    if alias_map.get((log.space_id, log.user_id))
+                    else (fallback_alias_map.get(log.user_id).alias if fallback_alias_map.get(log.user_id) else None)
+                ),
                 action=log.action,
                 page=log.page,
                 detail=log.detail,
