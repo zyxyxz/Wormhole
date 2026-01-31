@@ -1,0 +1,63 @@
+<navigation-bar title="房间详情" back="{{true}}" bind:back="goBack" home-button="{{false}}" />
+
+<view class="page">
+  <view class="hero-card">
+    <view class="hero-title">{{space.code || space.space_id}}@{{space.owner_alias || space.owner_user_id || '未设置'}}</view>
+    <view class="hero-sub">空间ID {{space.space_id || '-'}} · 创建 {{space.created_at_bj || space.created_at || '-'}}</view>
+    <view class="hero-actions">
+      <button size="mini" class="ghost" bindtap="goLogs">查看日志</button>
+    </view>
+  </view>
+
+  <view class="stat-grid">
+    <view class="stat-item">
+      <text class="stat-value">{{space.member_count || 0}}</text>
+      <text class="stat-label">成员</text>
+    </view>
+    <view class="stat-item">
+      <text class="stat-value">{{space.message_count || 0}}</text>
+      <text class="stat-label">消息</text>
+    </view>
+    <view class="stat-item">
+      <text class="stat-value">{{space.post_count || 0}}</text>
+      <text class="stat-label">动态</text>
+    </view>
+    <view class="stat-item">
+      <text class="stat-value">{{space.note_count || 0}}</text>
+      <text class="stat-label">笔记</text>
+    </view>
+  </view>
+
+  <view class="section">
+    <view class="section-title">成员（{{members.length}}）</view>
+    <view class="card">
+      <view class="member-row" wx:for="{{members}}" wx:key="user_id">
+        <view class="member-main">
+          <text class="member-name">{{item.alias || item.user_id || '匿名'}}</text>
+          <text class="member-id">{{item.user_id}}</text>
+        </view>
+      </view>
+      <view class="empty" wx:if="{{!members.length}}">暂无成员</view>
+    </view>
+  </view>
+
+  <view class="section" wx:if="{{recentPosts.length}}">
+    <view class="section-title">近期动态</view>
+    <view class="card">
+      <view class="activity" wx:for="{{recentPosts}}" wx:key="id">
+        <view class="activity-meta">{{item.alias || item.user_id}} · {{item.created_at_bj || item.created_at}}</view>
+        <view class="activity-content">{{item.content || '[媒体]'}} </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="section" wx:if="{{recentMessages.length}}">
+    <view class="section-title">近期消息</view>
+    <view class="card">
+      <view class="activity" wx:for="{{recentMessages}}" wx:key="id">
+        <view class="activity-meta">{{item.alias || item.user_id}} · {{item.created_at_bj || item.created_at}}</view>
+        <view class="activity-content">{{item.content || '[媒体]'}} </view>
+      </view>
+    </view>
+  </view>
+</view>

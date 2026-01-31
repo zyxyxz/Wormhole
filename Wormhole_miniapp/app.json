@@ -10,7 +10,9 @@
     "pages/recharge/recharge",
     "pages/join/join",
     "pages/settings/settings",
-    "pages/admin/admin"
+    "pages/admin/admin",
+    "pages/admin-space/admin-space",
+    "pages/admin-logs/admin-logs"
   ],
   "window": {
     "backgroundTextStyle": "light",

@@ -1,0 +1,25 @@
+<navigation-bar title="日志" back="{{true}}" bind:back="goBack" home-button="{{false}}" />
+
+<view class="page">
+  <view class="hero-card">
+    <view class="hero-title" wx:if="{{targetType === 'space'}}">房间 {{space.code || space.space_id}}@{{space.owner || '未设置'}}</view>
+    <view class="hero-title" wx:if="{{targetType === 'user'}}">用户 {{user.alias || user.user_id || '未知用户'}}</view>
+    <view class="hero-sub">最近 {{limit}} 条日志 · 北京时间</view>
+  </view>
+
+  <view class="list-card">
+    <view class="log-row" wx:for="{{logEntries}}" wx:key="id">
+      <view class="log-head">
+        <text class="log-user">{{item.alias || item.user_id || '未知用户'}}</text>
+        <text class="log-action">{{item.action}}</text>
+      </view>
+      <view class="log-meta">
+        <text>{{item.page || '-'}}</text>
+        <text>{{item.created_at_bj}}</text>
+      </view>
+      <view class="log-detail" wx:if="{{item.detail}}">{{item.detail}}</view>
+    </view>
+    <view class="empty" wx:if="{{loading}}">加载中...</view>
+    <view class="empty" wx:if="{{!loading && !logEntries.length}}">暂无日志</view>
+  </view>
+</view>

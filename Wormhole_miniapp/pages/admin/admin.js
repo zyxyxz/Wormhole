@@ -12,23 +12,11 @@ Page({
     spaceList: [],
     spaceOwnerFilter: '',
     activeSection: '',
-    showSpaceModal: false,
-    spaceDetail: null,
-    spaceMembers: [],
     recentPosts: [],
     recentMessages: [],
-    spaceRecentPosts: [],
-    spaceRecentMessages: [],
     reviewMode: false,
     messagesLoading: false,
-    postsLoading: false,
-    showLogModal: false,
-    logTargetType: '',
-    logSpace: null,
-    logUser: null,
-    logEntries: [],
-    logLoading: false,
-    logLimit: 30
+    postsLoading: false
   },
   onLoad(options = {}) {
     const openid = wx.getStorageSync('openid') || '';
@@ -331,39 +319,9 @@ Page({
     const spaceId = e.currentTarget.dataset.id;
     if (!spaceId) return;
     const { adminOpenId, adminRoomCode } = this.data;
-    wx.showLoading({ title: '加载中', mask: true });
-    wx.request({
-      url: `${BASE_URL}/api/settings/admin/space-detail`,
-      data: { user_id: adminOpenId, room_code: adminRoomCode, space_id: spaceId },
-      success: (res) => {
-        wx.hideLoading();
-        if (res.data && res.data.space) {
-          this.setData({
-            spaceDetail: res.data.space,
-            spaceMembers: res.data.members || [],
-            spaceRecentPosts: res.data.recent_posts || [],
-            spaceRecentMessages: res.data.recent_messages || [],
-            showSpaceModal: true
-          });
-        } else {
-          wx.showToast({ title: res.data?.detail || '加载失败', icon: 'none' });
-        }
-      },
-      fail: () => {
-        wx.hideLoading();
-        wx.showToast({ title: '网络异常', icon: 'none' });
-      }
-    });
-  },
-
-  closeSpaceDetail() {
-    this.setData({
-      showSpaceModal: false,
-      spaceDetail: null,
-      spaceMembers: [],
-      spaceRecentPosts: [],
-      spaceRecentMessages: []
-    });
+    const url = `/pages/admin-space/admin-space?space_id=${encodeURIComponent(spaceId)}`
+      + `&user_id=${encodeURIComponent(adminOpenId)}&room_code=${encodeURIComponent(adminRoomCode)}`;
+    wx.navigateTo({ url });
   },
 
   openSpaceLogs(e) {
@@ -371,94 +329,21 @@ Page({
     const spaceCode = e.currentTarget.dataset.code || '';
     const owner = e.currentTarget.dataset.owner || '';
     if (!spaceId) return;
-    this.setData({
-      showLogModal: true,
-      logTargetType: 'space',
-      logSpace: { space_id: spaceId, code: spaceCode, owner },
-      logUser: null,
-      logEntries: [],
-      logLoading: true
-    });
-    this.fetchSpaceLogs(spaceId);
-  },
-
-  closeSpaceLogs() {
-    this.setData({
-      showLogModal: false,
-      logTargetType: '',
-      logSpace: null,
-      logUser: null,
-      logEntries: []
-    });
+    const { adminOpenId, adminRoomCode } = this.data;
+    const url = `/pages/admin-logs/admin-logs?type=space&space_id=${encodeURIComponent(spaceId)}`
+      + `&space_code=${encodeURIComponent(spaceCode)}&owner=${encodeURIComponent(owner)}`
+      + `&user_id=${encodeURIComponent(adminOpenId)}&room_code=${encodeURIComponent(adminRoomCode)}`;
+    wx.navigateTo({ url });
   },
 
   openUserLogs(e) {
     const userId = e.currentTarget.dataset.userid;
     const alias = e.currentTarget.dataset.alias || '';
     if (!userId) return;
-    this.setData({
-      showLogModal: true,
-      logTargetType: 'user',
-      logUser: { user_id: userId, alias },
-      logSpace: null,
-      logEntries: [],
-      logLoading: true
-    });
-    this.fetchUserLogs(userId);
-  },
-
-  fetchSpaceLogs(spaceId) {
-    const { adminOpenId, adminRoomCode, logLimit } = this.data;
-    if (!adminOpenId || !adminRoomCode) {
-      this.setData({ logLoading: false });
-      wx.showToast({ title: '缺少管理员信息', icon: 'none' });
-      return;
-    }
-    wx.request({
-      url: `${BASE_URL}/api/logs/admin/list`,
-      data: {
-        user_id: adminOpenId,
-        room_code: adminRoomCode,
-        space_id: spaceId,
-        limit: logLimit,
-        offset: 0
-      },
-      success: (res) => {
-        const list = Array.isArray(res.data?.logs) ? res.data.logs : [];
-        this.setData({ logEntries: list, logLoading: false });
-      },
-      fail: () => {
-        this.setData({ logLoading: false });
-        wx.showToast({ title: '日志加载失败', icon: 'none' });
-      }
-    });
-  },
-
-  fetchUserLogs(targetUserId) {
-    const { adminOpenId, adminRoomCode, logLimit } = this.data;
-    if (!adminOpenId || !adminRoomCode) {
-      this.setData({ logLoading: false });
-      wx.showToast({ title: '缺少管理员信息', icon: 'none' });
-      return;
-    }
-    wx.request({
-      url: `${BASE_URL}/api/logs/admin/list`,
-      data: {
-        user_id: adminOpenId,
-        room_code: adminRoomCode,
-        target_user_id: targetUserId,
-        limit: logLimit,
-        offset: 0
-      },
-      success: (res) => {
-        const list = Array.isArray(res.data?.logs) ? res.data.logs : [];
-        this.setData({ logEntries: list, logLoading: false });
-      },
-      fail: () => {
-        this.setData({ logLoading: false });
-        wx.showToast({ title: '日志加载失败', icon: 'none' });
-      }
-    });
+    const { adminOpenId, adminRoomCode } = this.data;
+    const url = `/pages/admin-logs/admin-logs?type=user&target_user_id=${encodeURIComponent(userId)}`
+      + `&alias=${encodeURIComponent(alias)}&user_id=${encodeURIComponent(adminOpenId)}&room_code=${encodeURIComponent(adminRoomCode)}`;
+    wx.navigateTo({ url });
   },
 
   fetchSystemFlags(opts = {}) {
