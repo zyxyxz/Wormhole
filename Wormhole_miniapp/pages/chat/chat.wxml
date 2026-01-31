@@ -50,9 +50,8 @@
         </block>
         <view class="message-meta">
           <view class="message-time">{{item.displayTime}}</view>
-          <view wx:if="{{item.isSelf && memberCount > 1}}" class="read-state" bindtap="openReadList" data-id="{{item.id}}">
-            <text wx:if="{{item.readCount}}">已读 {{item.readCount}}</text>
-            <text wx:else>未读</text>
+          <view wx:if="{{item.isSelf && item.readStatus}}" class="read-state" bindtap="openReadList" data-id="{{item.id}}">
+            <text>{{item.readStatus}}</text>
           </view>
         </view>
       </view>
@@ -82,6 +81,8 @@
                bindinput="onInputChange"
                bindfocus="onInputFocus"
                bindblur="onInputBlur"
+               bindconfirm="onInputConfirm"
+               confirm-type="send"
                adjust-position="false"
                placeholder="输入消息..."/>
       </block>

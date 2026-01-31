@@ -411,17 +411,35 @@ Page({
     return count;
   },
 
+  computeMaxReadId(map, myId) {
+    let maxId = 0;
+    Object.keys(map || {}).forEach(uid => {
+      if (uid === myId) return;
+      const val = Number(map[uid] || 0);
+      if (val > maxId) maxId = val;
+    });
+    return maxId;
+  },
+
   refreshMessageDecorations(messagesInput) {
     const messages = messagesInput || this.data.messages || [];
     if (!messages.length) return;
     const myId = this._currentUserId || wx.getStorageSync('openid');
     const unreadDividerId = this.computeUnreadDividerId(messages);
     const readMap = this.data.readUsersMap || {};
+    const maxReadId = this.computeMaxReadId(readMap, myId);
     const updated = messages.map(m => {
-      const readCount = m.isSelf ? this.computeReadCount(m.id, readMap, myId) : 0;
+      let readStatus = '';
+      if (m.isSelf) {
+        if (maxReadId && m.id === maxReadId) {
+          readStatus = '已读';
+        } else if (m.id > maxReadId) {
+          readStatus = '未读';
+        }
+      }
       return {
         ...m,
-        readCount,
+        readStatus,
         showUnreadDivider: unreadDividerId && m.id === unreadDividerId
       };
     });
@@ -433,12 +451,20 @@ Page({
     const myId = this._currentUserId || wx.getStorageSync('openid');
     const unreadDividerId = this.computeUnreadDividerId(messages);
     const readMap = this.data.readUsersMap || {};
+    const maxReadId = this.computeMaxReadId(readMap, myId);
     this._lastUnreadDividerId = unreadDividerId;
     return messages.map(m => {
-      const readCount = m.isSelf ? this.computeReadCount(m.id, readMap, myId) : 0;
+      let readStatus = '';
+      if (m.isSelf) {
+        if (maxReadId && m.id === maxReadId) {
+          readStatus = '已读';
+        } else if (m.id > maxReadId) {
+          readStatus = '未读';
+        }
+      }
       return {
         ...m,
-        readCount,
+        readStatus,
         showUnreadDivider: unreadDividerId && m.id === unreadDividerId
       };
     });
@@ -499,6 +525,10 @@ Page({
     const members = this.data.members || [];
     const myId = this._currentUserId || wx.getStorageSync('openid');
     const list = members.filter(m => m.user_id !== myId && (map[m.user_id] || 0) >= messageId);
+    if (!list.length) {
+      wx.showToast({ title: '暂无已读', icon: 'none' });
+      return;
+    }
     this.setData({ readModalUsers: list, showReadModal: true });
   },
 
@@ -793,6 +823,11 @@ Page({
     }
   },
 
+  onInputConfirm() {
+    if (this.data.inputMode !== 'text') return;
+    this.sendMessage();
+  },
+
   sendMessage() {
     const text = this.data.inputMessage.trim();
     if (!text) return;
@@ -940,7 +975,7 @@ Page({
       mediaDuration: message.media_duration || 0,
       audioDuration: duration,
       reply,
-      readCount: 0,
+      readStatus: '',
       showUnreadDivider: false
     };
   },

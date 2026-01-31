@@ -33,6 +33,48 @@ page {
   box-shadow: 0 12rpx 28rpx rgba(15, 23, 42, 0.08);
 }
 
+.filter-card {
+  background: #FFFFFF;
+  border-radius: 18rpx;
+  padding: 16rpx 18rpx;
+  box-shadow: 0 12rpx 28rpx rgba(15, 23, 42, 0.08);
+  margin-bottom: 18rpx;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12rpx;
+}
+
+.filter-item {
+  background: #F8FAFC;
+  border-radius: 14rpx;
+  padding: 12rpx 14rpx;
+  border: 1rpx solid #E2E8F0;
+}
+
+.filter-label {
+  font-size: 20rpx;
+  color: rgba(15, 23, 42, 0.6);
+}
+
+.filter-value {
+  font-size: 24rpx;
+  font-weight: 600;
+  margin-top: 6rpx;
+}
+
+.filter-actions {
+  grid-column: span 2;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12rpx;
+  margin-top: 4rpx;
+}
+
+.primary {
+  background: #2563EB;
+  color: #FFFFFF;
+}
+
 .log-row {
   padding: 14rpx 0;
   border-bottom: 1rpx solid #E2E8F0;

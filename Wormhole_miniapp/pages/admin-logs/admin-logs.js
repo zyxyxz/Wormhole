@@ -28,7 +28,13 @@ Page({
     user: {},
     logEntries: [],
     loading: true,
-    limit: 30
+    loadingMore: false,
+    limit: 100,
+    offset: 0,
+    hasMore: true,
+    startDate: '',
+    endDate: '',
+    filterLabel: '最近 100 条日志 · 北京时间'
   },
 
   onLoad(options = {}) {
@@ -47,25 +53,68 @@ Page({
         alias: options.alias || ''
       }
     });
-    this.fetchLogs();
+    this.fetchLogs({ reset: true });
+  },
+
+  onReachBottom() {
+    if (!this.data.hasMore || this.data.loading || this.data.loadingMore) return;
+    this.fetchLogs({ reset: false });
   },
 
   goBack() {
     wx.navigateBack();
   },
 
-  fetchLogs() {
-    const { adminOpenId, adminRoomCode, targetType, space, user, limit } = this.data;
+  onStartDateChange(e) {
+    const value = e.detail.value || '';
+    this.setData({ startDate: value }, () => this.updateFilterLabel());
+  },
+
+  onEndDateChange(e) {
+    const value = e.detail.value || '';
+    this.setData({ endDate: value }, () => this.updateFilterLabel());
+  },
+
+  applyFilter() {
+    const { startDate, endDate } = this.data;
+    if (startDate && endDate && startDate > endDate) {
+      wx.showToast({ title: '开始日期不能晚于结束日期', icon: 'none' });
+      return;
+    }
+    this.fetchLogs({ reset: true });
+  },
+
+  resetFilter() {
+    this.setData({ startDate: '', endDate: '' }, () => {
+      this.updateFilterLabel();
+      this.fetchLogs({ reset: true });
+    });
+  },
+
+  updateFilterLabel() {
+    const { startDate, endDate, limit } = this.data;
+    if (!startDate && !endDate) {
+      this.setData({ filterLabel: `最近 ${limit} 条日志 · 北京时间` });
+      return;
+    }
+    const left = startDate || '开始';
+    const right = endDate || '结束';
+    this.setData({ filterLabel: `${left} 至 ${right} · 北京时间` });
+  },
+
+  fetchLogs({ reset }) {
+    const { adminOpenId, adminRoomCode, targetType, space, user, limit, startDate, endDate } = this.data;
     if (!adminOpenId || !adminRoomCode) {
-      this.setData({ loading: false });
+      this.setData({ loading: false, loadingMore: false });
       wx.showToast({ title: '缺少管理员信息', icon: 'none' });
       return;
     }
+    const nextOffset = reset ? 0 : this.data.offset;
     const params = {
       user_id: adminOpenId,
       room_code: adminRoomCode,
       limit,
-      offset: 0
+      offset: nextOffset
     };
     if (targetType === 'space' && space.space_id) {
       params.space_id = space.space_id;
@@ -73,7 +122,13 @@ Page({
     if (targetType === 'user' && user.user_id) {
       params.target_user_id = user.user_id;
     }
-    this.setData({ loading: true });
+    if (startDate) params.start_time = startDate;
+    if (endDate) params.end_time = endDate;
+    if (reset) {
+      this.setData({ loading: true, loadingMore: false, hasMore: true, offset: 0, logEntries: [] });
+    } else {
+      this.setData({ loadingMore: true });
+    }
     wx.request({
       url: `${BASE_URL}/api/logs/admin/list`,
       data: params,
@@ -83,10 +138,20 @@ Page({
           ...item,
           created_at_bj: formatBeijingTime(item.created_at)
         }));
-        this.setData({ logEntries: decorated, loading: false });
+        const total = res.data?.total ?? 0;
+        const merged = reset ? decorated : (this.data.logEntries || []).concat(decorated);
+        const newOffset = merged.length;
+        const hasMore = newOffset < total;
+        this.setData({
+          logEntries: merged,
+          loading: false,
+          loadingMore: false,
+          offset: newOffset,
+          hasMore
+        });
       },
       fail: () => {
-        this.setData({ loading: false });
+        this.setData({ loading: false, loadingMore: false });
         wx.showToast({ title: '日志加载失败', icon: 'none' });
       }
     });
