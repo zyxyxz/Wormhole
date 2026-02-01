@@ -122,6 +122,7 @@ Page({
 
     // 初始化WebSocket连接
     this._pageActive = true;
+    this._wsKeepAlive = true;
     this.initWebSocket();
     this.fetchMembers();
     this.fetchReadState();
@@ -187,9 +188,8 @@ Page({
     }
   },
   onHide() {
-    this._pageActive = false;
     this.sendTyping(false);
-    this.cleanupWebSocket({ allowReconnect: false });
+    // 保持房间内WS连接，便于接收新消息红点
   },
   onBack() {
     wx.reLaunch({ url: '/pages/index/index' });
@@ -263,7 +263,7 @@ Page({
       this._wsConnecting = false;
       this._wsReady = false;
       if (this.ws === ws) this.ws = null;
-      if (this._wsShouldReconnect && this._pageActive && this.data.spaceId === this._wsSpaceId) {
+      if (this._wsShouldReconnect && this._wsKeepAlive && this.data.spaceId === this._wsSpaceId) {
         this._wsReconnectTimer = setTimeout(() => this.initWebSocket({ force: true }), 3000);
       }
     });
@@ -1385,6 +1385,7 @@ Page({
 
   onUnload() {
     this.sendTyping(false);
+    this._wsKeepAlive = false;
     this.cleanupWebSocket({ allowReconnect: false });
     if (this.audioCtx) {
       this.audioCtx.destroy();

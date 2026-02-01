@@ -416,7 +416,7 @@ Page({
         wx.showToast({ title: '删除失败', icon: 'none' });
       }
     });
-  }
+  },
   blockMember(e) {
     const memberUserId = e.currentTarget.dataset.userid;
     wx.showModal({
@@ -442,8 +442,7 @@ Page({
       data: { space_id: this.data.spaceId, member_user_id: memberUserId, operator_user_id: wx.getStorageSync('openid') || '' },
       success: () => { this.fetchBlocks(); }
     });
-  }
-  ,
+  },
   removeMember(e) {
     const memberUserId = e.currentTarget.dataset.userid;
     wx.showModal({

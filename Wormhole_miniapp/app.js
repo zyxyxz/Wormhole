@@ -253,6 +253,7 @@ App({
 
   refreshChatBadge(currentRoute = '') {
     if (this.globalData.reviewMode) return;
+    if (this._chatBadgeDisabled) return;
     const sid = wx.getStorageSync('currentSpaceId');
     if (!sid) {
       this.clearChatBadge();
@@ -270,6 +271,12 @@ App({
       url: `${BASE_URL}/api/chat/unread-count`,
       data: { space_id: sid, user_id: uid },
       success: (res) => {
+        if (res.statusCode === 404) {
+          this._chatBadgeDisabled = true;
+          this.clearChatBadge();
+          this.stopChatBadgeTimer();
+          return;
+        }
         const count = Math.max(0, res.data?.count || 0);
         if (count > 0) {
           const text = count > 99 ? '99+' : String(count);
