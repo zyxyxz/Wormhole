@@ -60,6 +60,7 @@ Page({
       alias: cachedAlias || this.data.alias,
       aliasInitial: (cachedAlias || myUserId || '我').charAt(0)
     });
+    this.loadCachedSettings();
     this.fetchAlias();
     this.fetchSpaceInfo();
     const autoLockSeconds = wx.getStorageSync('autoLockSeconds');
@@ -75,10 +76,91 @@ Page({
       success: (res) => {
         const info = res.data;
         const isOwner = wx.getStorageSync('openid') === info.owner_user_id;
-        this.setData({ isOwner, ownerUserId: info.owner_user_id });
+        const nextOwner = info.owner_user_id || '';
+        if (nextOwner !== this.data.ownerUserId || isOwner !== this.data.isOwner) {
+          this.setData({ isOwner, ownerUserId: nextOwner });
+          this.persistSettingsCache();
+        }
         this.fetchMembers();
       }
     });
+  },
+
+  getCacheKey() {
+    return `settings_cache_${this.data.spaceId}`;
+  },
+
+  buildAliasSignature(alias, avatarUrl) {
+    return `${alias || ''}|${avatarUrl || ''}`;
+  },
+
+  buildMembersSignature(membersRaw) {
+    try {
+      return JSON.stringify((membersRaw || []).map(item => ({
+        user_id: item.user_id || '',
+        alias: item.alias || '',
+        avatar_url: item.avatar_url || ''
+      })));
+    } catch (e) {
+      return '';
+    }
+  },
+
+  buildBlocksSignature(blocks) {
+    try {
+      return JSON.stringify((blocks || []).map(item => item.user_id || ''));
+    } catch (e) {
+      return '';
+    }
+  },
+
+  loadCachedSettings() {
+    if (!this.data.spaceId) return false;
+    let cache = null;
+    try {
+      cache = wx.getStorageSync(this.getCacheKey());
+    } catch (e) {}
+    if (!cache) return false;
+    const members = Array.isArray(cache.members) ? cache.members : [];
+    const blocks = Array.isArray(cache.blocks) ? cache.blocks : [];
+    const alias = cache.alias || '';
+    const avatarUrl = cache.avatarUrl || '';
+    const ownerUserId = cache.ownerUserId || '';
+    const isOwner = !!cache.isOwner;
+    const aliasInitial = (alias || this.data.myUserId || '我').charAt(0);
+    this._aliasSig = this.buildAliasSignature(alias, avatarUrl);
+    this._membersSig = cache.membersSig || '';
+    this._blocksSig = cache.blocksSig || '';
+    this.setData({
+      alias,
+      avatarUrl,
+      aliasInitial,
+      members,
+      memberPreview: members.slice(0, 4),
+      blocks,
+      ownerUserId,
+      isOwner: isOwner || (this.data.myUserId && ownerUserId === this.data.myUserId)
+    });
+    return true;
+  },
+
+  persistSettingsCache(extra = {}) {
+    if (!this.data.spaceId) return;
+    const payload = {
+      alias: this.data.alias || '',
+      avatarUrl: this.data.avatarUrl || '',
+      ownerUserId: this.data.ownerUserId || '',
+      isOwner: !!this.data.isOwner,
+      members: this.data.members || [],
+      blocks: this.data.blocks || [],
+      membersSig: this._membersSig || '',
+      blocksSig: this._blocksSig || '',
+      cached_at: Date.now(),
+      ...extra
+    };
+    try {
+      wx.setStorageSync(this.getCacheKey(), payload);
+    } catch (e) {}
   },
 
   fetchMembers() {
@@ -87,16 +169,21 @@ Page({
       data: { space_id: this.data.spaceId },
       success: (res) => {
         const membersRaw = res.data.members || [];
+        const nextSig = this.buildMembersSignature(membersRaw);
         const members = membersRaw.map(item => ({
           ...item,
           displayName: item.alias || item.user_id,
           initial: (item.alias || item.user_id || '?').charAt(0)
         }));
         const preview = members.slice(0, 4);
-        this.setData({
-          members,
-          memberPreview: preview
-        });
+        if (nextSig !== this._membersSig) {
+          this._membersSig = nextSig;
+          this.setData({
+            members,
+            memberPreview: preview
+          });
+          this.persistSettingsCache({ membersSig: nextSig });
+        }
         if (this.data.isOwner) {
           this.fetchBlocks();
         }
@@ -108,7 +195,13 @@ Page({
       url: `${BASE_URL}/api/space/blocks`,
       data: { space_id: this.data.spaceId },
       success: (res) => {
-        this.setData({ blocks: res.data.blocks || [] });
+        const blocks = res.data.blocks || [];
+        const nextSig = this.buildBlocksSignature(blocks);
+        if (nextSig !== this._blocksSig) {
+          this._blocksSig = nextSig;
+          this.setData({ blocks });
+          this.persistSettingsCache({ blocksSig: nextSig });
+        }
       }
     });
   },
@@ -123,11 +216,17 @@ Page({
         if (res.data && res.data.alias !== undefined) {
           const alias = res.data.alias;
           const avatarUrl = res.data.avatar_url || '';
+          const nextSig = this.buildAliasSignature(alias, avatarUrl);
+          if (nextSig === this._aliasSig) {
+            return;
+          }
+          this._aliasSig = nextSig;
           this.setData({
             alias,
             avatarUrl,
             aliasInitial: (alias || openid || '我').charAt(0)
           });
+          this.persistSettingsCache();
           try {
             wx.setStorageSync(`myAlias_${this.data.spaceId}`, alias);
             wx.setStorageSync(`myAvatar_${this.data.spaceId}`, avatarUrl);
@@ -366,7 +465,9 @@ Page({
       data: { space_id: this.data.spaceId, user_id: openid, alias, avatar_url: avatarUrl },
       success: () => {
         const aliasInitial = (alias || openid || '我').charAt(0);
+        this._aliasSig = this.buildAliasSignature(alias, avatarUrl);
         this.setData({ alias, avatarUrl, aliasInitial, showAliasModal: closeModal ? false : this.data.showAliasModal });
+        this.persistSettingsCache();
         try {
           wx.setStorageSync(`myAlias_${this.data.spaceId}`, alias);
           wx.setStorageSync(`myAvatar_${this.data.spaceId}`, avatarUrl);

@@ -4,8 +4,8 @@
     <view class="nav-chip online" bindtap="openOnline">在线 {{onlineCount}}</view>
   </view>
 </navigation-bar>
-<view class="chat-container">
-  <scroll-view class="message-list" scroll-y="true" scroll-with-animation="{{scrollWithAnimation}}" scroll-into-view="{{scrollTargetId}}" scroll-top="{{scrollTop}}" enable-flex="true" upper-threshold="80" bindscrolltoupper="loadOlderMessages" bindscrolltolower="onScrollToLower" bindscroll="onScroll" style="padding-bottom: {{bottomPadding}}px;">
+<view class="chat-container" bindtap="closeOverlayPanels">
+  <scroll-view class="message-list" scroll-y="true" scroll-with-animation="{{scrollWithAnimation}}" scroll-into-view="{{scrollTargetId}}" scroll-top="{{scrollTop}}" enable-flex="true" upper-threshold="80" bindscrolltoupper="loadOlderMessages" bindscrolltolower="onScrollToLower" bindscroll="onScroll" bindtap="closeOverlayPanels" style="padding-bottom: {{bottomPadding}}px;">
     <view class="history-hint">
       <text wx:if="{{historyLoading}}">加载中...</text>
       <text wx:elif="{{!historyHasMore}}">没有更多消息</text>
@@ -72,7 +72,7 @@
     </view>
   </scroll-view>
 
-  <view class="input-area" style="bottom: {{keyboardHeight}}px;">
+  <view class="input-area" style="bottom: {{keyboardHeight}}px;" catchtap="noop">
     <view wx:if="{{replyingTo}}" class="reply-bar">
       <view class="reply-text">
         <text>回复 {{replyingTo.nickname}}：</text>
@@ -81,7 +81,7 @@
       <view class="reply-cancel" bindtap="cancelReply">×</view>
     </view>
     <view class="input-row">
-      <button class="tool-btn" bindtap="toggleInputMode">
+      <button class="tool-btn" catchtap="toggleInputMode">
         <view class="icon mic" wx:if="{{inputMode === 'text'}}">
           <view class="mic-head"></view>
           <view class="mic-stand"></view>
@@ -109,31 +109,33 @@
           {{recording ? '松开发送' : '按住说话'}}
         </view>
       </block>
-      <button class="send-button" wx:if="{{inputMode === 'text' && inputMessage}}" bindtap="sendMessage">发送</button>
-      <button class="emoji-button" wx:if="{{inputMode === 'text'}}" bindtap="toggleEmojiPanel">
+      <button class="send-button" wx:if="{{inputMode === 'text' && inputMessage}}" catchtap="sendMessage">发送</button>
+      <button class="emoji-button" wx:if="{{inputMode === 'text'}}" catchtap="toggleEmojiPanel">
         <view class="icon emoji">
           <view class="emoji-eye left"></view>
           <view class="emoji-eye right"></view>
           <view class="emoji-mouth"></view>
         </view>
       </button>
-      <button class="plus-button" bindtap="togglePlusPanel">
+      <button class="plus-button" catchtap="togglePlusPanel">
         <view class="icon plus">
           <view class="plus-h"></view>
           <view class="plus-v"></view>
         </view>
       </button>
     </view>
-    <view wx:if="{{emojiPanelVisible}}" class="emoji-panel">
-      <view class="emoji-grid">
-        <view wx:for="{{emojiList}}" wx:key="code" class="emoji-item" data-emoji="{{item.code}}" bindtap="addEmoji">
-          <view class="emoji-item-inner" style="{{item.wrapperStyle}}">
-            <image class="emoji-item-sprite" src="{{item.spriteUrl}}" style="{{item.spriteStyle}}" mode="scaleToFill"></image>
+    <view class="emoji-panel" catchtap="noop" style="{{emojiPanelVisible ? '' : 'display:none;'}}">
+      <scroll-view class="emoji-scroll" scroll-y="true" scroll-top="{{emojiScrollTop}}">
+        <view class="emoji-grid">
+          <view wx:for="{{emojiList}}" wx:key="code" class="emoji-item" data-emoji="{{item.code}}" bindtap="addEmoji">
+            <view class="emoji-item-inner" style="{{item.wrapperStyle}}">
+              <image class="emoji-item-sprite" src="{{item.spriteUrl}}" style="{{item.spriteStyle}}" mode="scaleToFill"></image>
+            </view>
           </view>
         </view>
-      </view>
+      </scroll-view>
     </view>
-    <view wx:if="{{plusPanelVisible}}" class="plus-panel">
+    <view wx:if="{{plusPanelVisible}}" class="plus-panel" catchtap="noop">
       <view class="plus-grid">
         <view wx:for="{{plusActions}}" wx:key="id" class="plus-item" data-action="{{item.id}}" bindtap="handlePlusAction">
           <view class="plus-icon">{{item.icon}}</view>

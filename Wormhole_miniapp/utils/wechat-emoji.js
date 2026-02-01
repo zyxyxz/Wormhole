@@ -103,7 +103,7 @@ function buildEmojiDisplayList(sizePx = 32, spriteUrl = DEFAULT_SPRITE_URL) {
   });
 }
 
-const EMOJI_DISPLAY_LIST = buildEmojiDisplayList(40);
+const EMOJI_DISPLAY_LIST = buildEmojiDisplayList(32);
 
 module.exports = {
   EMOJI_CODES,

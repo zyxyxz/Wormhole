@@ -34,6 +34,7 @@ Page({
     const myUserId = wx.getStorageSync('openid') || '';
     const reviewMode = !!wx.getStorageSync('reviewMode');
     this.setData({ spaceId, myUserId, reviewMode });
+    this.loadCachedPosts();
     this.refreshMyProfileCache(spaceId);
     this.syncTabBar();
     this.fetchSpaceInfo();
@@ -93,8 +94,45 @@ Page({
           ownerUserId: info.owner_user_id || '',
           isOwner: !!myUserId && info.owner_user_id === myUserId,
         });
+        this.refreshPostsFromRaw();
       }
     });
+  },
+
+  getCacheKey() {
+    return `notes_cache_${this.data.spaceId}`;
+  },
+
+  loadCachedPosts() {
+    if (!this.data.spaceId) return false;
+    let cache = null;
+    try {
+      cache = wx.getStorageSync(this.getCacheKey());
+    } catch (e) {}
+    const rawPosts = Array.isArray(cache?.posts) ? cache.posts : [];
+    if (!rawPosts.length) return false;
+    this._rawPosts = rawPosts;
+    const posts = rawPosts.map(item => this.decoratePost(item));
+    this.setData({ posts, loading: false });
+    return true;
+  },
+
+  saveCachedPosts(rawPosts) {
+    if (!this.data.spaceId) return;
+    if (!Array.isArray(rawPosts)) return;
+    try {
+      wx.setStorageSync(this.getCacheKey(), {
+        posts: rawPosts,
+        cached_at: Date.now()
+      });
+    } catch (e) {}
+  },
+
+  refreshPostsFromRaw() {
+    const rawPosts = Array.isArray(this._rawPosts) ? this._rawPosts : [];
+    if (!rawPosts.length) return;
+    const posts = rawPosts.map(item => this.decoratePost(item));
+    this.setData({ posts });
   },
 
   getPosts({ stopPullDown = false } = {}) {
@@ -107,6 +145,8 @@ Page({
       data: { space_id: this.data.spaceId, user_id: this.data.myUserId },
       success: (res) => {
         const rawPosts = res.data.posts || [];
+        this._rawPosts = rawPosts;
+        this.saveCachedPosts(rawPosts);
         const incomingSig = this.buildPostsSignatureFromRaw(rawPosts);
         const currentSig = this.buildPostsSignatureFromDecorated(this.data.posts || []);
         if (incomingSig !== currentSig) {

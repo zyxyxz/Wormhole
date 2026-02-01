@@ -69,6 +69,7 @@ Page({
     replyingTo: null,
     emojiPanelVisible: false,
     emojiList: EMOJI_DISPLAY_LIST,
+    emojiScrollTop: 0,
     plusPanelVisible: false,
     plusActions: PLUS_ACTIONS,
     isAtBottom: true,
@@ -106,7 +107,7 @@ Page({
       const windowWidth = windowInfo.windowWidth || windowInfo.screenWidth || 375;
       const rpx = windowWidth / 750;
       const base = Math.ceil(150 * rpx + 24); // 输入区 + 安全距离
-      this._emojiPanelPx = Math.ceil(260 * rpx);
+      this._emojiPanelPx = Math.ceil(380 * rpx);
       this._plusPanelPx = Math.ceil(280 * rpx);
       this.setData({ _baseBottomPadding: base, bottomPadding: base });
     } catch(e) {}
@@ -600,6 +601,8 @@ Page({
     const scrollHeight = detail.scrollHeight || 0;
     const clientHeight = detail.clientHeight || 0;
     this._scrollTop = scrollTop;
+    this._scrollHeight = scrollHeight;
+    this._scrollClientHeight = clientHeight;
     const nearBottom = scrollTop + clientHeight >= scrollHeight - 30;
     if (nearBottom && !this.data.isAtBottom) {
       this.setData({ isAtBottom: true });
@@ -784,13 +787,48 @@ Page({
     this.setData({ bottomPadding: base + kh + emoji + plus });
   },
 
+  shouldStickToBottom() {
+    if (this.data.isAtBottom) return true;
+    const scrollTop = this._scrollTop || 0;
+    const clientHeight = this._scrollClientHeight || 0;
+    const scrollHeight = this._scrollHeight || 0;
+    if (!clientHeight || !scrollHeight) return false;
+    return scrollTop + clientHeight >= scrollHeight - 80;
+  },
+
+  scrollToBottomIfNeeded() {
+    if (!this.shouldStickToBottom()) return;
+    const runner = () => this.scrollToBottom();
+    if (wx.nextTick) {
+      wx.nextTick(runner);
+    } else {
+      setTimeout(runner, 50);
+    }
+  },
+
+  closeOverlayPanels() {
+    if (!this.data.emojiPanelVisible && !this.data.plusPanelVisible) return;
+    this.setData({ emojiPanelVisible: false, plusPanelVisible: false });
+    this.updateBottomPadding();
+  },
+
   toggleEmojiPanel() {
     const next = !this.data.emojiPanelVisible;
     if (next && this.data.plusPanelVisible) {
       this.setData({ plusPanelVisible: false });
     }
-    this.setData({ emojiPanelVisible: next });
+    if (next) {
+      this.setData({ emojiPanelVisible: true, emojiScrollTop: 1 });
+      setTimeout(() => {
+        this.setData({ emojiScrollTop: 0 });
+      }, 0);
+    } else {
+      this.setData({ emojiPanelVisible: false });
+    }
     this.updateBottomPadding();
+    if (next) {
+      this.scrollToBottomIfNeeded();
+    }
   },
 
   addEmoji(e) {
@@ -811,6 +849,9 @@ Page({
       try { wx.hideKeyboard(); } catch (e) {}
     }
     this.updateBottomPadding();
+    if (next) {
+      this.scrollToBottomIfNeeded();
+    }
   },
 
   closePlusPanel() {
@@ -937,14 +978,31 @@ Page({
           this._rawMessages = rawMsgs;
           this.saveCachedMessages();
           const decorated = this.applyDecorations(msgs);
-          this.setData({
+          const lastId = msgs.length ? msgs[msgs.length - 1].id : '';
+          const isInitial = !this._initialScrollDone;
+          this._initialScrollDone = true;
+          const nextData = {
             messages: decorated,
             unreadDividerId: this._lastUnreadDividerId || null,
-            lastMessageId: msgs.length ? `msg-${msgs[msgs.length - 1].id}` : '',
-            scrollTargetId: msgs.length ? `msg-${msgs[msgs.length - 1].id}` : '',
+            lastMessageId: lastId ? `msg-${lastId}` : '',
+            scrollTargetId: isInitial ? '' : (lastId ? `msg-${lastId}` : ''),
             historyHasMore: hasMore,
             historyLoading: false,
             isAtBottom: true
+          };
+          if (isInitial) {
+            nextData.scrollTop = 999999;
+            nextData.scrollWithAnimation = false;
+          }
+          this.setData(nextData, () => {
+            if (isInitial) {
+              const enableAnim = () => this.setData({ scrollWithAnimation: true });
+              if (wx.nextTick) {
+                wx.nextTick(enableAnim);
+              } else {
+                setTimeout(enableAnim, 0);
+              }
+            }
           });
           if (this.data.isAtBottom) {
             this.markReadLatest();
@@ -1347,13 +1405,29 @@ Page({
     const decorated = this.applyDecorations(msgs);
     const lastId = msgs.length ? msgs[msgs.length - 1].id : '';
     const limit = this.data.historyLimit || CHAT_CACHE_LIMIT;
-    this.setData({
+    const isInitial = !this._initialScrollDone;
+    this._initialScrollDone = true;
+    const nextData = {
       messages: decorated,
       unreadDividerId: this._lastUnreadDividerId || null,
       lastMessageId: lastId ? `msg-${lastId}` : '',
-      scrollTargetId: lastId ? `msg-${lastId}` : '',
+      scrollTargetId: isInitial ? '' : (lastId ? `msg-${lastId}` : ''),
       historyHasMore: rawMsgs.length >= limit,
       isAtBottom: true
+    };
+    if (isInitial) {
+      nextData.scrollTop = 999999;
+      nextData.scrollWithAnimation = false;
+    }
+    this.setData(nextData, () => {
+      if (isInitial) {
+        const enableAnim = () => this.setData({ scrollWithAnimation: true });
+        if (wx.nextTick) {
+          wx.nextTick(enableAnim);
+        } else {
+          setTimeout(enableAnim, 0);
+        }
+      }
     });
     return true;
   },
