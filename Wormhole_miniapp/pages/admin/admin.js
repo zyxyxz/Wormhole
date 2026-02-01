@@ -19,6 +19,18 @@ function formatBeijingTime(isoString) {
   return `${bj.getUTCFullYear()}-${pad(bj.getUTCMonth() + 1)}-${pad(bj.getUTCDate())} ${pad(bj.getUTCHours())}:${pad(bj.getUTCMinutes())}`;
 }
 
+function maskOpenId(id) {
+  if (!id) return '';
+  const text = String(id);
+  if (text.length <= 8) return text;
+  return `${text.slice(0, 4)}...${text.slice(-4)}`;
+}
+
+function resolveDisplayName(alias, userId) {
+  if (alias) return alias;
+  return maskOpenId(userId);
+}
+
 Page({
   data: {
     adminOpenId: '',
@@ -267,7 +279,8 @@ Page({
           if (res.statusCode === 200 && Array.isArray(res.data?.spaces)) {
             const spaces = (res.data.spaces || []).map(s => ({
               ...s,
-              created_at_bj: formatBeijingTime(s.created_at)
+              created_at_bj: formatBeijingTime(s.created_at),
+              owner_display: resolveDisplayName(s.owner_alias, s.owner_user_id)
             }));
             const filterOwner = (this.data.spaceOwnerFilter || '').trim();
             const spaceList = filterOwner

@@ -19,6 +19,18 @@ function formatBeijingTime(isoString) {
   return `${bj.getUTCFullYear()}-${pad(bj.getUTCMonth() + 1)}-${pad(bj.getUTCDate())} ${pad(bj.getUTCHours())}:${pad(bj.getUTCMinutes())}`;
 }
 
+function maskOpenId(id) {
+  if (!id) return '';
+  const text = String(id);
+  if (text.length <= 8) return text;
+  return `${text.slice(0, 4)}...${text.slice(-4)}`;
+}
+
+function resolveDisplayName(alias, userId) {
+  if (alias) return alias;
+  return maskOpenId(userId);
+}
+
 Page({
   data: {
     adminOpenId: '',
@@ -53,7 +65,7 @@ Page({
     if (!space || !space.space_id) return;
     const url = `/pages/admin-logs/admin-logs?type=space&space_id=${space.space_id}`
       + `&space_code=${encodeURIComponent(space.code || '')}`
-      + `&owner=${encodeURIComponent(space.owner_alias || space.owner_user_id || '')}`
+      + `&owner=${encodeURIComponent(space.owner_display || space.owner_alias || space.owner_user_id || '')}`
       + `&user_id=${encodeURIComponent(adminOpenId)}`
       + `&room_code=${encodeURIComponent(adminRoomCode)}`;
     wx.navigateTo({ url });
@@ -79,6 +91,14 @@ Page({
     const urls = e.currentTarget.dataset.urls || [];
     const current = e.currentTarget.dataset.current || urls[0];
     if (!urls.length) return;
+    const app = getApp && getApp();
+    if (app && typeof app.enterForegroundHold === 'function') {
+      app.enterForegroundHold(60000);
+    } else if (app && typeof app.markTemporaryForegroundAllowed === 'function') {
+      app.markTemporaryForegroundAllowed();
+    } else if (app && app.globalData) {
+      app.globalData.skipNextHideRedirect = true;
+    }
     wx.previewImage({ current, urls });
   },
 
@@ -102,7 +122,14 @@ Page({
         wx.hideLoading();
         if (res.data && res.data.space) {
           const space = res.data.space || {};
+          space.owner_display = resolveDisplayName(space.owner_alias, space.owner_user_id);
           space.created_at_bj = formatBeijingTime(space.created_at);
+          const ownerId = space.owner_user_id || '';
+          const members = (res.data.members || []).map(member => ({
+            ...member,
+            display_name: resolveDisplayName(member.alias, member.user_id),
+            is_owner: member.user_id === ownerId
+          }));
           const recentPosts = (res.data.recent_posts || []).map(item => ({
             ...item,
             created_at_bj: formatBeijingTime(item.created_at)
@@ -117,7 +144,7 @@ Page({
           }));
           this.setData({
             space,
-            members: res.data.members || [],
+            members,
             recentPosts,
             recentMessages,
             recentNotes,

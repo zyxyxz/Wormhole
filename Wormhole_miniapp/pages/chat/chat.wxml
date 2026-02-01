@@ -31,10 +31,10 @@
         <view class="nickname">{{item.nickname}}</view>
         <view wx:if="{{item.reply}}" class="reply-snippet">
           <text class="reply-snippet-name">{{item.reply.nickname}}</text>
-          <text class="reply-snippet-text">{{item.reply.content}}</text>
+          <text class="reply-snippet-text">{{item.reply.displayContent || item.reply.content}}</text>
         </view>
         <block wx:if="{{item.messageType === 'text'}}">
-          <view class="message-bubble">{{item.content}}</view>
+          <view class="message-bubble">{{item.displayContent || item.content}}</view>
         </block>
         <block wx:elif="{{item.messageType === 'image'}}">
           <image class="message-image" src="{{item.mediaUrl}}" mode="aspectFill" bindtap="previewChatImage" data-url="{{item.mediaUrl}}"></image>
@@ -72,7 +72,7 @@
 
   <view class="input-area" style="bottom: {{keyboardHeight}}px;">
     <view wx:if="{{replyingTo}}" class="reply-bar">
-      <view class="reply-text">回复 {{replyingTo.nickname}}：{{replyingTo.content}}</view>
+      <view class="reply-text">回复 {{replyingTo.nickname}}：{{replyingTo.displayContent || replyingTo.content}}</view>
       <view class="reply-cancel" bindtap="cancelReply">×</view>
     </view>
     <view class="input-row">
@@ -121,7 +121,7 @@
     </view>
     <view wx:if="{{emojiPanelVisible}}" class="emoji-panel">
       <view class="emoji-grid">
-        <text wx:for="{{emojiList}}" wx:key="*this" class="emoji-item" data-emoji="{{item}}" bindtap="addEmoji">{{item}}</text>
+        <text wx:for="{{emojiList}}" wx:key="code" class="emoji-item" data-emoji="{{item.code}}" bindtap="addEmoji">{{item.icon}}</text>
       </view>
     </view>
     <view wx:if="{{plusPanelVisible}}" class="plus-panel">

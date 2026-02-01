@@ -2,7 +2,7 @@
 
 <view class="page">
   <view class="hero-card">
-    <view class="hero-title">{{space.code || space.space_id}}@{{space.owner_alias || space.owner_user_id || '未设置'}}</view>
+    <view class="hero-title">{{space.code || space.space_id}}@{{space.owner_display || '未设置'}}</view>
     <view class="hero-sub">空间ID {{space.space_id || '-'}} · 创建 {{space.created_at_bj || space.created_at || '-'}}</view>
     <view class="hero-actions">
       <button size="mini" class="ghost" bindtap="goLogs">查看日志</button>
@@ -48,7 +48,10 @@
     <view class="card">
       <view class="member-row" wx:for="{{members}}" wx:key="user_id">
         <view class="member-main">
-          <text class="member-name">{{item.alias || item.user_id || '匿名'}}</text>
+          <view class="member-name-row">
+            <text class="member-name">{{item.display_name || '匿名'}}</text>
+            <text wx:if="{{item.is_owner}}" class="member-tag">房主</text>
+          </view>
           <text class="member-id">{{item.user_id}}</text>
         </view>
       </view>
