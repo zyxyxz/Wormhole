@@ -250,6 +250,17 @@ Page({
         this.handleWsEvent(message);
         return;
       }
+      try {
+        const pages = getCurrentPages();
+        const currentRoute = pages[pages.length - 1]?.route || '';
+        const myId = this._currentUserId || wx.getStorageSync('openid');
+        if (currentRoute !== 'pages/chat/chat' && message?.user_id && message.user_id !== myId) {
+          const app = typeof getApp === 'function' ? getApp() : null;
+          if (app && typeof app.bumpChatBadge === 'function') {
+            app.bumpChatBadge(this.data.spaceId, 1);
+          }
+        }
+      } catch (e) {}
       const resolved = this.resolvePendingMessage(message);
       if (!resolved) {
         this.mergeRawMessage(message);

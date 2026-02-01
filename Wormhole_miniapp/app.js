@@ -245,10 +245,39 @@ App({
     });
   },
 
-  clearChatBadge() {
+  getChatBadgeKey(spaceId) {
+    return spaceId ? `chat_badge_${spaceId}` : 'chat_badge';
+  },
+
+  clearChatBadge(spaceId) {
     try {
       wx.removeTabBarBadge({ index: 0 });
     } catch (e) {}
+    const sid = spaceId || wx.getStorageSync('currentSpaceId');
+    if (sid) {
+      try { wx.removeStorageSync(this.getChatBadgeKey(sid)); } catch (e) {}
+    }
+  },
+
+  setChatBadgeCount(spaceId, count) {
+    const sid = spaceId || wx.getStorageSync('currentSpaceId');
+    if (!sid) return;
+    const safe = Math.max(0, Number(count) || 0);
+    try { wx.setStorageSync(this.getChatBadgeKey(sid), safe); } catch (e) {}
+    if (safe > 0) {
+      const text = safe > 99 ? '99+' : String(safe);
+      try { wx.setTabBarBadge({ index: 0, text }); } catch (e) {}
+    } else {
+      this.clearChatBadge(sid);
+    }
+  },
+
+  bumpChatBadge(spaceId, delta = 1) {
+    const sid = spaceId || wx.getStorageSync('currentSpaceId');
+    if (!sid) return;
+    let current = 0;
+    try { current = Number(wx.getStorageSync(this.getChatBadgeKey(sid)) || 0); } catch (e) {}
+    this.setChatBadgeCount(sid, current + (Number(delta) || 0));
   },
 
   refreshChatBadge(currentRoute = '') {
@@ -278,12 +307,7 @@ App({
           return;
         }
         const count = Math.max(0, res.data?.count || 0);
-        if (count > 0) {
-          const text = count > 99 ? '99+' : String(count);
-          try { wx.setTabBarBadge({ index: 0, text }); } catch (e) {}
-        } else {
-          this.clearChatBadge();
-        }
+        this.setChatBadgeCount(sid, count);
       },
       complete: () => {
         this._chatBadgeLoading = false;
