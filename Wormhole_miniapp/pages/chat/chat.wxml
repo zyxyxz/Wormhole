@@ -76,7 +76,18 @@
       <view class="reply-cancel" bindtap="cancelReply">×</view>
     </view>
     <view class="input-row">
-      <button class="tool-btn" bindtap="toggleInputMode">{{inputMode === 'text' ? '🎤' : '⌨️'}}</button>
+      <button class="tool-btn" bindtap="toggleInputMode">
+        <view class="icon mic" wx:if="{{inputMode === 'text'}}">
+          <view class="mic-head"></view>
+          <view class="mic-stand"></view>
+          <view class="mic-base"></view>
+        </view>
+        <view class="icon keyboard" wx:else>
+          <view class="kb-body"></view>
+          <view class="kb-row"></view>
+          <view class="kb-row bottom"></view>
+        </view>
+      </button>
       <block wx:if="{{inputMode === 'text'}}">
         <input class="message-input" 
                value="{{inputMessage}}"
@@ -94,8 +105,19 @@
         </view>
       </block>
       <button class="send-button" wx:if="{{inputMode === 'text' && inputMessage}}" bindtap="sendMessage">发送</button>
-      <button class="emoji-button" wx:if="{{inputMode === 'text'}}" bindtap="toggleEmojiPanel">😊</button>
-      <button class="plus-button" bindtap="togglePlusPanel">＋</button>
+      <button class="emoji-button" wx:if="{{inputMode === 'text'}}" bindtap="toggleEmojiPanel">
+        <view class="icon emoji">
+          <view class="emoji-eye left"></view>
+          <view class="emoji-eye right"></view>
+          <view class="emoji-mouth"></view>
+        </view>
+      </button>
+      <button class="plus-button" bindtap="togglePlusPanel">
+        <view class="icon plus">
+          <view class="plus-h"></view>
+          <view class="plus-v"></view>
+        </view>
+      </button>
     </view>
     <view wx:if="{{emojiPanelVisible}}" class="emoji-panel">
       <view class="emoji-grid">

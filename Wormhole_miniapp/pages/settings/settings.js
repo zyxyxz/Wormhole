@@ -35,7 +35,10 @@ Page({
     autoLockOptions: ['不锁定', '1分钟', '3分钟', '5分钟'],
     autoLockIndex: 0,
     autoLockDisplay: '不锁定',
-    autoLockOnHide: true
+    autoLockOnHide: true,
+    showDeleteModal: false,
+    deleteConfirmInput: '',
+    deleteConfirmPhrase: ''
   },
   onBack() {
     wx.reLaunch({ url: '/pages/index/index' });
@@ -379,29 +382,41 @@ Page({
   },
 
   deleteSpace() {
-    wx.showModal({
-      title: '确认删除',
-      content: '删除后无法恢复，确认删除该空间？',
+    const phrase = `我确定删除空间${this.data.spaceCode || ''}`;
+    this.setData({ showDeleteModal: true, deleteConfirmInput: '', deleteConfirmPhrase: phrase });
+  }
+  ,
+  onDeleteConfirmInput(e) {
+    this.setData({ deleteConfirmInput: e.detail.value || '' });
+  },
+  closeDeleteModal() {
+    this.setData({ showDeleteModal: false, deleteConfirmInput: '' });
+  },
+  confirmDeleteSpace() {
+    const phrase = this.data.deleteConfirmPhrase || `我确定删除空间${this.data.spaceCode || ''}`;
+    if ((this.data.deleteConfirmInput || '').trim() !== phrase) {
+      wx.showToast({ title: '请输入完整确认文字', icon: 'none' });
+      return;
+    }
+    wx.request({
+      url: `${BASE_URL}/api/space/delete`,
+      method: 'POST',
+      data: { space_id: this.data.spaceId, operator_user_id: wx.getStorageSync('openid') || '' },
       success: (res) => {
-        if (res.confirm) {
-          wx.request({
-            url: `${BASE_URL}/api/space/delete`,
-            method: 'POST',
-            data: { space_id: this.data.spaceId, operator_user_id: wx.getStorageSync('openid') || '' },
-            success: (res) => {
-              if (res.data.success) {
-                wx.clearStorageSync();
-                wx.reLaunch({
-                  url: '/pages/index/index'
-                });
-              }
-            }
+        if (res.data.success) {
+          wx.clearStorageSync();
+          wx.reLaunch({
+            url: '/pages/index/index'
           });
+        } else {
+          wx.showToast({ title: res.data?.detail || '删除失败', icon: 'none' });
         }
+      },
+      fail: () => {
+        wx.showToast({ title: '删除失败', icon: 'none' });
       }
     });
   }
-  ,
   blockMember(e) {
     const memberUserId = e.currentTarget.dataset.userid;
     wx.showModal({

@@ -73,9 +73,110 @@ page { overflow: hidden; }
 .input-row { display: flex; gap: 12rpx; align-items: center; }
 .message-input { flex: 1; height: 72rpx; background: #FFFFFF; border: 1rpx solid #E2E8F0; border-radius: 12rpx; padding: 0 24rpx; color: #0F172A; }
 .send-button { width: 120rpx; height: 72rpx; line-height: 72rpx; background: linear-gradient(135deg, #5EEAD4, #22D3EE); color: #0F172A; border-radius: 12rpx; font-size: 28rpx; }
-.emoji-button { width: 72rpx; height: 72rpx; line-height: 72rpx; text-align: center; background: #F1F5F9; border-radius: 12rpx; border: 1rpx solid #CBD5F5; font-size: 32rpx; color: #0F172A; }
-.plus-button { width: 72rpx; height: 72rpx; line-height: 72rpx; text-align: center; background: #F1F5F9; border-radius: 12rpx; border: 1rpx solid #CBD5F5; font-size: 36rpx; color: #0F172A; }
-.tool-btn { width: 72rpx; height: 72rpx; line-height: 72rpx; text-align: center; border: 1rpx solid #CBD5F5; background: #FFFFFF; border-radius: 16rpx; font-size: 32rpx; }
+.emoji-button { width: 72rpx; height: 72rpx; background: #F1F5F9; border-radius: 12rpx; border: 1rpx solid #CBD5F5; display: flex; align-items: center; justify-content: center; padding: 0; margin: 0; }
+.plus-button { width: 72rpx; height: 72rpx; background: #F1F5F9; border-radius: 12rpx; border: 1rpx solid #CBD5F5; display: flex; align-items: center; justify-content: center; padding: 0; margin: 0; }
+.tool-btn { width: 72rpx; height: 72rpx; border: 1rpx solid #CBD5F5; background: #FFFFFF; border-radius: 16rpx; display: flex; align-items: center; justify-content: center; padding: 0; margin: 0; }
+.emoji-button::after, .plus-button::after, .tool-btn::after { border: none; }
+
+.icon { width: 28rpx; height: 28rpx; position: relative; }
+.icon.mic .mic-head {
+  position: absolute;
+  top: 2rpx;
+  left: 50%;
+  width: 14rpx;
+  height: 16rpx;
+  border: 2rpx solid #0F172A;
+  border-radius: 10rpx;
+  transform: translateX(-50%);
+}
+.icon.mic .mic-stand {
+  position: absolute;
+  top: 18rpx;
+  left: 50%;
+  width: 2rpx;
+  height: 8rpx;
+  background: #0F172A;
+  transform: translateX(-50%);
+}
+.icon.mic .mic-base {
+  position: absolute;
+  bottom: 2rpx;
+  left: 50%;
+  width: 12rpx;
+  height: 2rpx;
+  background: #0F172A;
+  transform: translateX(-50%);
+}
+
+.icon.keyboard .kb-body {
+  position: absolute;
+  inset: 2rpx;
+  border: 2rpx solid #0F172A;
+  border-radius: 6rpx;
+}
+.icon.keyboard .kb-row {
+  position: absolute;
+  left: 6rpx;
+  right: 6rpx;
+  height: 2rpx;
+  background: #0F172A;
+  top: 10rpx;
+}
+.icon.keyboard .kb-row.bottom {
+  top: 16rpx;
+  left: 9rpx;
+  right: 9rpx;
+}
+
+.icon.emoji {
+  width: 26rpx;
+  height: 26rpx;
+  border: 2rpx solid #0F172A;
+  border-radius: 50%;
+}
+.icon.emoji .emoji-eye {
+  position: absolute;
+  top: 7rpx;
+  width: 4rpx;
+  height: 4rpx;
+  background: #0F172A;
+  border-radius: 50%;
+}
+.icon.emoji .emoji-eye.left { left: 7rpx; }
+.icon.emoji .emoji-eye.right { right: 7rpx; }
+.icon.emoji .emoji-mouth {
+  position: absolute;
+  left: 50%;
+  bottom: 5rpx;
+  width: 12rpx;
+  height: 6rpx;
+  border: 2rpx solid #0F172A;
+  border-top: none;
+  border-left: none;
+  border-right: none;
+  border-radius: 0 0 10rpx 10rpx;
+  transform: translateX(-50%);
+}
+
+.icon.plus .plus-h,
+.icon.plus .plus-v {
+  position: absolute;
+  background: #0F172A;
+}
+.icon.plus .plus-h {
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 2rpx;
+  transform: translateY(-50%);
+}
+.icon.plus .plus-v {
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 2rpx;
+  transform: translateX(-50%);
+}
 .voice-button { flex: 1; height: 72rpx; line-height: 72rpx; text-align: center; border-radius: 16rpx; background: #F8FAFC; border: 1rpx dashed #94A3B8; color: #0F172A; }
 .voice-button:active { background: #DCFCE7; border-color: #0F766E; }
 .emoji-panel { margin-top: 12rpx; background: #F8FAFC; border-radius: 16rpx; padding: 16rpx; border: 1rpx solid #E2E8F0; }

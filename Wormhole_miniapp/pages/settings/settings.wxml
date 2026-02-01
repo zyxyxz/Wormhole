@@ -135,3 +135,19 @@
     <button class="close-button" bindtap="closeMembersModal">关闭</button>
   </view>
 </view>
+
+<!-- 删除空间确认弹窗 -->
+<view class="modal" wx:if="{{showDeleteModal}}">
+  <view class="modal-content">
+    <view class="modal-title">确认删除空间</view>
+    <view class="share-hint">请输入：{{deleteConfirmPhrase}}</view>
+    <input class="space-input"
+           value="{{deleteConfirmInput}}"
+           bindinput="onDeleteConfirmInput"
+           placeholder="输入确认文字" />
+    <view class="modal-buttons">
+      <button class="cancel-button" bindtap="closeDeleteModal">取消</button>
+      <button class="confirm-button" bindtap="confirmDeleteSpace">确认删除</button>
+    </view>
+  </view>
+</view>

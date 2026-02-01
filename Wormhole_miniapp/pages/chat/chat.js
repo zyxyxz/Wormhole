@@ -652,9 +652,9 @@ Page({
   openMessageActions(e) {
     const dataset = e.currentTarget.dataset || {};
     const myId = this._currentUserId || wx.getStorageSync('openid');
-    const canDelete = dataset.userId === myId || this.data.isOwner;
+    const canDelete = dataset.userId === myId;
     const actions = ['回复', '复制'];
-    if (canDelete) actions.push('删除');
+    if (canDelete) actions.push('撤回并删除');
     wx.showActionSheet({
       itemList: actions,
       success: (res) => {
@@ -677,7 +677,7 @@ Page({
           wx.setClipboardData({ data: text });
           return;
         }
-        if (action === '删除') {
+        if (action === '撤回并删除') {
           this.confirmDeleteMessage(dataset);
         }
       }
@@ -1172,10 +1172,35 @@ Page({
   },
 
   resolvePendingMessage(serverMessage) {
-    if (!serverMessage || !serverMessage.client_id) return false;
-    const clientId = serverMessage.client_id;
+    if (!serverMessage) return false;
     const messages = [...(this.data.messages || [])];
-    const idx = messages.findIndex(m => m.client_id === clientId);
+    let idx = -1;
+    const clientId = serverMessage.client_id;
+    if (clientId) {
+      idx = messages.findIndex(m => m.client_id === clientId);
+    }
+    if (idx === -1) {
+      const serverUser = serverMessage.user_id;
+      const serverType = serverMessage.message_type || 'text';
+      const serverContent = (serverMessage.content || '').trim();
+      const serverMedia = serverMessage.media_url || '';
+      const serverTs = Number(serverMessage.created_at_ts || 0);
+      idx = messages.findIndex(m => {
+        if (!m.pending) return false;
+        if (m.userId !== serverUser) return false;
+        if ((m.messageType || 'text') !== serverType) return false;
+        if (serverType === 'text') {
+          return (m.content || '').trim() === serverContent;
+        }
+        if (serverMedia) {
+          return (m.mediaUrl || '') === serverMedia;
+        }
+        if (serverTs && m.created_at_ts) {
+          return Math.abs(serverTs - m.created_at_ts) < 15000;
+        }
+        return false;
+      });
+    }
     if (idx === -1) return false;
     const myId = this._currentUserId || wx.getStorageSync('openid');
     const decorated = this.decorateMessage(serverMessage, myId);
@@ -1257,6 +1282,7 @@ Page({
       client_id: message.client_id || '',
       sending: !!message.sending || !!message.pending,
       pending: !!message.pending,
+      created_at_ts: message.created_at_ts || null,
       reply,
       readStatus: '',
       showUnreadDivider: false
