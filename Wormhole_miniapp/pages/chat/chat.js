@@ -102,8 +102,9 @@ Page({
     
     // 初始化基础 padding（约 104rpx 高度）
     try {
-      const sys = wx.getSystemInfoSync();
-      const rpx = sys.windowWidth / 750;
+      const windowInfo = wx.getWindowInfo ? wx.getWindowInfo() : {};
+      const windowWidth = windowInfo.windowWidth || windowInfo.screenWidth || 375;
+      const rpx = windowWidth / 750;
       const base = Math.ceil(150 * rpx + 24); // 输入区 + 安全距离
       this._emojiPanelPx = Math.ceil(260 * rpx);
       this._plusPanelPx = Math.ceil(280 * rpx);
