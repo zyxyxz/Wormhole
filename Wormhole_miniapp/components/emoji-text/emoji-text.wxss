@@ -1,6 +1,7 @@
 .emoji-text {
   display: inline;
   line-height: inherit;
+  word-break: break-word;
 }
 
 .emoji-text.inline {
@@ -11,6 +12,16 @@
   display: block;
 }
 
+.emoji-text-segment {
+  display: inline;
+  white-space: pre-wrap;
+}
+
 .emoji-text .wx-emoji {
+  display: inline-block;
   vertical-align: middle;
+}
+
+.emoji-text .wx-emoji-sprite {
+  display: block;
 }

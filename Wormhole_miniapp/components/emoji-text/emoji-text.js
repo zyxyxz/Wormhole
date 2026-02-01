@@ -1,4 +1,4 @@
-const { parseWechatEmojiNodes } = require('../../utils/wechat-emoji.js');
+const { parseWechatEmojiSegments } = require('../../utils/wechat-emoji.js');
 
 Component({
   options: {
@@ -23,12 +23,12 @@ Component({
     }
   },
   data: {
-    nodes: []
+    segments: []
   },
   observers: {
     'text,size': function (text, size) {
       this.setData({
-        nodes: parseWechatEmojiNodes(text, { size })
+        segments: parseWechatEmojiSegments(text, { size })
       });
     }
   }

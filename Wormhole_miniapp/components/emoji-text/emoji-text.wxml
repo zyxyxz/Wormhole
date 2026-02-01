@@ -1,1 +1,8 @@
-<rich-text class="emoji-text {{mode}} {{customClass}}" nodes="{{nodes}}"></rich-text>
+<view class="emoji-text {{mode}} {{customClass}}">
+  <block wx:for="{{segments}}" wx:key="index">
+    <text wx:if="{{item.type === 'text'}}" class="emoji-text-segment" space="nbsp">{{item.text}}</text>
+    <view wx:elif="{{item.type === 'emoji'}}" class="wx-emoji" style="{{item.wrapperStyle}}">
+      <image class="wx-emoji-sprite" src="{{item.spriteUrl}}" style="{{item.spriteStyle}}" mode="scaleToFill"></image>
+    </view>
+  </block>
+</view>
