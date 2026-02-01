@@ -60,17 +60,26 @@ Component({
   lifetimes: {
     attached() {
       const rect = wx.getMenuButtonBoundingClientRect()
-      wx.getSystemInfo({
-        success: (res) => {
-          const isAndroid = res.platform === 'android'
-          const isDevtools = res.platform === 'devtools'
-          this.setData({
-            ios: !isAndroid,
-            innerPaddingRight: `padding-right: ${res.windowWidth - rect.left}px`,
-            leftWidth: `width: ${res.windowWidth - rect.left }px`,
-            safeAreaTop: isDevtools || isAndroid ? `height: calc(var(--height) + ${res.safeArea.top}px); padding-top: ${res.safeArea.top}px` : ``
-          })
-        }
+      const windowInfo = wx.getWindowInfo ? wx.getWindowInfo() : {}
+      const deviceInfo = wx.getDeviceInfo ? wx.getDeviceInfo() : {}
+      const appBase = wx.getAppBaseInfo ? wx.getAppBaseInfo() : {}
+      const platform = deviceInfo.platform || ''
+      const windowWidth = windowInfo.windowWidth || windowInfo.screenWidth || rect.right || 375
+      const safeTop = windowInfo.safeArea?.top || 0
+      let isDevtools = false
+      if (typeof appBase.host === 'string') {
+        isDevtools = appBase.host.toLowerCase().includes('devtools')
+      } else if (appBase.host && typeof appBase.host.env === 'string') {
+        isDevtools = appBase.host.env === 'devtools'
+      } else if (typeof appBase.hostEnv === 'string') {
+        isDevtools = appBase.hostEnv === 'devtools'
+      }
+      const isAndroid = platform === 'android'
+      this.setData({
+        ios: !isAndroid,
+        innerPaddingRight: `padding-right: ${windowWidth - rect.left}px`,
+        leftWidth: `width: ${windowWidth - rect.left }px`,
+        safeAreaTop: (isDevtools || isAndroid) && safeTop ? `height: calc(var(--height) + ${safeTop}px); padding-top: ${safeTop}px` : ``
       })
     },
   },
