@@ -96,19 +96,27 @@ Page({
   },
 
   getPosts({ stopPullDown = false } = {}) {
-    this.setData({ loading: true });
+    const shouldShowLoading = (this.data.posts || []).length === 0;
+    if (shouldShowLoading) {
+      this.setData({ loading: true });
+    }
     wx.request({
       url: `${BASE_URL}/api/feed/list`,
       data: { space_id: this.data.spaceId, user_id: this.data.myUserId },
       success: (res) => {
-        const posts = (res.data.posts || []).map(item => this.decoratePost(item));
-        this.setData({ posts });
+        const rawPosts = res.data.posts || [];
+        const incomingSig = this.buildPostsSignatureFromRaw(rawPosts);
+        const currentSig = this.buildPostsSignatureFromDecorated(this.data.posts || []);
+        if (incomingSig !== currentSig) {
+          const posts = rawPosts.map(item => this.decoratePost(item));
+          this.setData({ posts });
+        }
         const myId = this.data.myUserId;
         if (myId) {
-          const mine = posts.find(p => p.user_id === myId);
+          const mine = rawPosts.find(p => p.user_id === myId);
           if (mine) {
             const alias = mine.alias || '';
-            const avatarUrl = mine.avatar || '';
+            const avatarUrl = mine.avatar_url || '';
             if (alias || avatarUrl) {
               try {
                 if (alias) wx.setStorageSync(`myAlias_${this.data.spaceId}`, alias);
@@ -125,12 +133,76 @@ Page({
       },
       fail: () => { wx.showToast({ title: '加载失败', icon: 'none' }); },
       complete: () => {
-        this.setData({ loading: false });
+        if (this.data.loading) {
+          this.setData({ loading: false });
+        }
         if (stopPullDown) {
           try { wx.stopPullDownRefresh(); } catch (e) {}
         }
       }
     });
+  },
+  buildPostsSignatureFromRaw(posts) {
+    try {
+      return JSON.stringify((posts || []).map(p => ({
+        id: p.id,
+        user_id: p.user_id || '',
+        alias: p.alias || '',
+        avatar_url: p.avatar_url || '',
+        content: p.content || '',
+        media_type: p.media_type || '',
+        media_urls: Array.isArray(p.media_urls) ? p.media_urls : [],
+        created_at: p.created_at || '',
+        like_count: p.like_count || 0,
+        liked_by_me: !!p.liked_by_me,
+        likes: (p.likes || []).map(l => ({
+          user_id: l.user_id || '',
+          alias: l.alias || '',
+          avatar_url: l.avatar_url || ''
+        })),
+        comments: (p.comments || []).map(c => ({
+          id: c.id,
+          user_id: c.user_id || '',
+          alias: c.alias || '',
+          avatar_url: c.avatar_url || '',
+          content: c.content || '',
+          created_at: c.created_at || ''
+        }))
+      })));
+    } catch (e) {
+      return '';
+    }
+  },
+  buildPostsSignatureFromDecorated(posts) {
+    try {
+      return JSON.stringify((posts || []).map(p => ({
+        id: p.id,
+        user_id: p.user_id || '',
+        alias: p.alias || '',
+        avatar_url: p.avatar || '',
+        content: p.content || '',
+        media_type: p.media_type || '',
+        media_urls: Array.isArray(p.media_urls) ? p.media_urls : [],
+        created_at: p.created_at || '',
+        like_count: p.likeCount || 0,
+        liked_by_me: !!p.likedByMe,
+        likes: (p.likes || []).map(l => ({
+          user_id: l.user_id || '',
+          alias: l.alias || '',
+          avatar_url: l.avatar || ''
+        })),
+        comments: (p.comments || []).map(c => ({
+          id: c.id,
+          user_id: c.user_id || '',
+          alias: c.alias || '',
+          avatar_url: c.avatar || '',
+          content: c.content || '',
+          created_at: c.created_at || ''
+        }))
+      })));
+    } catch (e) {
+      return '';
+    }
   },
 
   decoratePost(post) {
