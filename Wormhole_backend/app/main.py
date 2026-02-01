@@ -180,6 +180,7 @@ async def websocket_endpoint(websocket: WebSocket, space_id: int):
                     "media_url": process_message_media_url(msg.media_url, msg.message_type),
                     "media_duration": msg.media_duration,
                     "created_at": msg.created_at.isoformat() if msg.created_at else datetime.utcnow().isoformat(),
+                    "created_at_ts": int(msg.created_at.timestamp() * 1000) if msg.created_at else None,
                     "alias": alias,
                     "avatar_url": process_avatar_url(avatar_url),
                     "reply_to_id": msg.reply_to_id,

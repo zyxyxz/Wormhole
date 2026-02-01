@@ -19,6 +19,7 @@ class CommentResponse(BaseModel):
     avatar_url: Optional[str] = None
     content: str
     created_at: datetime
+    created_at_ts: Optional[int] = None
 
 
 class CommentCreate(BaseModel):
@@ -63,6 +64,7 @@ class PostResponse(BaseModel):
     media_type: str
     media_urls: List[str]
     created_at: datetime
+    created_at_ts: Optional[int] = None
     comments: List[CommentResponse] = Field(default_factory=list)
     like_count: int = 0
     liked_by_me: bool = False

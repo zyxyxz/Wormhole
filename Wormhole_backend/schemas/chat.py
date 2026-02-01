@@ -24,6 +24,7 @@ class MessageResponse(MessageBase):
     media_url: Optional[str] = None
     media_duration: Optional[int] = None
     avatar_url: Optional[str] = None
+    created_at_ts: Optional[int] = None
     reply_to_id: Optional[int] = None
     reply_to_user_id: Optional[str] = None
     reply_to_content: Optional[str] = None

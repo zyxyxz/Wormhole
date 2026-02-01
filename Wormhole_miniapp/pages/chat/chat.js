@@ -21,10 +21,16 @@ function normalizeDateString(str) {
   return normalized;
 }
 
-function formatTime(iso) {
-  if (!iso) return '';
+function formatTime(iso, ts) {
+  if (!iso && !ts) return '';
   try {
-    const d = new Date(normalizeDateString(iso));
+    let d = null;
+    if (ts) {
+      const ms = ts < 1e12 ? ts * 1000 : ts;
+      d = new Date(ms);
+    } else {
+      d = new Date(normalizeDateString(iso));
+    }
     if (Number.isNaN(d.getTime())) return '';
     const now = new Date();
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -965,7 +971,7 @@ Page({
       id: message.id,
       userId: message.user_id,
       content: message.content,
-      displayTime: formatTime(message.created_at),
+      displayTime: formatTime(message.created_at, message.created_at_ts),
       isSelf: message.user_id === myId,
       avatar,
       initial: initialSource.charAt(0),

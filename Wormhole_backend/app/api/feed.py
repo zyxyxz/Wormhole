@@ -57,6 +57,7 @@ async def create_post(payload: PostCreate, db: AsyncSession = Depends(get_db)):
         media_type=post.media_type,
         media_urls=process_feed_media_urls(json.loads(post.media_urls or "[]"), post.media_type),
         created_at=post.created_at,
+        created_at_ts=int(post.created_at.timestamp() * 1000) if post.created_at else None,
         comments=[],
         like_count=0,
         liked_by_me=False,
@@ -121,6 +122,7 @@ async def list_posts(space_id: int, user_id: str | None = None, db: AsyncSession
             media_type=p.media_type,
             media_urls=process_feed_media_urls(json.loads(p.media_urls or "[]"), p.media_type),
             created_at=p.created_at,
+            created_at_ts=int(p.created_at.timestamp() * 1000) if p.created_at else None,
             like_count=like_counts.get(p.id, 0),
             liked_by_me=p.id in liked_post_ids,
             likes=(likes_map.get(p.id) or []),
@@ -133,6 +135,7 @@ async def list_posts(space_id: int, user_id: str | None = None, db: AsyncSession
                     avatar_url=process_avatar_url(alias_map.get(c.user_id).avatar_url if alias_map.get(c.user_id) else None),
                     content=c.content,
                     created_at=c.created_at,
+                    created_at_ts=int(c.created_at.timestamp() * 1000) if c.created_at else None,
                 ) for c in comments_map.get(p.id, [])
             ]
         ) for p in posts
@@ -164,6 +167,7 @@ async def add_comment(payload: CommentCreate, db: AsyncSession = Depends(get_db)
         avatar_url=process_avatar_url(avatar_url),
         content=c.content,
         created_at=c.created_at,
+        created_at_ts=int(c.created_at.timestamp() * 1000) if c.created_at else None,
     )
 
 
@@ -189,6 +193,7 @@ async def list_comments(post_id: int, db: AsyncSession = Depends(get_db)):
             avatar_url=process_avatar_url(alias_map.get(c.user_id).avatar_url if alias_map.get(c.user_id) else None),
             content=c.content,
             created_at=c.created_at,
+            created_at_ts=int(c.created_at.timestamp() * 1000) if c.created_at else None,
         ) for c in comments
     ])
 

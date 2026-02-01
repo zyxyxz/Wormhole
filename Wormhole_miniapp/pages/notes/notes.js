@@ -142,7 +142,7 @@ Page({
       avatar: comment.avatar_url || '',
       initial: (comment.alias || comment.user_id || '匿').charAt(0),
       canDelete: this.data.isOwner || comment.user_id === this.data.myUserId,
-      displayTime: this.formatFriendlyTime(comment.created_at)
+      displayTime: this.formatFriendlyTime(comment.created_at, comment.created_at_ts)
     }));
     const likes = (post.likes || []).map(like => ({
       ...like,
@@ -158,7 +158,7 @@ Page({
       likes,
       likeCount: post.like_count || 0,
       likedByMe: !!post.liked_by_me,
-      displayTime: this.formatFriendlyTime(post.created_at)
+      displayTime: this.formatFriendlyTime(post.created_at, post.created_at_ts)
     };
   },
 
@@ -209,7 +209,7 @@ Page({
               avatar: comment.avatar_url || '',
               initial: (comment.alias || comment.user_id || '匿').charAt(0),
               canDelete: this.data.isOwner || comment.user_id === this.data.myUserId,
-              displayTime: this.formatFriendlyTime(comment.created_at)
+              displayTime: this.formatFriendlyTime(comment.created_at, comment.created_at_ts)
             };
             comments.push(decorated);
             post.comments = comments;
@@ -376,9 +376,14 @@ Page({
       [`commentInputs.${postId}`]: this.data.commentInputs[postId] || ''
     });
   },
-  formatFriendlyTime(isoString) {
-    if (!isoString) return '';
-    const date = new Date(normalizeDateString(isoString));
+  formatFriendlyTime(isoString, ts) {
+    let date = null;
+    if (Number.isFinite(ts)) {
+      const ms = ts < 1e12 ? ts * 1000 : ts;
+      date = new Date(ms);
+    } else {
+      date = new Date(normalizeDateString(isoString));
+    }
     if (Number.isNaN(date.getTime())) return '';
     const now = new Date();
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
