@@ -116,6 +116,7 @@ Page({
     }
 
     // 初始化WebSocket连接
+    this._pageActive = true;
     this.initWebSocket();
     this.fetchMembers();
     this.fetchReadState();
@@ -160,6 +161,7 @@ Page({
     this.sendTyping(false);
   },
   onShow() {
+    this._pageActive = true;
     const app = typeof getApp === 'function' ? getApp() : null;
     if (this._previewHoldActive && app && typeof app.leaveForegroundHold === 'function') {
       this._previewHoldActive = false;
@@ -172,17 +174,59 @@ Page({
     }
     this.fetchMembers();
     this.fetchReadState();
+    if (!this._wsReady && !this._wsConnecting) {
+      this.initWebSocket();
+    }
+  },
+  onHide() {
+    this._pageActive = false;
+    this.sendTyping(false);
+    this.cleanupWebSocket({ allowReconnect: false });
   },
   onBack() {
     wx.reLaunch({ url: '/pages/index/index' });
   },
 
-  initWebSocket() {
+  cleanupWebSocket({ allowReconnect = false } = {}) {
+    this._wsShouldReconnect = allowReconnect;
+    if (this._wsReconnectTimer) {
+      clearTimeout(this._wsReconnectTimer);
+      this._wsReconnectTimer = null;
+    }
+    if (this.ws) {
+      try {
+        this._wsClosing = true;
+        this.ws.close({
+          fail: () => {},
+          complete: () => { this._wsClosing = false; }
+        });
+      } catch (e) {}
+      this.ws = null;
+    }
+    this._wsReady = false;
+    this._wsConnecting = false;
+  },
+
+  initWebSocket({ force = false } = {}) {
+    if (!this.data.spaceId) return;
+    if (!force && (this._wsConnecting || (this.ws && this._wsReady && this._wsSpaceId === this.data.spaceId))) {
+      return;
+    }
+    this.cleanupWebSocket({ allowReconnect: false });
+    this._wsShouldReconnect = true;
+    this._wsSpaceId = this.data.spaceId;
+    this._wsConnecting = true;
     const url = `${WS_URL}/ws/chat/${this.data.spaceId}`;
     const ws = wx.connectSocket({ url });
 
     ws.onOpen(() => {
       console.log('WebSocket 已连接:', url);
+      if (this._wsSpaceId !== this.data.spaceId) {
+        try { ws.close({ fail: () => {} }); } catch (e) {}
+        if (this.ws === ws) this.ws = null;
+        return;
+      }
+      this._wsConnecting = false;
       this._wsReady = true;
       this.sendPresence();
     });
@@ -205,13 +249,19 @@ Page({
 
     ws.onClose(() => {
       console.log('WebSocket 已关闭，3秒后重连...');
+      this._wsConnecting = false;
       this._wsReady = false;
-      setTimeout(() => this.initWebSocket(), 3000);
+      if (this.ws === ws) this.ws = null;
+      if (this._wsShouldReconnect && this._pageActive && this.data.spaceId === this._wsSpaceId) {
+        this._wsReconnectTimer = setTimeout(() => this.initWebSocket({ force: true }), 3000);
+      }
     });
 
     ws.onError(() => {
       console.log('WebSocket 连接错误');
+      this._wsConnecting = false;
       this._wsReady = false;
+      if (this.ws === ws) this.ws = null;
     });
 
     this.ws = ws;
@@ -1082,9 +1132,7 @@ Page({
 
   onUnload() {
     this.sendTyping(false);
-    if (this.ws) {
-      this.ws.close();
-    }
+    this.cleanupWebSocket({ allowReconnect: false });
     if (this.audioCtx) {
       this.audioCtx.destroy();
       this.audioCtx = null;
