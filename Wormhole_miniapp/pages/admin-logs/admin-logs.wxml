@@ -27,16 +27,16 @@
   </view>
 
   <view class="list-card">
-    <view class="log-row" wx:for="{{logEntries}}" wx:key="id">
+    <view class="log-row {{item.action_level}} {{item.is_page_view ? 'view' : ''}}" wx:for="{{logEntries}}" wx:key="id">
       <view class="log-head">
         <text class="log-user">{{item.alias || item.user_id || '未知用户'}}</text>
-        <text class="log-action">{{item.action}}</text>
+        <view class="log-action-tag {{item.action_level}}">{{item.action_label || item.action}}</view>
       </view>
       <view class="log-meta">
-        <text>{{item.page || '-'}}</text>
+        <text class="log-page {{item.is_page_view ? 'muted' : ''}}">{{item.page || '-'}}</text>
         <text>{{item.created_at_bj}}</text>
       </view>
-      <view class="log-detail" wx:if="{{item.detail}}">{{item.detail}}</view>
+      <view class="log-detail" wx:if="{{item.detail && !item.is_page_view}}">{{item.detail}}</view>
     </view>
     <view class="empty" wx:if="{{loading}}">加载中...</view>
     <view class="empty" wx:if="{{!loading && !logEntries.length}}">暂无日志</view>

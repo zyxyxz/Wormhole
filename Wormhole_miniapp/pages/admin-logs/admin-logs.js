@@ -19,6 +19,46 @@ function formatBeijingTime(isoString) {
   return `${bj.getUTCFullYear()}-${pad(bj.getUTCMonth() + 1)}-${pad(bj.getUTCDate())} ${pad(bj.getUTCHours())}:${pad(bj.getUTCMinutes())}`;
 }
 
+const ACTION_LABELS = {
+  page_view: '浏览页面',
+  login: '登录',
+  chat_send: '发送消息',
+  chat_delete: '撤回消息',
+  feed_post: '发布动态',
+  feed_comment: '评论动态',
+  feed_like: '点赞动态',
+  note_create: '创建笔记',
+  note_update: '更新笔记',
+  note_delete: '删除笔记',
+  alias_update: '修改别名',
+  space_modify_code: '修改空间号',
+  space_share: '生成分享口令',
+  space_delete: '删除空间',
+  space_remove_member: '移除成员',
+  space_block_member: '拉黑成员',
+  space_unblock_member: '取消拉黑'
+};
+
+const ACTION_LEVELS = {
+  page_view: 'view',
+  login: 'minor',
+  chat_send: 'normal',
+  chat_delete: 'danger',
+  feed_post: 'major',
+  feed_comment: 'normal',
+  feed_like: 'normal',
+  note_create: 'major',
+  note_update: 'normal',
+  note_delete: 'danger',
+  alias_update: 'normal',
+  space_modify_code: 'major',
+  space_share: 'major',
+  space_delete: 'danger',
+  space_remove_member: 'danger',
+  space_block_member: 'danger',
+  space_unblock_member: 'minor'
+};
+
 Page({
   data: {
     adminOpenId: '',
@@ -140,7 +180,10 @@ Page({
         const list = Array.isArray(res.data?.logs) ? res.data.logs : [];
         const decorated = list.map(item => ({
           ...item,
-          created_at_bj: formatBeijingTime(item.created_at)
+          created_at_bj: formatBeijingTime(item.created_at),
+          action_label: ACTION_LABELS[item.action] || item.action || '操作',
+          action_level: ACTION_LEVELS[item.action] || 'normal',
+          is_page_view: item.action === 'page_view'
         }));
         const total = res.data?.total ?? 0;
         const merged = reset ? decorated : (this.data.logEntries || []).concat(decorated);

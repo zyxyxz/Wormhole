@@ -81,6 +81,7 @@ page {
 }
 
 .log-row:last-child { border-bottom: none; }
+.log-row.view { opacity: 0.55; }
 
 .log-head {
   display: flex;
@@ -94,10 +95,19 @@ page {
   font-weight: 600;
 }
 
-.log-action {
-  font-size: 22rpx;
-  color: #2563EB;
+.log-action-tag {
+  font-size: 20rpx;
+  padding: 4rpx 12rpx;
+  border-radius: 999rpx;
+  font-weight: 600;
+  background: #E2E8F0;
+  color: #475569;
 }
+.log-action-tag.view { background: #F1F5F9; color: #94A3B8; }
+.log-action-tag.minor { background: #E0F2FE; color: #0284C7; }
+.log-action-tag.normal { background: #EEF2FF; color: #4338CA; }
+.log-action-tag.major { background: #DCFCE7; color: #16A34A; }
+.log-action-tag.danger { background: #FEE2E2; color: #DC2626; }
 
 .log-meta {
   display: flex;
@@ -106,6 +116,7 @@ page {
   color: rgba(15, 23, 42, 0.6);
   margin-bottom: 6rpx;
 }
+.log-page.muted { color: rgba(15, 23, 42, 0.35); }
 
 .log-detail {
   font-size: 22rpx;
