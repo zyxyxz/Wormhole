@@ -54,6 +54,11 @@
         </view>
       </view>
     </picker>
+
+    <view class="settings-item">
+      <text>离开小程序自动锁定</text>
+      <switch checked="{{autoLockOnHide}}" color="#14B8A6" bindchange="toggleAutoLockOnHide" />
+    </view>
   </view>
 
   <view class="settings-group" wx:if="{{isOwner}}">

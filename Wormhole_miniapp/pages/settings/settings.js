@@ -34,7 +34,8 @@ Page({
     showAutoLockModal: false,
     autoLockOptions: ['不锁定', '1分钟', '3分钟', '5分钟'],
     autoLockIndex: 0,
-    autoLockDisplay: '不锁定'
+    autoLockDisplay: '不锁定',
+    autoLockOnHide: true
   },
   onBack() {
     wx.reLaunch({ url: '/pages/index/index' });
@@ -60,6 +61,8 @@ Page({
     this.fetchSpaceInfo();
     const autoLockSeconds = wx.getStorageSync('autoLockSeconds');
     this.updateAutoLockDisplay(autoLockSeconds);
+    const autoLockOnHide = wx.getStorageSync('autoLockOnHide');
+    this.setData({ autoLockOnHide: autoLockOnHide === '' || autoLockOnHide === undefined || autoLockOnHide === null ? true : !!autoLockOnHide });
   },
 
   fetchSpaceInfo() {
@@ -239,6 +242,28 @@ Page({
     wx.setStorageSync('autoLockSeconds', seconds);
     this.updateAutoLockDisplay(seconds);
     wx.showToast({ title: '已保存', icon: 'none' });
+  },
+
+  toggleAutoLockOnHide(e) {
+    const next = !!e.detail.value;
+    if (!next) {
+      wx.showModal({
+        title: '确认关闭',
+        content: '这样会导致不安全，是否确认要关闭？',
+        success: (res) => {
+          if (res.confirm) {
+            wx.setStorageSync('autoLockOnHide', false);
+            this.setData({ autoLockOnHide: false });
+          } else {
+            this.setData({ autoLockOnHide: true });
+          }
+        }
+      });
+      return;
+    }
+    wx.setStorageSync('autoLockOnHide', true);
+    this.setData({ autoLockOnHide: true });
+    wx.showToast({ title: '已开启', icon: 'none' });
   },
 
   chooseAvatar() {

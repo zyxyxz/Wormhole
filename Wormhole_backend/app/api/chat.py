@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 from app.database import get_db
 from models.chat import Message
 from models.space import Space, SpaceMember
@@ -12,6 +12,7 @@ from schemas.chat import (
     ReadUpdateRequest,
     ChatReadStatusResponse,
     ReaderStatus,
+    MessageDeleteRequest,
 )
 from app.ws import chat_manager
 from app.utils.media import process_avatar_url, process_message_media_url, strip_url
@@ -123,6 +124,7 @@ async def send_message(
         "media_duration": db_message.media_duration,
         "created_at": db_message.created_at,
         "created_at_ts": int(db_message.created_at.timestamp() * 1000) if db_message.created_at else None,
+        "client_id": message.client_id,
         "alias": ua.alias if ua else None,
         "avatar_url": process_avatar_url(ua.avatar_url if ua else None),
         "reply_to_id": db_message.reply_to_id,
@@ -141,6 +143,7 @@ async def send_message(
         "media_duration": payload["media_duration"],
         "created_at": payload["created_at"].isoformat() if payload["created_at"] else None,
         "created_at_ts": payload["created_at_ts"],
+        "client_id": payload["client_id"],
         "alias": payload["alias"],
         "avatar_url": payload["avatar_url"],
         "reply_to_id": payload["reply_to_id"],
@@ -203,3 +206,43 @@ async def update_chat_read_state(payload: ReadUpdateRequest, db: AsyncSession = 
         "last_read_message_id": mem.last_read_message_id,
     })
     return {"success": True}
+
+
+@router.post("/delete")
+async def delete_message(payload: MessageDeleteRequest, db: AsyncSession = Depends(get_db)):
+    if not payload.operator_user_id:
+        raise HTTPException(status_code=400, detail="缺少用户ID")
+    msg = (await db.execute(select(Message).where(Message.id == payload.message_id, Message.deleted_at.is_(None)))).scalar_one_or_none()
+    if not msg:
+        raise HTTPException(status_code=404, detail="消息不存在")
+    space = (await db.execute(select(Space).where(Space.id == msg.space_id, Space.deleted_at.is_(None)))).scalar_one_or_none()
+    if not space:
+        raise HTTPException(status_code=404, detail="空间不存在")
+    if payload.operator_user_id not in {msg.user_id, space.owner_user_id}:
+        raise HTTPException(status_code=403, detail="无权限")
+    msg.deleted_at = datetime.utcnow()
+    await db.commit()
+    await chat_manager.broadcast(msg.space_id, {
+        "event": "message_deleted",
+        "message_id": msg.id
+    })
+    return {"success": True}
+
+
+@router.get("/unread-count")
+async def unread_count(space_id: int, user_id: str, db: AsyncSession = Depends(get_db)):
+    if not user_id:
+        raise HTTPException(status_code=400, detail="缺少用户ID")
+    mem_res = await db.execute(select(SpaceMember).where(SpaceMember.space_id == space_id, SpaceMember.user_id == user_id))
+    mem = mem_res.scalar_one_or_none()
+    last_read_id = mem.last_read_message_id if mem and mem.last_read_message_id else 0
+    count_row = await db.execute(
+        select(func.count(Message.id)).where(
+            Message.space_id == space_id,
+            Message.deleted_at.is_(None),
+            Message.id > last_read_id,
+            Message.user_id != user_id
+        )
+    )
+    count = count_row.scalar_one() or 0
+    return {"count": count, "last_read_id": last_read_id}

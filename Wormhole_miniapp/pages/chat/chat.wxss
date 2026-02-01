@@ -48,6 +48,19 @@ page { overflow: hidden; }
 .message-item.self .message-meta { justify-content: flex-end; }
 .message-time { font-size: 22rpx; color: #94A3B8; }
 .read-state { font-size: 22rpx; color: #94A3B8; }
+.sending-spinner {
+  width: 22rpx;
+  height: 22rpx;
+  border-radius: 50%;
+  border: 2rpx solid rgba(148, 163, 184, 0.7);
+  border-top-color: transparent;
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
 .typing-row { display: flex; align-items: center; gap: 12rpx; padding: 8rpx 0 16rpx; }
 .typing-avatars { display: flex; gap: 8rpx; }
 .typing-avatar { width: 52rpx; height: 52rpx; border-radius: 50%; background: #E2E8F0; display: flex; align-items: center; justify-content: center; overflow: hidden; color: #334155; font-size: 22rpx; }

@@ -15,6 +15,7 @@ class MessageCreate(MessageBase):
     reply_to_user_id: Optional[str] = None
     reply_to_content: Optional[str] = None
     reply_to_type: Optional[str] = None
+    client_id: Optional[str] = None
 
 class MessageResponse(MessageBase):
     id: int
@@ -25,6 +26,7 @@ class MessageResponse(MessageBase):
     media_duration: Optional[int] = None
     avatar_url: Optional[str] = None
     created_at_ts: Optional[int] = None
+    client_id: Optional[str] = None
     reply_to_id: Optional[int] = None
     reply_to_user_id: Optional[str] = None
     reply_to_content: Optional[str] = None
@@ -59,3 +61,8 @@ class ReaderStatus(BaseModel):
 
 class ChatReadStatusResponse(BaseModel):
     readers: List[ReaderStatus]
+
+
+class MessageDeleteRequest(BaseModel):
+    message_id: int
+    operator_user_id: str

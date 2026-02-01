@@ -5,7 +5,7 @@
   </view>
 </navigation-bar>
 <view class="chat-container">
-  <scroll-view class="message-list" scroll-y="true" scroll-with-animation="true" scroll-into-view="{{scrollTargetId}}" enable-flex="true" upper-threshold="80" bindscrolltoupper="loadOlderMessages" bindscrolltolower="onScrollToLower" bindscroll="onScroll" style="padding-bottom: {{bottomPadding}}px;">
+  <scroll-view class="message-list" scroll-y="true" scroll-with-animation="{{scrollWithAnimation}}" scroll-into-view="{{scrollTargetId}}" scroll-top="{{scrollTop}}" enable-flex="true" upper-threshold="80" bindscrolltoupper="loadOlderMessages" bindscrolltolower="onScrollToLower" bindscroll="onScroll" style="padding-bottom: {{bottomPadding}}px;">
     <view class="history-hint">
       <text wx:if="{{historyLoading}}">加载中...</text>
       <text wx:elif="{{!historyHasMore}}">没有更多消息</text>
@@ -16,12 +16,13 @@
         <text>以下为未读消息</text>
       </view>
       <view class="message-item {{item.isSelf ? 'self' : ''}}" id="msg-{{item.id}}"
-            bindlongpress="startReply"
+            bindlongpress="openMessageActions"
             data-id="{{item.id}}"
             data-user-id="{{item.userId}}"
             data-nickname="{{item.nickname}}"
             data-content="{{item.content}}"
-            data-message-type="{{item.messageType}}">
+            data-message-type="{{item.messageType}}"
+            data-media-url="{{item.mediaUrl}}">
       <view class="avatar">
         <image wx:if="{{item.avatar}}" src="{{item.avatar}}" mode="aspectFill"></image>
         <text wx:else>{{item.initial}}</text>
@@ -50,6 +51,7 @@
         </block>
         <view class="message-meta">
           <view class="message-time">{{item.displayTime}}</view>
+          <view wx:if="{{item.isSelf && item.sending}}" class="sending-spinner"></view>
           <view wx:if="{{item.isSelf && item.readStatus}}" class="read-state" bindtap="openReadList" data-id="{{item.id}}">
             <text>{{item.readStatus}}</text>
           </view>

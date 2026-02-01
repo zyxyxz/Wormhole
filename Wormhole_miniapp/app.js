@@ -48,6 +48,9 @@ Page = function (pageConfig) {
       if (app && typeof app.refreshNotesBadge === 'function') {
         app.refreshNotesBadge(this.route);
       }
+      if (app && typeof app.refreshChatBadge === 'function') {
+        app.refreshChatBadge(this.route);
+      }
     } catch (e) {}
     if (typeof originalOnShow === 'function') {
       return originalOnShow.apply(this, arguments);
@@ -242,6 +245,45 @@ App({
     });
   },
 
+  clearChatBadge() {
+    try {
+      wx.removeTabBarBadge({ index: 0 });
+    } catch (e) {}
+  },
+
+  refreshChatBadge(currentRoute = '') {
+    if (this.globalData.reviewMode) return;
+    const sid = wx.getStorageSync('currentSpaceId');
+    if (!sid) {
+      this.clearChatBadge();
+      return;
+    }
+    if (currentRoute === 'pages/chat/chat') {
+      this.clearChatBadge();
+      return;
+    }
+    if (this._chatBadgeLoading) return;
+    const uid = wx.getStorageSync('openid') || '';
+    if (!uid) return;
+    this._chatBadgeLoading = true;
+    wx.request({
+      url: `${BASE_URL}/api/chat/unread-count`,
+      data: { space_id: sid, user_id: uid },
+      success: (res) => {
+        const count = Math.max(0, res.data?.count || 0);
+        if (count > 0) {
+          const text = count > 99 ? '99+' : String(count);
+          try { wx.setTabBarBadge({ index: 0, text }); } catch (e) {}
+        } else {
+          this.clearChatBadge();
+        }
+      },
+      complete: () => {
+        this._chatBadgeLoading = false;
+      }
+    });
+  },
+
   onLaunch() {
     // 登录获取openid
     wx.login({
@@ -282,6 +324,7 @@ App({
       return;
     }
     this.startInactivityTimer();
+    this.startChatBadgeTimer();
   },
 
   onHide() {
@@ -292,11 +335,35 @@ App({
       return;
     }
     this.stopInactivityTimer();
+    this.stopChatBadgeTimer();
     this.clearHideTimer();
-    this.globalData.shouldReturnToIndex = true;
+    this.globalData.shouldReturnToIndex = this.getAutoLockOnHide();
     this.globalData.lastHideTimestamp = now;
   }
   ,
+  getAutoLockOnHide() {
+    const stored = wx.getStorageSync('autoLockOnHide');
+    if (stored === undefined || stored === null || stored === '') {
+      return true;
+    }
+    return !!stored;
+  },
+
+  startChatBadgeTimer() {
+    if (this._chatBadgeTimer) return;
+    this._chatBadgeTimer = setInterval(() => {
+      const pages = getCurrentPages();
+      const currentRoute = pages[pages.length - 1]?.route || '';
+      this.refreshChatBadge(currentRoute);
+    }, 10000);
+  },
+
+  stopChatBadgeTimer() {
+    if (this._chatBadgeTimer) {
+      clearInterval(this._chatBadgeTimer);
+      this._chatBadgeTimer = null;
+    }
+  },
 
   loadSystemFlags() {
     wx.request({

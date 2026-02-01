@@ -81,6 +81,10 @@ Page({
     historyLoading: false,
     historyHasMore: true,
     historyLimit: CHAT_CACHE_LIMIT,
+    scrollTop: 0,
+    scrollWithAnimation: true,
+    ownerUserId: '',
+    isOwner: false,
   },
   goHome() {
     wx.reLaunch({ url: '/pages/index/index' });
@@ -94,6 +98,7 @@ Page({
     this._currentUserId = openid;
     this.setData({ spaceId });
     this.setData({ lastReadId: this.loadLastReadId() });
+    this.fetchSpaceInfo();
     
     // 初始化基础 padding（约 104rpx 高度）
     try {
@@ -166,6 +171,9 @@ Page({
     if (this._previewHoldActive && app && typeof app.leaveForegroundHold === 'function') {
       this._previewHoldActive = false;
       setTimeout(() => app.leaveForegroundHold(), 200);
+    }
+    if (app && typeof app.clearChatBadge === 'function') {
+      app.clearChatBadge();
     }
     // 若昵称更新，刷新历史以展示新昵称
     const updated = wx.getStorageSync('aliasUpdatedAt');
@@ -242,9 +250,12 @@ Page({
         this.handleWsEvent(message);
         return;
       }
-      this.mergeRawMessage(message);
-      const displayed = this.decorateMessage(message, wx.getStorageSync('openid'));
-      this.addMessage(displayed);
+      const resolved = this.resolvePendingMessage(message);
+      if (!resolved) {
+        this.mergeRawMessage(message);
+        const displayed = this.decorateMessage(message, wx.getStorageSync('openid'));
+        this.addMessage(displayed);
+      }
     });
 
     ws.onClose(() => {
@@ -281,6 +292,12 @@ Page({
     if (event === 'read_update') {
       if (message.user_id && message.last_read_message_id) {
         this.updateReadUser(message.user_id, message.last_read_message_id);
+      }
+      return;
+    }
+    if (event === 'message_deleted') {
+      if (message.message_id) {
+        this.removeMessageById(message.message_id);
       }
       return;
     }
@@ -323,6 +340,20 @@ Page({
         method: 'POST',
         data: { space_id: this.data.spaceId, user_id: userId, last_read_message_id: lastReadId }
       });
+    });
+  },
+
+  fetchSpaceInfo() {
+    if (!this.data.spaceId) return;
+    wx.request({
+      url: `${BASE_URL}/api/space/info`,
+      data: { space_id: this.data.spaceId },
+      success: (res) => {
+        const info = res.data || {};
+        const myId = this._currentUserId || wx.getStorageSync('openid');
+        const ownerId = info.owner_user_id || '';
+        this.setData({ ownerUserId: ownerId, isOwner: !!ownerId && ownerId === myId });
+      }
     });
   },
 
@@ -536,6 +567,10 @@ Page({
       this.saveLastReadId(latestId);
       this.sendReadState(latestId);
       this.refreshMessageDecorations();
+      const app = typeof getApp === 'function' ? getApp() : null;
+      if (app && typeof app.clearChatBadge === 'function') {
+        app.clearChatBadge();
+      }
     }
   },
 
@@ -544,6 +579,7 @@ Page({
     const scrollTop = detail.scrollTop || 0;
     const scrollHeight = detail.scrollHeight || 0;
     const clientHeight = detail.clientHeight || 0;
+    this._scrollTop = scrollTop;
     const nearBottom = scrollTop + clientHeight >= scrollHeight - 30;
     if (nearBottom && !this.data.isAtBottom) {
       this.setData({ isAtBottom: true });
@@ -551,6 +587,25 @@ Page({
     } else if (!nearBottom && this.data.isAtBottom) {
       this.setData({ isAtBottom: false });
     }
+  },
+
+  captureAnchorOffset(anchorId, callback) {
+    if (!anchorId) {
+      callback(null);
+      return;
+    }
+    const query = wx.createSelectorQuery().in(this);
+    query.select('.message-list').boundingClientRect();
+    query.select(`#msg-${anchorId}`).boundingClientRect();
+    query.exec((res) => {
+      const listRect = res && res[0];
+      const itemRect = res && res[1];
+      if (!listRect || !itemRect) {
+        callback(null);
+        return;
+      }
+      callback(itemRect.top - listRect.top);
+    });
   },
 
   onScrollToLower() {
@@ -594,8 +649,42 @@ Page({
 
   noop() {},
 
-  startReply(e) {
+  openMessageActions(e) {
     const dataset = e.currentTarget.dataset || {};
+    const myId = this._currentUserId || wx.getStorageSync('openid');
+    const canDelete = dataset.userId === myId || this.data.isOwner;
+    const actions = ['回复', '复制'];
+    if (canDelete) actions.push('删除');
+    wx.showActionSheet({
+      itemList: actions,
+      success: (res) => {
+        const action = actions[res.tapIndex];
+        if (action === '回复') {
+          this.setReplyFromDataset(dataset);
+          return;
+        }
+        if (action === '复制') {
+          let text = '';
+          if ((dataset.messageType || 'text') === 'text') {
+            text = dataset.content || '';
+          } else {
+            text = dataset.mediaUrl || dataset.content || '';
+          }
+          if (!text) {
+            wx.showToast({ title: '暂无可复制内容', icon: 'none' });
+            return;
+          }
+          wx.setClipboardData({ data: text });
+          return;
+        }
+        if (action === '删除') {
+          this.confirmDeleteMessage(dataset);
+        }
+      }
+    });
+  },
+
+  setReplyFromDataset(dataset) {
     const reply = {
       id: Number(dataset.id),
       userId: dataset.userId,
@@ -604,7 +693,12 @@ Page({
       content: this.buildReplyPreview(dataset)
     };
     if (!reply.id) return;
-    this.setData({ replyingTo: reply });
+    this.setData({ replyingTo: reply, inputMode: 'text' });
+    if (this.data.emojiPanelVisible || this.data.plusPanelVisible) {
+      this.setData({ emojiPanelVisible: false, plusPanelVisible: false });
+      this.updateBottomPadding();
+    }
+    this.scrollToBottom();
   },
 
   buildReplyPreview(dataset) {
@@ -615,6 +709,46 @@ Page({
     if (type === 'audio') return '[语音]';
     const trimmed = (content || '').trim();
     return trimmed ? trimmed.slice(0, 80) : '[消息]';
+  },
+
+  confirmDeleteMessage(dataset) {
+    const messageId = Number(dataset.id || 0);
+    if (!messageId) return;
+    if (messageId < 0) {
+      this.removeMessageById(messageId);
+      return;
+    }
+    wx.showModal({
+      title: '确认删除',
+      content: '将在所有用户的聊天记录中删除该消息，是否确认？',
+      success: (res) => {
+        if (!res.confirm) return;
+        this.deleteMessage(messageId);
+      }
+    });
+  },
+
+  deleteMessage(messageId) {
+    const operator = this._currentUserId || wx.getStorageSync('openid');
+    if (!operator) {
+      wx.showToast({ title: '未登录', icon: 'none' });
+      return;
+    }
+    wx.request({
+      url: `${BASE_URL}/api/chat/delete`,
+      method: 'POST',
+      data: { message_id: messageId, operator_user_id: operator },
+      success: (res) => {
+        if (res.statusCode === 200 && res.data?.success) {
+          this.removeMessageById(messageId);
+        } else {
+          wx.showToast({ title: res.data?.detail || '删除失败', icon: 'none' });
+        }
+      },
+      fail: () => {
+        wx.showToast({ title: '删除失败', icon: 'none' });
+      }
+    });
   },
 
   cancelReply() {
@@ -752,16 +886,31 @@ Page({
         if (prepend) {
           const existing = this.data.messages || [];
           const anchorId = existing.length ? existing[0].id : null;
-          const merged = this.applyDecorations(msgs.concat(existing));
-          const rawExisting = this._rawMessages || [];
-          this._rawMessages = rawMsgs.concat(rawExisting);
-          this.saveCachedMessages();
-          this.setData({
-            messages: merged,
-            unreadDividerId: this._lastUnreadDividerId || null,
-            historyHasMore: hasMore,
-            scrollTargetId: anchorId ? `msg-${anchorId}` : '',
-            historyLoading: false
+          this.captureAnchorOffset(anchorId, (beforeOffset) => {
+            const merged = this.applyDecorations(msgs.concat(existing));
+            const rawExisting = this._rawMessages || [];
+            this._rawMessages = rawMsgs.concat(rawExisting);
+            this.saveCachedMessages();
+            this.setData({
+              messages: merged,
+              unreadDividerId: this._lastUnreadDividerId || null,
+              historyHasMore: hasMore,
+              scrollTargetId: '',
+              historyLoading: false
+            }, () => {
+              if (beforeOffset === null || !anchorId) return;
+              wx.nextTick(() => {
+                this.captureAnchorOffset(anchorId, (afterOffset) => {
+                  if (afterOffset === null) return;
+                  const diff = afterOffset - beforeOffset;
+                  const nextTop = (this._scrollTop || 0) + diff;
+                  this.setData({ scrollWithAnimation: false, scrollTop: nextTop }, () => {
+                    this._scrollTop = nextTop;
+                    setTimeout(() => this.setData({ scrollWithAnimation: true }), 0);
+                  });
+                });
+              });
+            });
           });
         } else {
           this._rawMessages = rawMsgs;
@@ -916,6 +1065,9 @@ Page({
     if (message.message_type === 'text' && !message.content.trim()) {
       return;
     }
+    const clientId = this.createClientId();
+    message.client_id = clientId;
+    this.addPendingMessage(message);
     const wsPayload = { ...message };
     delete wsPayload.space_id;
     if (this.ws) {
@@ -939,15 +1091,15 @@ Page({
           }
         },
         fail: () => {
-          this.sendViaHttp(message);
+          this.sendViaHttp(message, clientId);
         }
       });
     } else {
-      this.sendViaHttp(message);
+      this.sendViaHttp(message, clientId);
     }
   },
 
-  sendViaHttp(message) {
+  sendViaHttp(message, clientId) {
     wx.request({
       url: `${BASE_URL}/api/chat/send`,
       method: 'POST',
@@ -968,19 +1120,91 @@ Page({
           this.setData({ plusPanelVisible: false });
           this.updateBottomPadding();
         }
-        this.getHistoryMessages();
+        if (clientId) {
+          this.confirmPendingSent(clientId);
+        }
       }
     });
+  },
+
+  createClientId() {
+    return `${Date.now()}_${Math.random().toString(16).slice(2, 8)}`;
+  },
+
+  getMyProfile() {
+    const sid = this.data.spaceId;
+    const alias = wx.getStorageSync(`myAlias_${sid}`) || '';
+    const avatar = wx.getStorageSync(`myAvatar_${sid}`) || '';
+    return { alias, avatar };
+  },
+
+  addPendingMessage(message) {
+    const myId = message.user_id;
+    const profile = this.getMyProfile();
+    const tempId = -Math.floor(Date.now() + Math.random() * 1000);
+    const pendingRaw = {
+      ...message,
+      id: tempId,
+      alias: profile.alias || message.alias || '',
+      avatar_url: profile.avatar || message.avatar_url || '',
+      created_at: new Date().toISOString(),
+      created_at_ts: Date.now(),
+      pending: true,
+      sending: true
+    };
+    const displayed = this.decorateMessage(pendingRaw, myId);
+    const messages = [...(this.data.messages || []), displayed];
+    const decorated = this.applyDecorations(messages);
+    this.setData({
+      messages: decorated,
+      lastMessageId: `msg-${pendingRaw.id}`,
+      scrollTargetId: `msg-${pendingRaw.id}`,
+      isAtBottom: true
+    });
+  },
+
+  confirmPendingSent(clientId) {
+    const messages = [...(this.data.messages || [])];
+    const idx = messages.findIndex(m => m.client_id === clientId);
+    if (idx === -1) return;
+    messages[idx] = { ...messages[idx], sending: false, pending: false };
+    this.setData({ messages: this.applyDecorations(messages) });
+  },
+
+  resolvePendingMessage(serverMessage) {
+    if (!serverMessage || !serverMessage.client_id) return false;
+    const clientId = serverMessage.client_id;
+    const messages = [...(this.data.messages || [])];
+    const idx = messages.findIndex(m => m.client_id === clientId);
+    if (idx === -1) return false;
+    const myId = this._currentUserId || wx.getStorageSync('openid');
+    const decorated = this.decorateMessage(serverMessage, myId);
+    messages[idx] = decorated;
+    this.mergeRawMessage(serverMessage);
+    const updated = this.applyDecorations(messages);
+    const scrollTargetId = this.data.isAtBottom ? `msg-${decorated.id}` : this.data.scrollTargetId;
+    this.setData({ messages: updated, scrollTargetId, lastMessageId: `msg-${decorated.id}` });
+    return true;
+  },
+
+  removeMessageById(messageId) {
+    if (!messageId) return;
+    const messages = (this.data.messages || []).filter(m => m.id !== messageId);
+    this.setData({ messages: this.applyDecorations(messages) });
+    const raw = Array.isArray(this._rawMessages) ? this._rawMessages : [];
+    this._rawMessages = raw.filter(m => m.id !== messageId);
+    this.saveCachedMessages();
   },
 
   addMessage(message) {
     const messages = [...this.data.messages, message];
     const decorated = this.applyDecorations(messages);
+    const shouldScroll = this.data.isAtBottom;
     this.setData({ 
       messages: decorated,
       unreadDividerId: this._lastUnreadDividerId || null,
       lastMessageId: `msg-${message.id}`,
-      scrollTargetId: `msg-${message.id}`
+      scrollTargetId: shouldScroll ? `msg-${message.id}` : this.data.scrollTargetId
     });
     if (this.data.isAtBottom) {
       this.markReadLatest();
@@ -1030,6 +1254,9 @@ Page({
       mediaUrl: message.media_url || '',
       mediaDuration: message.media_duration || 0,
       audioDuration: duration,
+      client_id: message.client_id || '',
+      sending: !!message.sending || !!message.pending,
+      pending: !!message.pending,
       reply,
       readStatus: '',
       showUnreadDivider: false

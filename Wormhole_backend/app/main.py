@@ -112,6 +112,7 @@ async def websocket_endpoint(websocket: WebSocket, space_id: int):
             message_type = data.get("message_type") or "text"
             media_url = strip_url(data.get("media_url"))
             media_duration = data.get("media_duration")
+            client_id = data.get("client_id")
             reply_to_id = data.get("reply_to_id")
             reply_to_user_id = data.get("reply_to_user_id")
             reply_to_content = data.get("reply_to_content")
@@ -181,6 +182,7 @@ async def websocket_endpoint(websocket: WebSocket, space_id: int):
                     "media_duration": msg.media_duration,
                     "created_at": msg.created_at.isoformat() if msg.created_at else datetime.utcnow().isoformat(),
                     "created_at_ts": int(msg.created_at.timestamp() * 1000) if msg.created_at else None,
+                    "client_id": client_id,
                     "alias": alias,
                     "avatar_url": process_avatar_url(avatar_url),
                     "reply_to_id": msg.reply_to_id,
