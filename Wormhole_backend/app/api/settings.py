@@ -4,6 +4,7 @@ from sqlalchemy import select, update, delete
 from app.database import get_db
 from models.space import Space, SpaceMapping, SpaceCode, ShareCode, SpaceMember
 from models.user import UserAlias
+from models.logs import OperationLog
 from models.chat import Message
 from models.feed import Post, Comment
 from models.notes import Note
@@ -126,20 +127,24 @@ async def admin_cleanup_spaces(
     subquery = subquery.outerjoin(Message, Message.space_id == Space.id)
     subquery = subquery.outerjoin(Post, Post.space_id == Space.id)
     subquery = subquery.outerjoin(Note, Note.space_id == Space.id)
+    subquery = subquery.outerjoin(Comment, Comment.post_id == Post.id)
     subquery = subquery.outerjoin(UserAlias, UserAlias.space_id == Space.id)
     subquery = subquery.outerjoin(ShareCode, ShareCode.space_id == Space.id)
     subquery = subquery.outerjoin(SpaceMember, SpaceMember.space_id == Space.id)
     subquery = subquery.outerjoin(SpaceMapping, SpaceMapping.space_id == Space.id)
     subquery = subquery.outerjoin(SpaceCode, SpaceCode.space_id == Space.id)
+    subquery = subquery.outerjoin(OperationLog, OperationLog.space_id == Space.id)
     subquery = subquery.where(
         Message.id.is_(None),
         Post.id.is_(None),
         Note.id.is_(None),
+        Comment.id.is_(None),
         UserAlias.id.is_(None),
         ShareCode.id.is_(None),
         SpaceMember.id.is_(None),
         SpaceMapping.id.is_(None),
-        SpaceCode.id.is_(None)
+        SpaceCode.id.is_(None),
+        OperationLog.id.is_(None)
     )
     idle_space_ids = [row[0] for row in (await db.execute(subquery)).fetchall()]
     deleted = 0
@@ -149,6 +154,7 @@ async def admin_cleanup_spaces(
         await db.execute(delete(SpaceCode).where(SpaceCode.space_id == sid))
         await db.execute(delete(ShareCode).where(ShareCode.space_id == sid))
         await db.execute(delete(UserAlias).where(UserAlias.space_id == sid))
+        await db.execute(delete(OperationLog).where(OperationLog.space_id == sid))
         await db.execute(delete(Space).where(Space.id == sid))
         deleted += 1
     await db.commit()

@@ -9,7 +9,9 @@
 .section-title { font-size: 30rpx; font-weight: 600; margin-bottom: 16rpx; }
 .user-row { display: flex; justify-content: space-between; align-items: center; padding: 16rpx 0; border-bottom: 1rpx solid #F1F5F9; }
 .user-row:last-child { border-bottom: none; }
+.user-main { flex: 1; min-width: 0; }
 .user-actions { display: flex; gap: 12rpx; }
+.user-actions.vertical { flex-direction: column; align-items: flex-end; gap: 8rpx; }
 .user-alias { display: block; font-size: 30rpx; color: #0F172A; }
 .user-id { display: block; font-size: 24rpx; color: #94A3B8; }
 .space-row { padding: 16rpx 0; border-bottom: 1rpx solid #F1F5F9; }
@@ -25,8 +27,10 @@
 .refresh-btn.danger { border-color: #F97316; color: #F97316; background: rgba(249,115,22,0.12); }
 .review-row { display: flex; justify-content: space-between; align-items: center; font-size: 28rpx; color: #0F172A; }
 .space-card { border: 1rpx solid #E2E8F0; border-radius: 16rpx; padding: 20rpx; margin-bottom: 16rpx; }
-.space-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12rpx; }
+.space-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12rpx; gap: 12rpx; }
+.space-main { flex: 1; min-width: 0; }
 .space-actions { display: flex; gap: 12rpx; }
+.space-actions.vertical { flex-direction: column; align-items: flex-end; gap: 8rpx; }
 .space-code { font-size: 30rpx; font-weight: 600; color: #0F172A; display: block; }
 .space-owner { font-size: 24rpx; color: #94A3B8; }
 .space-stats { display: flex; flex-wrap: wrap; gap: 20rpx; font-size: 24rpx; color: #475569; }

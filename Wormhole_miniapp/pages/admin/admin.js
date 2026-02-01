@@ -1,5 +1,24 @@
 const { BASE_URL } = require('../../utils/config.js');
 
+function normalizeDateString(str) {
+  if (!str) return '';
+  let normalized = str.replace(' ', 'T');
+  if (!/[zZ]|[+-]\d{2}:?\d{2}$/.test(normalized)) {
+    normalized += 'Z';
+  }
+  return normalized;
+}
+
+function formatBeijingTime(isoString) {
+  if (!isoString) return '';
+  const normalized = normalizeDateString(isoString);
+  const ts = Date.parse(normalized);
+  if (Number.isNaN(ts)) return isoString;
+  const bj = new Date(ts + 8 * 60 * 60 * 1000);
+  const pad = (n) => n.toString().padStart(2, '0');
+  return `${bj.getUTCFullYear()}-${pad(bj.getUTCMonth() + 1)}-${pad(bj.getUTCDate())} ${pad(bj.getUTCHours())}:${pad(bj.getUTCMinutes())}`;
+}
+
 Page({
   data: {
     adminOpenId: '',
@@ -47,7 +66,11 @@ Page({
         data: { user_id: adminOpenId, room_code: adminRoomCode },
         success: (res) => {
           if (res.statusCode === 200 && res.data && res.data.users !== undefined) {
-            this.setData({ overview: res.data });
+            const overview = { ...res.data };
+            if (overview.last_login) {
+              overview.last_login_bj = formatBeijingTime(overview.last_login);
+            }
+            this.setData({ overview });
             resolve(res.data);
           } else {
             if (!silent) {
@@ -82,7 +105,11 @@ Page({
         data: { user_id: adminOpenId, room_code: adminRoomCode },
         success: (res) => {
           if (res.statusCode === 200 && Array.isArray(res.data?.users)) {
-            this.setData({ users: res.data.users });
+            const list = (res.data.users || []).map(u => ({
+              ...u,
+              created_at_bj: formatBeijingTime(u.created_at)
+            }));
+            this.setData({ users: list });
             resolve(res.data.users);
           } else {
             if (!silent) {
@@ -129,23 +156,30 @@ Page({
       wx.showToast({ title: '管理员信息缺失', icon: 'none' });
       return;
     }
-    wx.showLoading({ title: '清理中', mask: true });
-    const url = `${BASE_URL}/api/settings/admin/cleanup-spaces?user_id=${encodeURIComponent(adminOpenId)}&room_code=${encodeURIComponent(adminRoomCode)}`;
-    wx.request({
-      url,
-      method: 'POST',
-      data: { user_id: adminOpenId, room_code: adminRoomCode },
+    wx.showModal({
+      title: '确认清理空房',
+      content: '将清理只有房主、且无任何数据记录（含软删除数据和日志）的房间，确认继续？',
       success: (res) => {
-        wx.hideLoading();
-        const deleted = res.data?.deleted ?? 0;
-        wx.showToast({ title: `已清理 ${deleted} 个`, icon: 'none' });
-        if (deleted > 0) {
-          this.refreshData({ silent: true });
-        }
-      },
-      fail: () => {
-        wx.hideLoading();
-        wx.showToast({ title: '操作失败', icon: 'none' });
+        if (!res.confirm) return;
+        wx.showLoading({ title: '清理中', mask: true });
+        const url = `${BASE_URL}/api/settings/admin/cleanup-spaces?user_id=${encodeURIComponent(adminOpenId)}&room_code=${encodeURIComponent(adminRoomCode)}`;
+        wx.request({
+          url,
+          method: 'POST',
+          data: { user_id: adminOpenId, room_code: adminRoomCode },
+          success: (res) => {
+            wx.hideLoading();
+            const deleted = res.data?.deleted ?? 0;
+            wx.showToast({ title: `已清理 ${deleted} 个`, icon: 'none' });
+            if (deleted > 0) {
+              this.refreshData({ silent: true });
+            }
+          },
+          fail: () => {
+            wx.hideLoading();
+            wx.showToast({ title: '操作失败', icon: 'none' });
+          }
+        });
       }
     });
   },
@@ -231,7 +265,10 @@ Page({
         data: { user_id: adminOpenId, room_code: adminRoomCode },
         success: (res) => {
           if (res.statusCode === 200 && Array.isArray(res.data?.spaces)) {
-            const spaces = res.data.spaces || [];
+            const spaces = (res.data.spaces || []).map(s => ({
+              ...s,
+              created_at_bj: formatBeijingTime(s.created_at)
+            }));
             const filterOwner = (this.data.spaceOwnerFilter || '').trim();
             const spaceList = filterOwner
               ? spaces.filter(s => s.owner_user_id === filterOwner)
@@ -270,7 +307,10 @@ Page({
         url: `${BASE_URL}/api/settings/admin/recent-messages`,
         data: { user_id: adminOpenId, room_code: adminRoomCode, limit: 10 },
         success: (res) => {
-          const list = Array.isArray(res.data?.messages) ? res.data.messages : [];
+          const list = (Array.isArray(res.data?.messages) ? res.data.messages : []).map(m => ({
+            ...m,
+            created_at_bj: formatBeijingTime(m.created_at)
+          }));
           this.setData({ recentMessages: list, messagesLoading: false });
           resolve(list);
         },
@@ -300,7 +340,10 @@ Page({
         url: `${BASE_URL}/api/settings/admin/recent-posts`,
         data: { user_id: adminOpenId, room_code: adminRoomCode, limit: 10 },
         success: (res) => {
-          const list = Array.isArray(res.data?.posts) ? res.data.posts : [];
+          const list = (Array.isArray(res.data?.posts) ? res.data.posts : []).map(p => ({
+            ...p,
+            created_at_bj: formatBeijingTime(p.created_at)
+          }));
           this.setData({ recentPosts: list, postsLoading: false });
           resolve(list);
         },

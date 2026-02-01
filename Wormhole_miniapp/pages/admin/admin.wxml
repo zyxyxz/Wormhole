@@ -54,10 +54,10 @@
       <view wx:if="{{spaceList.length}}">
         <view class="space-card" wx:for="{{spaceList}}" wx:key="space_id">
           <view class="space-head">
-            <view>
+            <view class="space-main">
               <text class="space-code">房间号 {{item.code}}@{{item.owner_alias || item.owner_user_id || '未设置'}}</text>
             </view>
-            <view class="space-actions">
+            <view class="space-actions vertical">
               <button size="mini" data-id="{{item.space_id}}" bindtap="openSpaceDetail">详情</button>
               <button size="mini" data-id="{{item.space_id}}" data-code="{{item.code}}" data-owner="{{item.owner_alias || item.owner_user_id || '未设置'}}" bindtap="openSpaceLogs">日志</button>
             </view>
@@ -77,11 +77,11 @@
       <view class="section-title">别名用户</view>
       <view wx:if="{{users.length}}">
         <view class="user-row" wx:for="{{users}}" wx:key="user_id">
-          <view>
+          <view class="user-main">
             <text class="user-alias">{{item.alias || '未命名'}}</text>
             <text class="user-id">{{item.user_id}}</text>
           </view>
-          <view class="user-actions">
+          <view class="user-actions vertical">
             <button size="mini" bindtap="viewSpaces" data-userid="{{item.user_id}}">房间</button>
             <button size="mini" bindtap="openUserLogs" data-userid="{{item.user_id}}" data-alias="{{item.alias || ''}}">日志</button>
           </view>
@@ -96,7 +96,7 @@
       <view wx:if="{{!messagesLoading && recentMessages.length}}">
         <view class="activity-row" wx:for="{{recentMessages}}" wx:key="id">
           <text class="activity-meta">
-            {{item.alias || item.user_id}} · 房间号 {{item.space_code || item.space_id}}@{{item.space_owner_alias || item.space_owner_id || '未设置'}} · {{item.created_at}}
+            {{item.alias || item.user_id}} · 房间号 {{item.space_code || item.space_id}}@{{item.space_owner_alias || item.space_owner_id || '未设置'}} · {{item.created_at_bj || item.created_at}}
           </text>
           <text class="activity-content">{{item.content || '[媒体]'}}</text>
         </view>
@@ -110,7 +110,7 @@
       <view wx:if="{{!postsLoading && recentPosts.length}}">
         <view class="activity-row" wx:for="{{recentPosts}}" wx:key="id">
           <text class="activity-meta">
-            {{item.alias || item.user_id}} · 房间号 {{item.space_code || item.space_id}}@{{item.space_owner_alias || item.space_owner_id || '未设置'}} · {{item.created_at}}
+            {{item.alias || item.user_id}} · 房间号 {{item.space_code || item.space_id}}@{{item.space_owner_alias || item.space_owner_id || '未设置'}} · {{item.created_at_bj || item.created_at}}
           </text>
           <text class="activity-content">{{item.content || '[媒体]'}}</text>
         </view>
