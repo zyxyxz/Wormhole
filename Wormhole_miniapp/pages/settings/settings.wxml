@@ -1,75 +1,77 @@
 <navigation-bar title="设置" back="{{false}}" home-button="{{true}}" bind:home="goHome" background="#FFFFFF" color="#0F172A" />
 <view class="settings-container">
-  <view class="room-card">
-    <view class="room-card-header">
-      <view class="avatar-circle" bindtap="chooseAvatar">
-        <image wx:if="{{avatarUrl}}" src="{{avatarUrl}}" mode="aspectFill"></image>
-        <text wx:else>{{aliasInitial}}</text>
-      </view>
-      <view class="room-card-info">
-        <view class="alias-row">
-          <text class="alias-text">{{alias || '未设置'}}</text>
-          <button class="icon-button" size="mini" bindtap="openAliasModal">编辑</button>
+  <scroll-view class="settings-scroll" scroll-y="true">
+    <view class="room-card">
+      <view class="room-card-header">
+        <view class="avatar-circle" bindtap="chooseAvatar">
+          <image wx:if="{{avatarUrl}}" src="{{avatarUrl}}" mode="aspectFill"></image>
+          <text wx:else>{{aliasInitial}}</text>
         </view>
-        <view class="code-row">
-          <text class="code-text">空间号 {{spaceCode}}</text>
-          <button class="link-button" wx:if="{{isOwner}}" bindtap="modifySpaceCode">修改</button>
-        </view>
-      </view>
-    </view>
-    <view class="room-card-meta">
-      <view class="meta-item interactive" bindtap="openMembersModal">
-        <text class="meta-label">成员</text>
-        <view class="member-avatars">
-          <view class="avatar-mini" wx:for="{{memberPreview}}" wx:key="user_id">
-            <image wx:if="{{item.avatar_url}}" src="{{item.avatar_url}}" mode="aspectFill"></image>
-            <text wx:else>{{item.initial}}</text>
+        <view class="room-card-info">
+          <view class="alias-row">
+            <text class="alias-text">{{alias || '未设置'}}</text>
+            <button class="icon-button" size="mini" bindtap="openAliasModal">编辑</button>
           </view>
-          <text class="meta-count">{{members.length}}人</text>
+          <view class="code-row">
+            <text class="code-text">空间号 {{spaceCode}}</text>
+            <button class="link-button" wx:if="{{isOwner}}" bindtap="modifySpaceCode">修改</button>
+          </view>
         </view>
       </view>
-      <view class="meta-item">
-        <text class="meta-label">我的身份</text>
-        <text class="meta-value">{{isOwner ? '房主' : '成员'}}</text>
+      <view class="room-card-meta">
+        <view class="meta-item interactive" bindtap="openMembersModal">
+          <text class="meta-label">成员</text>
+          <view class="member-avatars">
+            <view class="avatar-mini" wx:for="{{memberPreview}}" wx:key="user_id">
+              <image wx:if="{{item.avatar_url}}" src="{{item.avatar_url}}" mode="aspectFill"></image>
+              <text wx:else>{{item.initial}}</text>
+            </view>
+            <text class="meta-count">{{members.length}}人</text>
+          </view>
+        </view>
+        <view class="meta-item">
+          <text class="meta-label">我的身份</text>
+          <text class="meta-value">{{isOwner ? '房主' : '成员'}}</text>
+        </view>
       </view>
     </view>
-  </view>
-  <view class="settings-group">
-    <view class="settings-item" wx:if="{{isOwner}}" bindtap="shareSpace">
-      <text>分享空间</text>
-      <text class="arrow">></text>
-    </view>
+    <view class="settings-group">
+      <view class="settings-item" wx:if="{{isOwner}}" bindtap="shareSpace">
+        <text>分享空间</text>
+        <text class="arrow">></text>
+      </view>
 
-    <view class="settings-item" bindtap="deleteSpace">
-      <text>删除空间</text>
-      <text class="arrow">></text>
-    </view>
+      <view class="settings-item" bindtap="deleteSpace">
+        <text>删除空间</text>
+        <text class="arrow">></text>
+      </view>
 
-    <picker mode="selector" range="{{autoLockOptions}}" value="{{autoLockIndex}}" bindchange="onAutoLockChange">
+      <picker mode="selector" range="{{autoLockOptions}}" value="{{autoLockIndex}}" bindchange="onAutoLockChange">
+        <view class="settings-item">
+          <text>无操作锁定时间</text>
+          <view class="settings-item-right">
+            <text class="space-code">{{autoLockOptions[autoLockIndex]}}</text>
+            <text class="arrow">></text>
+          </view>
+        </view>
+      </picker>
+
       <view class="settings-item">
-        <text>无操作锁定时间</text>
-        <view class="settings-item-right">
-          <text class="space-code">{{autoLockOptions[autoLockIndex]}}</text>
-          <text class="arrow">></text>
-        </view>
+        <text>离开小程序自动锁定</text>
+        <switch checked="{{autoLockOnHide}}" color="#14B8A6" bindchange="toggleAutoLockOnHide" />
       </view>
-    </picker>
+    </view>
 
-    <view class="settings-item">
-      <text>离开小程序自动锁定</text>
-      <switch checked="{{autoLockOnHide}}" color="#14B8A6" bindchange="toggleAutoLockOnHide" />
+    <view class="settings-group" wx:if="{{isOwner}}">
+      <view class="settings-item">
+        <text>黑名单（房主）</text>
+      </view>
+      <view class="member-item" wx:for="{{blocks}}" wx:key="user_id">
+        <text>{{item.alias || item.user_id}}</text>
+        <button size="mini" bindtap="unblockMember" data-userid="{{item.user_id}}">取消拉黑</button>
+      </view>
     </view>
-  </view>
-
-  <view class="settings-group" wx:if="{{isOwner}}">
-    <view class="settings-item">
-      <text>黑名单（房主）</text>
-    </view>
-    <view class="member-item" wx:for="{{blocks}}" wx:key="user_id">
-      <text>{{item.alias || item.user_id}}</text>
-      <button size="mini" bindtap="unblockMember" data-userid="{{item.user_id}}">取消拉黑</button>
-    </view>
-  </view>
+  </scroll-view>
 </view>
 
 <!-- 修改空间号弹窗 -->

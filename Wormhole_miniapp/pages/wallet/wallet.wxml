@@ -1,28 +1,30 @@
 <navigation-bar title="钱包" back="{{false}}" home-button="{{true}}" bind:home="goHome" background="#FFFFFF" color="#0F172A" />
 <view class="wallet-container">
-  <!-- 余额展示 -->
-  <view class="balance-card">
-    <view class="balance-title">当前余额</view>
-    <view class="balance-amount">¥ {{balance}}</view>
-    <view class="balance-actions">
-      <button class="action-button" bindtap="showRecharge">充值</button>
-      <button class="action-button" bindtap="openPayCode">付款码</button>
+  <scroll-view class="wallet-scroll" scroll-y="true">
+    <!-- 余额展示 -->
+    <view class="balance-card">
+      <view class="balance-title">当前余额</view>
+      <view class="balance-amount">¥ {{balance}}</view>
+      <view class="balance-actions">
+        <button class="action-button" bindtap="showRecharge">充值</button>
+        <button class="action-button" bindtap="openPayCode">付款码</button>
+      </view>
     </view>
-  </view>
 
-  <!-- 交易记录 -->
-  <view class="transaction-list">
-    <view class="list-title">交易记录</view>
-    <view wx:for="{{transactions}}" wx:key="id" class="transaction-item">
-      <view class="transaction-info">
-        <view class="transaction-type">{{item.type}} · {{item.alias || '匿名'}}</view>
-        <view class="transaction-time">{{item.created_at}}</view>
-      </view>
-      <view class="transaction-amount {{item.amount > 0 ? 'income' : 'expense'}}">
-        {{item.amount > 0 ? '+' : ''}}{{item.amount}}
+    <!-- 交易记录 -->
+    <view class="transaction-list">
+      <view class="list-title">交易记录</view>
+      <view wx:for="{{transactions}}" wx:key="id" class="transaction-item">
+        <view class="transaction-info">
+          <view class="transaction-type">{{item.type}} · {{item.alias || '匿名'}}</view>
+          <view class="transaction-time">{{item.created_at}}</view>
+        </view>
+        <view class="transaction-amount {{item.amount > 0 ? 'income' : 'expense'}}">
+          {{item.amount > 0 ? '+' : ''}}{{item.amount}}
+        </view>
       </view>
     </view>
-  </view>
+  </scroll-view>
 </view>
 
 <!-- 付款码弹窗 -->

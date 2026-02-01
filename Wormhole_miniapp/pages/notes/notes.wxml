@@ -1,70 +1,76 @@
 <navigation-bar title="{{reviewMode ? '私人日记本' : '动态'}}" back="{{false}}" home-button="{{true}}" bind:home="goHome" background="#FFFFFF" color="#0F172A" />
 <view class="notes-container">
-  <skeleton-list show="{{loading}}" rows="6" />
-  <view class="notes-list" wx:if="{{!loading}}">
-    <view wx:for="{{posts}}" wx:key="id" class="post card">
-      <view class="post-header">
-        <view class="post-info">
-          <view class="avatar" >
-            <image wx:if="{{item.avatar}}" src="{{item.avatar}}" mode="aspectFill"></image>
-            <text wx:else>{{item.initial}}</text>
-          </view>
-          <view class="user-info">
-            <view class="name">{{item.alias || item.user_id || '匿名'}}</view>
-            <view class="time muted">{{item.displayTime}}</view>
-          </view>
-        </view>
-        <view class="post-actions" wx:if="{{item.canDelete}}">
-          <button size="mini" class="ghost" data-id="{{item.id}}" bindtap="deletePost">删除</button>
-        </view>
-      </view>
-      <view wx:if="{{item.content}}" class="post-content">{{item.content}}</view>
-      <view wx:if="{{item.media_type==='image'}}" class="images">
-        <image wx:for="{{item.media_urls}}" wx:for-item="imgSrc" wx:key="*this" class="image" mode="aspectFill" src="{{imgSrc}}" data-urls="{{item.media_urls}}" data-current="{{imgSrc}}" bindtap="previewImage" />
-      </view>
-      <video wx:if="{{item.media_type==='video'}}" class="video" src="{{item.media_urls[0]}}" controls></video>
-
-      <view class="post-action-bar" wx:if="{{!reviewMode}}">
-        <view class="likes-avatars" wx:if="{{item.likes.length}}">
-          <view class="avatar-mini" wx:for="{{item.likes}}" wx:for-item="like" wx:key="user_id">
-            <image wx:if="{{like.avatar}}" src="{{like.avatar}}" mode="aspectFill"></image>
-            <text wx:else>{{like.initial}}</text>
-          </view>
-        </view>
-        <view class="like-button {{item.likedByMe ? 'liked' : ''}}" data-id="{{item.id}}" data-index="{{index}}" bindtap="toggleLike">
-          <text class="icon">❤</text>
-          <text>{{item.likeCount}}</text>
-        </view>
-      </view>
-
-      <view class="comments" wx:if="{{!reviewMode && item.comments && item.comments.length}}">
-        <view class="comment" wx:for="{{item.comments}}" wx:key="id" data-postid="{{item.postId || item.post_id}}" data-alias="{{item.alias || item.user_id || '匿名'}}" data-userid="{{item.user_id}}" bindtap="replyComment">
-          <view class="comment-avatar">
-            <view class="avatar mini">
+  <scroll-view class="notes-scroll" scroll-y="true" refresher-enabled="true" refresher-triggered="{{refreshing}}" bindrefresherrefresh="onPullDownRefresh">
+    <skeleton-list show="{{loading}}" rows="6" />
+    <view class="notes-list" wx:if="{{!loading}}">
+      <view wx:for="{{posts}}" wx:key="id" class="post card">
+        <view class="post-header">
+          <view class="post-info">
+            <view class="avatar" >
               <image wx:if="{{item.avatar}}" src="{{item.avatar}}" mode="aspectFill"></image>
               <text wx:else>{{item.initial}}</text>
             </view>
-          </view>
-          <view class="comment-body">
-            <view class="comment-header">
-              <text class="comment-name">{{item.alias || item.user_id || '匿名'}}</text>
-              <view class="comment-meta">
-                <text class="comment-time muted">{{item.displayTime}}</text>
-                <button class="link-button" size="mini" wx:if="{{item.canDelete}}" data-id="{{item.id}}" catchtap="deleteComment">删除</button>
-              </view>
+            <view class="user-info">
+              <view class="name">{{item.alias || item.user_id || '匿名'}}</view>
+              <view class="time muted">{{item.displayTime}}</view>
             </view>
-            <view class="comment-content">{{item.content}}</view>
+          </view>
+          <view class="post-actions" wx:if="{{item.canDelete}}">
+            <button size="mini" class="ghost" data-id="{{item.id}}" bindtap="deletePost">删除</button>
           </view>
         </view>
-      </view>
+        <view wx:if="{{item.content}}" class="post-content">{{item.content}}</view>
+        <view wx:if="{{item.media_type==='image'}}" class="images">
+          <image wx:for="{{item.media_urls}}" wx:for-item="imgSrc" wx:key="*this" class="image" mode="aspectFill" src="{{imgSrc}}" data-urls="{{item.media_urls}}" data-current="{{imgSrc}}" bindtap="previewImage" />
+        </view>
+        <video wx:if="{{item.media_type==='video'}}" class="video" src="{{item.media_urls[0]}}" controls></video>
 
-      <view class="comment-box" wx:if="{{!reviewMode}}">
-        <input class="comment-input" placeholder="{{commentPlaceholders[item.id] || '评论...'}}" value="{{commentInputs[item.id]}}" data-id="{{item.id}}" bindinput="onCommentInput" bindfocus="onCommentFocus" focus="{{activeCommentInput === item.id}}" />
-        <button class="btn btn-primary" size="mini" data-id="{{item.id}}" bindtap="submitComment">发送</button>
+        <view class="post-action-bar" wx:if="{{!reviewMode}}">
+          <view class="likes-avatars" wx:if="{{item.likes.length}}">
+            <view class="avatar-mini" wx:for="{{item.likes}}" wx:for-item="like" wx:key="user_id">
+              <image wx:if="{{like.avatar}}" src="{{like.avatar}}" mode="aspectFill"></image>
+              <text wx:else>{{like.initial}}</text>
+            </view>
+          </view>
+          <view class="like-button {{item.likedByMe ? 'liked' : ''}}" data-id="{{item.id}}" data-index="{{index}}" bindtap="toggleLike">
+            <view class="like-icon">
+              <view class="heart-circle left"></view>
+              <view class="heart-circle right"></view>
+              <view class="heart-square"></view>
+            </view>
+            <text>{{item.likeCount}}</text>
+          </view>
+        </view>
+
+        <view class="comments" wx:if="{{!reviewMode && item.comments && item.comments.length}}">
+          <view class="comment" wx:for="{{item.comments}}" wx:key="id" data-postid="{{item.postId || item.post_id}}" data-alias="{{item.alias || item.user_id || '匿名'}}" data-userid="{{item.user_id}}" bindtap="replyComment">
+            <view class="comment-avatar">
+              <view class="avatar mini">
+                <image wx:if="{{item.avatar}}" src="{{item.avatar}}" mode="aspectFill"></image>
+                <text wx:else>{{item.initial}}</text>
+              </view>
+            </view>
+            <view class="comment-body">
+              <view class="comment-header">
+                <text class="comment-name">{{item.alias || item.user_id || '匿名'}}</text>
+                <view class="comment-meta">
+                  <text class="comment-time muted">{{item.displayTime}}</text>
+                  <button class="link-button" size="mini" wx:if="{{item.canDelete}}" data-id="{{item.id}}" catchtap="deleteComment">删除</button>
+                </view>
+              </view>
+              <view class="comment-content">{{item.content}}</view>
+            </view>
+          </view>
+        </view>
+
+        <view class="comment-box" wx:if="{{!reviewMode}}">
+          <input class="comment-input" placeholder="{{commentPlaceholders[item.id] || '评论...'}}" value="{{commentInputs[item.id]}}" data-id="{{item.id}}" bindinput="onCommentInput" bindfocus="onCommentFocus" focus="{{activeCommentInput === item.id}}" />
+          <button class="btn btn-primary" size="mini" data-id="{{item.id}}" bindtap="submitComment">发送</button>
+        </view>
       </view>
+      <empty wx:if="{{!posts.length}}" text="暂无动态，点击下方 + 发布" />
     </view>
-    <empty wx:if="{{!posts.length}}" text="暂无动态，点击下方 + 发布" />
-  </view>
+  </scroll-view>
 
   <view class="add-button" bindtap="createPost">
     <text class="add-icon">+</text>

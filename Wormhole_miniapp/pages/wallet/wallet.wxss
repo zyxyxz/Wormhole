@@ -1,4 +1,17 @@
-.wallet-container { padding: 30rpx; }
+page { overflow: hidden; }
+
+.wallet-container {
+  height: calc(100vh - 44px - constant(safe-area-inset-top));
+  height: calc(100vh - 44px - env(safe-area-inset-top));
+  display: flex;
+  flex-direction: column;
+}
+
+.wallet-scroll {
+  flex: 1;
+  padding: 30rpx;
+  box-sizing: border-box;
+}
 
 .balance-card { background: linear-gradient(135deg, #5EEAD4, #22D3EE); border-radius: 24rpx; padding: 40rpx; color: #0F172A; margin-bottom: 40rpx; box-shadow: 0 16rpx 34rpx rgba(45,212,191,0.25); }
 

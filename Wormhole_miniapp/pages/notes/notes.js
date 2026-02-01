@@ -24,6 +24,7 @@ Page({
     isOwner: false,
     ownerUserId: '',
     reviewMode: false,
+    refreshing: false,
   },
   onBack() { wx.reLaunch({ url: '/pages/index/index' }); },
   goHome() { wx.reLaunch({ url: '/pages/index/index' }); },
@@ -66,6 +67,7 @@ Page({
   },
 
   onPullDownRefresh() {
+    this.setData({ refreshing: true });
     this.getPosts({ stopPullDown: true });
   },
 
@@ -137,6 +139,7 @@ Page({
           this.setData({ loading: false });
         }
         if (stopPullDown) {
+          this.setData({ refreshing: false });
           try { wx.stopPullDownRefresh(); } catch (e) {}
         }
       }
