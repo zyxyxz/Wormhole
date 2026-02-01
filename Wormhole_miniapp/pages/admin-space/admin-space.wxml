@@ -9,6 +9,21 @@
     </view>
   </view>
 
+  <view class="filter-card">
+    <view class="filter-row">
+      <view class="filter-left">
+        <switch checked="{{includeDeleted}}" color="#2563EB" bindchange="onToggleIncludeDeleted" />
+        <text class="filter-label">查看已删除内容</text>
+      </view>
+      <view class="filter-right">
+        <text class="filter-label">显示</text>
+        <input class="limit-input" type="number" value="{{limitInput}}" bindinput="onLimitInput" />
+        <text class="filter-label">条</text>
+        <button size="mini" class="ghost" bindtap="applyLimit">应用</button>
+      </view>
+    </view>
+  </view>
+
   <view class="stat-grid">
     <view class="stat-item">
       <text class="stat-value">{{space.member_count || 0}}</text>
@@ -45,8 +60,15 @@
     <view class="section-title">近期动态</view>
     <view class="card">
       <view class="activity" wx:for="{{recentPosts}}" wx:key="id">
-        <view class="activity-meta">{{item.alias || item.user_id}} · {{item.created_at_bj || item.created_at}}</view>
-        <view class="activity-content">{{item.content || '[媒体]'}} </view>
+        <view class="activity-meta">
+          {{item.alias || item.user_id}} · {{item.created_at_bj || item.created_at}}
+          <text wx:if="{{item.deleted_at}}" class="tag-deleted">已删除</text>
+        </view>
+        <view class="activity-content">{{item.content || (item.media_type==='image' ? '[图片]' : item.media_type==='video' ? '[视频]' : '[媒体]')}}</view>
+        <view wx:if="{{item.media_type==='image' && item.media_urls && item.media_urls.length}}" class="media-grid">
+          <image wx:for="{{item.media_urls}}" wx:for-item="imgSrc" wx:key="*this" class="media-image" mode="aspectFill" src="{{imgSrc}}" data-urls="{{item.media_urls}}" data-current="{{imgSrc}}" bindtap="previewImage" />
+        </view>
+        <video wx:if="{{item.media_type==='video' && item.media_urls && item.media_urls.length}}" class="media-video" src="{{item.media_urls[0]}}" controls></video>
       </view>
     </view>
   </view>
@@ -55,8 +77,27 @@
     <view class="section-title">近期消息</view>
     <view class="card">
       <view class="activity" wx:for="{{recentMessages}}" wx:key="id">
-        <view class="activity-meta">{{item.alias || item.user_id}} · {{item.created_at_bj || item.created_at}}</view>
-        <view class="activity-content">{{item.content || '[媒体]'}} </view>
+        <view class="activity-meta">
+          {{item.alias || item.user_id}} · {{item.created_at_bj || item.created_at}}
+          <text wx:if="{{item.deleted_at}}" class="tag-deleted">已删除</text>
+        </view>
+        <view class="activity-content">{{item.content || (item.message_type==='image' ? '[图片]' : item.message_type==='video' ? '[视频]' : item.message_type==='audio' ? '[语音]' : '[媒体]')}}</view>
+        <image wx:if="{{item.message_type==='image' && item.media_url}}" class="media-image single" mode="aspectFill" src="{{item.media_url}}" data-urls="{{[item.media_url]}}" data-current="{{item.media_url}}" bindtap="previewImage" />
+        <video wx:if="{{item.message_type==='video' && item.media_url}}" class="media-video" src="{{item.media_url}}" controls></video>
+      </view>
+    </view>
+  </view>
+
+  <view class="section" wx:if="{{recentNotes.length}}">
+    <view class="section-title">近期笔记</view>
+    <view class="card">
+      <view class="activity" wx:for="{{recentNotes}}" wx:key="id">
+        <view class="activity-meta">
+          {{item.alias || item.user_id}} · {{item.created_at_bj || item.created_at}}
+          <text wx:if="{{item.deleted_at}}" class="tag-deleted">已删除</text>
+        </view>
+        <view class="activity-title">{{item.title || '无标题'}}</view>
+        <view class="activity-content">{{item.content || '-'}}</view>
       </view>
     </view>
   </view>

@@ -29,6 +29,43 @@ page {
   margin-top: 18rpx;
 }
 
+.filter-card {
+  margin-top: 16rpx;
+  background: #FFFFFF;
+  border-radius: 18rpx;
+  padding: 16rpx 18rpx;
+  box-shadow: 0 10rpx 24rpx rgba(15, 23, 42, 0.08);
+}
+
+.filter-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16rpx;
+  flex-wrap: wrap;
+}
+
+.filter-left, .filter-right {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+}
+
+.filter-label {
+  font-size: 22rpx;
+  color: rgba(15, 23, 42, 0.7);
+}
+
+.limit-input {
+  width: 90rpx;
+  height: 52rpx;
+  border-radius: 12rpx;
+  border: 1rpx solid #E2E8F0;
+  padding: 0 12rpx;
+  font-size: 22rpx;
+  background: #F8FAFC;
+}
+
 .stat-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -100,9 +137,50 @@ page {
   margin-bottom: 6rpx;
 }
 
+.tag-deleted {
+  margin-left: 10rpx;
+  padding: 2rpx 10rpx;
+  border-radius: 999rpx;
+  background: rgba(239, 68, 68, 0.12);
+  color: #EF4444;
+  font-size: 20rpx;
+}
+
 .activity-content {
   font-size: 24rpx;
   color: #0F172A;
+}
+
+.activity-title {
+  font-size: 24rpx;
+  font-weight: 600;
+  color: #0F172A;
+  margin-bottom: 6rpx;
+}
+
+.media-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8rpx;
+  margin-top: 10rpx;
+}
+
+.media-image {
+  width: 100%;
+  height: 200rpx;
+  border-radius: 12rpx;
+}
+
+.media-image.single {
+  width: 220rpx;
+  height: 220rpx;
+  margin-top: 10rpx;
+}
+
+.media-video {
+  width: 100%;
+  border-radius: 12rpx;
+  margin-top: 10rpx;
 }
 
 .empty {

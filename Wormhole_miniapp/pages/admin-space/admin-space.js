@@ -28,6 +28,10 @@ Page({
     members: [],
     recentPosts: [],
     recentMessages: [],
+    recentNotes: [],
+    includeDeleted: false,
+    limit: 20,
+    limitInput: '20',
     loading: true
   },
 
@@ -55,8 +59,31 @@ Page({
     wx.navigateTo({ url });
   },
 
+  onToggleIncludeDeleted(e) {
+    this.setData({ includeDeleted: !!e.detail.value });
+    this.fetchDetail();
+  },
+
+  onLimitInput(e) {
+    this.setData({ limitInput: e.detail.value });
+  },
+
+  applyLimit() {
+    const raw = parseInt(this.data.limitInput || '20', 10);
+    const limit = Number.isFinite(raw) ? Math.max(1, Math.min(raw, 200)) : 20;
+    this.setData({ limit, limitInput: String(limit) });
+    this.fetchDetail();
+  },
+
+  previewImage(e) {
+    const urls = e.currentTarget.dataset.urls || [];
+    const current = e.currentTarget.dataset.current || urls[0];
+    if (!urls.length) return;
+    wx.previewImage({ current, urls });
+  },
+
   fetchDetail() {
-    const { adminOpenId, adminRoomCode, spaceId } = this.data;
+    const { adminOpenId, adminRoomCode, spaceId, includeDeleted, limit } = this.data;
     if (!adminOpenId || !adminRoomCode || !spaceId) {
       wx.showToast({ title: '缺少管理员信息', icon: 'none' });
       return;
@@ -64,7 +91,13 @@ Page({
     wx.showLoading({ title: '加载中', mask: true });
     wx.request({
       url: `${BASE_URL}/api/settings/admin/space-detail`,
-      data: { user_id: adminOpenId, room_code: adminRoomCode, space_id: spaceId },
+      data: {
+        user_id: adminOpenId,
+        room_code: adminRoomCode,
+        space_id: spaceId,
+        include_deleted: includeDeleted ? 1 : 0,
+        limit: limit || 20
+      },
       success: (res) => {
         wx.hideLoading();
         if (res.data && res.data.space) {
@@ -78,11 +111,16 @@ Page({
             ...item,
             created_at_bj: formatBeijingTime(item.created_at)
           }));
+          const recentNotes = (res.data.recent_notes || []).map(item => ({
+            ...item,
+            created_at_bj: formatBeijingTime(item.created_at)
+          }));
           this.setData({
             space,
             members: res.data.members || [],
             recentPosts,
             recentMessages,
+            recentNotes,
             loading: false
           });
         } else {

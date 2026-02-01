@@ -13,7 +13,8 @@ import random
 import string
 from datetime import datetime, timedelta
 from pydantic import BaseModel
-from app.utils.media import process_avatar_url
+from app.utils.media import process_avatar_url, process_feed_media_urls, process_message_media_url
+import json
 
 router = APIRouter()
 
@@ -395,11 +396,19 @@ async def admin_spaces(user_id: str, room_code: str, db: AsyncSession = Depends(
 
 
 @router.get("/admin/space-detail")
-async def admin_space_detail(user_id: str, room_code: str, space_id: int, db: AsyncSession = Depends(get_db)):
+async def admin_space_detail(
+    user_id: str,
+    room_code: str,
+    space_id: int,
+    include_deleted: bool = False,
+    limit: int = 20,
+    db: AsyncSession = Depends(get_db)
+):
     verify_admin(user_id, room_code)
     space = (await db.execute(select(Space).where(Space.id == space_id, Space.deleted_at.is_(None)))).scalar_one_or_none()
     if not space:
         raise HTTPException(status_code=404, detail="空间不存在")
+    limit = max(1, min(int(limit or 20), 200))
     member_rows = await db.execute(select(SpaceMember).where(SpaceMember.space_id == space_id))
     members = member_rows.scalars().all()
     alias_rows = await db.execute(select(UserAlias).where(UserAlias.space_id == space_id))
@@ -413,20 +422,36 @@ async def admin_space_detail(user_id: str, room_code: str, space_id: int, db: As
             "joined_at": m.joined_at,
         } for m in members
     ]
+    post_filters = [Post.space_id == space_id]
+    if not include_deleted:
+        post_filters.append(Post.deleted_at.is_(None))
     recent_posts_res = await db.execute(
         select(Post)
-        .where(Post.space_id == space_id, Post.deleted_at.is_(None))
+        .where(*post_filters)
         .order_by(Post.created_at.desc())
-        .limit(5)
+        .limit(limit)
     )
     posts = recent_posts_res.scalars().all()
+    message_filters = [Message.space_id == space_id]
+    if not include_deleted:
+        message_filters.append(Message.deleted_at.is_(None))
     recent_messages_res = await db.execute(
         select(Message)
-        .where(Message.space_id == space_id, Message.deleted_at.is_(None))
+        .where(*message_filters)
         .order_by(Message.created_at.desc())
-        .limit(5)
+        .limit(limit)
     )
     messages = recent_messages_res.scalars().all()
+    note_filters = [Note.space_id == space_id]
+    if not include_deleted:
+        note_filters.append(Note.deleted_at.is_(None))
+    recent_notes_res = await db.execute(
+        select(Note)
+        .where(*note_filters)
+        .order_by(Note.created_at.desc())
+        .limit(limit)
+    )
+    notes = recent_notes_res.scalars().all()
     message_count = (await db.execute(select(func.count(Message.id)).where(Message.space_id == space_id, Message.deleted_at.is_(None)))).scalar() or 0
     post_count = (await db.execute(select(func.count(Post.id)).where(Post.space_id == space_id, Post.deleted_at.is_(None)))).scalar() or 0
     member_count = len(member_payload)
@@ -451,7 +476,9 @@ async def admin_space_detail(user_id: str, room_code: str, space_id: int, db: As
                 "alias": alias_map.get(p.user_id).alias if alias_map.get(p.user_id) else None,
                 "content": p.content,
                 "media_type": p.media_type,
+                "media_urls": process_feed_media_urls(json.loads(p.media_urls or "[]"), p.media_type),
                 "created_at": p.created_at,
+                "deleted_at": p.deleted_at,
             } for p in posts
         ],
         "recent_messages": [
@@ -461,8 +488,22 @@ async def admin_space_detail(user_id: str, room_code: str, space_id: int, db: As
                 "alias": alias_map.get(msg.user_id).alias if alias_map.get(msg.user_id) else None,
                 "content": msg.content,
                 "message_type": msg.message_type,
+                "media_url": process_message_media_url(msg.media_url, msg.message_type),
+                "media_duration": msg.media_duration,
                 "created_at": msg.created_at,
+                "deleted_at": msg.deleted_at,
             } for msg in messages
+        ],
+        "recent_notes": [
+            {
+                "id": n.id,
+                "user_id": n.user_id,
+                "alias": alias_map.get(n.user_id).alias if alias_map.get(n.user_id) else None,
+                "title": n.title,
+                "content": n.content,
+                "created_at": n.created_at,
+                "deleted_at": n.deleted_at,
+            } for n in notes
         ]
     }
 
