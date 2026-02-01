@@ -1,4 +1,4 @@
-const emojiData = require('../assets/emoji/emoji-data.json');
+const emojiData = require('../assets/emoji/emoji-data.js');
 
 const DEFAULT_SPRITE_URL = '/assets/emoji/emoji-sprite.png';
 const PANEL = emojiData.panel || {};
