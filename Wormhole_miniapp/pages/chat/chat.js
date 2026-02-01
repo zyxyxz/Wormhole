@@ -269,8 +269,15 @@ Page({
       }
     });
 
-    ws.onClose(() => {
-      console.log('WebSocket 已关闭，3秒后重连...');
+    ws.onClose((res = {}) => {
+      const code = res.code !== undefined ? res.code : '';
+      const reason = res.reason || '';
+      if (!this._wsKeepAlive || this._wsClosing) {
+        console.log('退出房间，WebSocket 已关闭');
+      } else {
+        const detail = [code !== '' ? `code=${code}` : '', reason ? `reason=${reason}` : ''].filter(Boolean).join(' ');
+        console.log(`WebSocket 断开${detail ? `（${detail}）` : ''}，3秒后重连...`);
+      }
       this._wsConnecting = false;
       this._wsReady = false;
       if (this.ws === ws) this.ws = null;
@@ -279,8 +286,9 @@ Page({
       }
     });
 
-    ws.onError(() => {
-      console.log('WebSocket 连接错误');
+    ws.onError((res = {}) => {
+      if (!this._wsKeepAlive || this._wsClosing) return;
+      console.log('WebSocket 连接错误', res && res.errMsg ? res.errMsg : '');
       this._wsConnecting = false;
       this._wsReady = false;
       if (this.ws === ws) this.ws = null;
