@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete, update
 from app.database import get_db
@@ -13,6 +13,7 @@ import random
 from datetime import datetime, timedelta
 from app.config import settings
 from app.utils.media import process_avatar_url
+from app.utils.operation_log import add_operation_log
 
 router = APIRouter()
 
@@ -230,7 +231,7 @@ async def modify_space_code(payload: ModifyCodeRequest, db: AsyncSession = Depen
     return {"success": True, "message": "空间号修改成功"}
 
 @router.post("/delete")
-async def delete_space(payload: DeleteRequest, db: AsyncSession = Depends(get_db)):
+async def delete_space(payload: DeleteRequest, request: Request, db: AsyncSession = Depends(get_db)):
     # 级联删除相关数据
     # 权限：仅房主可删除
     sp = (await db.execute(select(Space).where(Space.id == payload.space_id, Space.deleted_at.is_(None)))).scalar_one_or_none()
@@ -247,6 +248,15 @@ async def delete_space(payload: DeleteRequest, db: AsyncSession = Depends(get_db
         update(Comment)
         .where(Comment.post_id.in_(select(Post.id).where(Post.space_id == payload.space_id)), Comment.deleted_at.is_(None))
         .values(deleted_at=now)
+    )
+    add_operation_log(
+        db,
+        user_id=payload.operator_user_id,
+        action="space_delete",
+        space_id=payload.space_id,
+        detail={"space_id": payload.space_id},
+        ip=(request.client.host if request.client else None),
+        user_agent=request.headers.get("user-agent")
     )
     await db.commit()
     return {"success": True, "message": "空间删除成功"}
@@ -278,7 +288,7 @@ async def get_members(space_id: int, db: AsyncSession = Depends(get_db)):
     return MembersListResponse(members=member_payload)
 
 @router.post("/remove-member")
-async def remove_member(payload: RemoveMemberRequest, db: AsyncSession = Depends(get_db)):
+async def remove_member(payload: RemoveMemberRequest, request: Request, db: AsyncSession = Depends(get_db)):
     # 只有房主可操作
     space = (await db.execute(select(Space).where(Space.id == payload.space_id, Space.deleted_at.is_(None)))).scalar_one_or_none()
     if not space:
@@ -297,6 +307,15 @@ async def remove_member(payload: RemoveMemberRequest, db: AsyncSession = Depends
         await db.execute(delete(SpaceMapping).where(SpaceMapping.space_id == payload.space_id, SpaceMapping.user_id == payload.member_user_id))
         if codes:
             await db.execute(delete(SpaceCode).where(SpaceCode.space_id == payload.space_id, SpaceCode.code.in_(codes)))
+    add_operation_log(
+        db,
+        user_id=payload.operator_user_id,
+        action="space_remove_member",
+        space_id=payload.space_id,
+        detail={"member_user_id": payload.member_user_id},
+        ip=(request.client.host if request.client else None),
+        user_agent=request.headers.get("user-agent")
+    )
     await db.commit()
     return {"success": True}
 
@@ -320,7 +339,7 @@ async def list_blocks(space_id: int, db: AsyncSession = Depends(get_db)):
     return BlocksListResponse(blocks=block_payload)
 
 @router.post("/block-member")
-async def block_member(payload: BlockMemberRequest, db: AsyncSession = Depends(get_db)):
+async def block_member(payload: BlockMemberRequest, request: Request, db: AsyncSession = Depends(get_db)):
     space = (await db.execute(select(Space).where(Space.id == payload.space_id, Space.deleted_at.is_(None)))).scalar_one_or_none()
     if not space:
         raise HTTPException(status_code=404, detail="空间不存在")
@@ -339,16 +358,34 @@ async def block_member(payload: BlockMemberRequest, db: AsyncSession = Depends(g
     exist = (await db.execute(select(SpaceBlock).where(SpaceBlock.space_id == payload.space_id, SpaceBlock.user_id == payload.member_user_id))).scalar_one_or_none()
     if not exist:
         db.add(SpaceBlock(space_id=payload.space_id, user_id=payload.member_user_id))
+    add_operation_log(
+        db,
+        user_id=payload.operator_user_id,
+        action="space_block_member",
+        space_id=payload.space_id,
+        detail={"member_user_id": payload.member_user_id},
+        ip=(request.client.host if request.client else None),
+        user_agent=request.headers.get("user-agent")
+    )
     await db.commit()
     return {"success": True}
 
 @router.post("/unblock-member")
-async def unblock_member(payload: UnblockMemberRequest, db: AsyncSession = Depends(get_db)):
+async def unblock_member(payload: UnblockMemberRequest, request: Request, db: AsyncSession = Depends(get_db)):
     space = (await db.execute(select(Space).where(Space.id == payload.space_id, Space.deleted_at.is_(None)))).scalar_one_or_none()
     if not space:
         raise HTTPException(status_code=404, detail="空间不存在")
     if space.owner_user_id != payload.operator_user_id:
         raise HTTPException(status_code=403, detail="无权限")
     await db.execute(delete(SpaceBlock).where(SpaceBlock.space_id == payload.space_id, SpaceBlock.user_id == payload.member_user_id))
+    add_operation_log(
+        db,
+        user_id=payload.operator_user_id,
+        action="space_unblock_member",
+        space_id=payload.space_id,
+        detail={"member_user_id": payload.member_user_id},
+        ip=(request.client.host if request.client else None),
+        user_agent=request.headers.get("user-agent")
+    )
     await db.commit()
     return {"success": True}

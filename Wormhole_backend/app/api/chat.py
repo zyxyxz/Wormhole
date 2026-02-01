@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from app.database import get_db
@@ -16,6 +16,7 @@ from schemas.chat import (
 )
 from app.ws import chat_manager
 from app.utils.media import process_avatar_url, process_message_media_url, strip_url
+from app.utils.operation_log import add_operation_log
 from datetime import datetime
 
 router = APIRouter()
@@ -76,6 +77,7 @@ async def get_chat_history(
 @router.post("/send")
 async def send_message(
     message: MessageCreate,
+    request: Request,
     db: AsyncSession = Depends(get_db)
 ):
     space = (await db.execute(select(Space).where(Space.id == message.space_id, Space.deleted_at.is_(None)))).scalar_one_or_none()
@@ -115,6 +117,15 @@ async def send_message(
     alias_map = {r.user_id: r for r in alias_rows.scalars().all()}
     ua = alias_map.get(message.user_id)
     reply_ua = alias_map.get(reply_to_user_id) if reply_to_user_id else None
+    add_operation_log(
+        db,
+        user_id=message.user_id,
+        action="chat_send",
+        space_id=message.space_id,
+        detail={"message_id": db_message.id, "message_type": db_message.message_type},
+        ip=(request.client.host if request.client else None),
+        user_agent=request.headers.get("user-agent")
+    )
     payload = {
         "id": db_message.id,
         "user_id": db_message.user_id,
@@ -221,6 +232,13 @@ async def delete_message(payload: MessageDeleteRequest, db: AsyncSession = Depen
     if payload.operator_user_id not in {msg.user_id, space.owner_user_id}:
         raise HTTPException(status_code=403, detail="无权限")
     msg.deleted_at = datetime.utcnow()
+    add_operation_log(
+        db,
+        user_id=payload.operator_user_id,
+        action="chat_delete",
+        space_id=msg.space_id,
+        detail={"message_id": msg.id}
+    )
     await db.commit()
     await chat_manager.broadcast(msg.space_id, {
         "event": "message_deleted",

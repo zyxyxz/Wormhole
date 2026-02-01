@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.database import get_db
@@ -6,6 +6,7 @@ from models.user import UserAlias
 from schemas.user import AliasSetRequest, AliasResponse
 from app.ws import event_manager
 from app.utils.media import process_avatar_url, strip_url
+from app.utils.operation_log import add_operation_log
 
 router = APIRouter()
 
@@ -23,7 +24,7 @@ async def get_alias(space_id: int, user_id: str, db: AsyncSession = Depends(get_
     )
 
 @router.post("/set-alias", response_model=AliasResponse)
-async def set_alias(payload: AliasSetRequest, db: AsyncSession = Depends(get_db)):
+async def set_alias(payload: AliasSetRequest, request: Request, db: AsyncSession = Depends(get_db)):
     res = await db.execute(select(UserAlias).where(UserAlias.space_id == payload.space_id, UserAlias.user_id == payload.user_id))
     alias = res.scalar_one_or_none()
     avatar_url = strip_url(payload.avatar_url)
@@ -43,6 +44,15 @@ async def set_alias(payload: AliasSetRequest, db: AsyncSession = Depends(get_db)
         "alias": payload.alias,
         "avatar_url": process_avatar_url(avatar_url),
     })
+    add_operation_log(
+        db,
+        user_id=payload.user_id,
+        action="alias_update",
+        space_id=payload.space_id,
+        detail={"has_avatar": bool(avatar_url), "alias": payload.alias},
+        ip=(request.client.host if request.client else None),
+        user_agent=request.headers.get("user-agent")
+    )
     return AliasResponse(
         space_id=payload.space_id,
         user_id=payload.user_id,

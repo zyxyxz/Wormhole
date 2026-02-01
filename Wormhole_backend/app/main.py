@@ -15,6 +15,7 @@ from models.space import SpaceMember, Space
 from models.user import UserAlias
 from app.ws import chat_manager, event_manager
 from app.utils.media import process_avatar_url, process_message_media_url, strip_url
+from app.utils.operation_log import add_operation_log
 from sqlalchemy import select
 from datetime import datetime
 
@@ -149,6 +150,16 @@ async def websocket_endpoint(websocket: WebSocket, space_id: int):
                 session.add(msg)
                 await session.commit()
                 await session.refresh(msg)
+                add_operation_log(
+                    session,
+                    user_id=user_id,
+                    action="chat_send",
+                    space_id=space_id,
+                    detail={"message_id": msg.id, "message_type": msg.message_type},
+                    ip=(websocket.client.host if websocket.client else None),
+                    user_agent=websocket.headers.get("user-agent") if hasattr(websocket, "headers") else None
+                )
+                await session.commit()
                 # 查找别名
                 alias = None
                 avatar_url = None

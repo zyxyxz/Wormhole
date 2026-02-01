@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
 from collections import defaultdict
@@ -22,12 +22,13 @@ import json
 from datetime import datetime
 from sqlalchemy import func
 from app.utils.media import process_avatar_url, process_feed_media_urls, strip_urls
+from app.utils.operation_log import add_operation_log
 
 router = APIRouter()
 
 
 @router.post("/create", response_model=PostResponse)
-async def create_post(payload: PostCreate, db: AsyncSession = Depends(get_db)):
+async def create_post(payload: PostCreate, request: Request, db: AsyncSession = Depends(get_db)):
     clean_media_urls = strip_urls(payload.media_urls or [])
     media_urls_json = json.dumps(clean_media_urls)
     post = Post(
@@ -47,6 +48,15 @@ async def create_post(payload: PostCreate, db: AsyncSession = Depends(get_db)):
     if ua:
         alias = ua.alias
         avatar_url = ua.avatar_url
+    add_operation_log(
+        db,
+        user_id=post.user_id,
+        action="feed_post",
+        space_id=post.space_id,
+        detail={"post_id": post.id, "media_type": post.media_type},
+        ip=(request.client.host if request.client else None),
+        user_agent=request.headers.get("user-agent")
+    )
     return PostResponse(
         id=post.id,
         space_id=post.space_id,
@@ -143,7 +153,7 @@ async def list_posts(space_id: int, user_id: str | None = None, db: AsyncSession
 
 
 @router.post("/comment", response_model=CommentResponse)
-async def add_comment(payload: CommentCreate, db: AsyncSession = Depends(get_db)):
+async def add_comment(payload: CommentCreate, request: Request, db: AsyncSession = Depends(get_db)):
     # 确认post存在
     post = (await db.execute(select(Post).where(Post.id == payload.post_id))).scalar_one_or_none()
     if not post or post.deleted_at:
@@ -159,6 +169,15 @@ async def add_comment(payload: CommentCreate, db: AsyncSession = Depends(get_db)
     if ua:
         alias = ua.alias
         avatar_url = ua.avatar_url
+    add_operation_log(
+        db,
+        user_id=c.user_id,
+        action="feed_comment",
+        space_id=post.space_id,
+        detail={"comment_id": c.id, "post_id": c.post_id},
+        ip=(request.client.host if request.client else None),
+        user_agent=request.headers.get("user-agent")
+    )
     return CommentResponse(
         id=c.id,
         post_id=c.post_id,
@@ -236,7 +255,7 @@ async def delete_comment(payload: CommentDeleteRequest, db: AsyncSession = Depen
 
 
 @router.post("/like")
-async def like_post(payload: PostLikeRequest, db: AsyncSession = Depends(get_db)):
+async def like_post(payload: PostLikeRequest, request: Request, db: AsyncSession = Depends(get_db)):
     if not payload.user_id:
         raise HTTPException(status_code=400, detail="缺少用户ID")
     post = (await db.execute(select(Post).where(Post.id == payload.post_id))).scalar_one_or_none()
@@ -251,6 +270,15 @@ async def like_post(payload: PostLikeRequest, db: AsyncSession = Depends(get_db)
     await db.commit()
     count_row = await db.execute(select(func.count(PostLike.id)).where(PostLike.post_id == payload.post_id))
     like_count = count_row.scalar_one() or 0
+    add_operation_log(
+        db,
+        user_id=payload.user_id,
+        action="feed_like",
+        space_id=post.space_id,
+        detail={"post_id": payload.post_id, "like": bool(payload.like)},
+        ip=(request.client.host if request.client else None),
+        user_agent=request.headers.get("user-agent")
+    )
     return {"success": True, "like_count": like_count, "liked": payload.like}
 
 

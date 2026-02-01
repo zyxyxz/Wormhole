@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Body
+from fastapi import APIRouter, Depends, HTTPException, Body, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, delete
 from app.database import get_db
@@ -14,6 +14,7 @@ import string
 from datetime import datetime, timedelta
 from pydantic import BaseModel
 from app.utils.media import process_avatar_url, process_feed_media_urls, process_message_media_url
+from app.utils.operation_log import add_operation_log
 import json
 
 router = APIRouter()
@@ -44,6 +45,7 @@ async def _get_review_mode(db: AsyncSession) -> bool:
 async def modify_space_code(
     space_id: int,
     new_code: str,
+    request: Request,
     db: AsyncSession = Depends(get_db)
 ):
     if not new_code.isdigit() or len(new_code) != 6:
@@ -63,6 +65,15 @@ async def modify_space_code(
         raise HTTPException(status_code=404, detail="空间不存在")
     
     space.code = new_code
+    add_operation_log(
+        db,
+        user_id=space.owner_user_id,
+        action="space_modify_code",
+        space_id=space_id,
+        detail={"new_code": new_code},
+        ip=(request.client.host if request.client else None),
+        user_agent=request.headers.get("user-agent")
+    )
     await db.commit()
     
     return {"success": True, "message": "空间号修改成功"}
@@ -511,6 +522,7 @@ async def admin_space_detail(
 async def share_space(
     space_id: int,
     operator_user_id: str,
+    request: Request,
     db: AsyncSession = Depends(get_db)
 ):
     space_res = await db.execute(select(Space).where(Space.id == space_id))
@@ -532,4 +544,13 @@ async def share_space(
     expires_at = datetime.utcnow() + timedelta(minutes=5)
     db.add(ShareCode(space_id=space_id, code=share_code, expires_at=expires_at, used=False))
     await db.commit()
+    add_operation_log(
+        db,
+        user_id=operator_user_id,
+        action="space_share",
+        space_id=space_id,
+        detail={"share_code": share_code},
+        ip=(request.client.host if request.client else None),
+        user_agent=request.headers.get("user-agent")
+    )
     return {"share_code": share_code, "expires_in": 300}
