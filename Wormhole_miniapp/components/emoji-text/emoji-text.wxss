@@ -1,0 +1,16 @@
+.emoji-text {
+  display: inline;
+  line-height: inherit;
+}
+
+.emoji-text.inline {
+  display: inline;
+}
+
+.emoji-text.block {
+  display: block;
+}
+
+.emoji-text .wx-emoji {
+  vertical-align: middle;
+}

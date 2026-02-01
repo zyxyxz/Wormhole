@@ -1,0 +1,1 @@
+<rich-text class="emoji-text {{mode}} {{customClass}}" nodes="{{nodes}}"></rich-text>

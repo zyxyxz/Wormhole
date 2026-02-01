@@ -1,6 +1,6 @@
 const { BASE_URL, WS_URL } = require('../../utils/config.js');
 const { ensureDiaryMode } = require('../../utils/review.js');
-const { EMOJI_DISPLAY_LIST, replaceWechatEmojis } = require('../../utils/wechat-emoji.js');
+const { EMOJI_DISPLAY_LIST } = require('../../utils/wechat-emoji.js');
 
 const CHAT_CACHE_LIMIT = 50;
 const PLUS_ACTIONS = [
@@ -711,8 +711,7 @@ Page({
       userId: dataset.userId,
       nickname: dataset.nickname || dataset.userId || '匿名',
       type: dataset.messageType || 'text',
-      content: preview,
-      displayContent: preview
+      content: preview
     };
     if (!reply.id) return;
     this.setData({ replyingTo: reply, inputMode: 'text' });
@@ -730,8 +729,7 @@ Page({
     if (type === 'video') return '[视频]';
     if (type === 'audio') return '[语音]';
     const trimmed = (content || '').trim();
-    const preview = trimmed ? trimmed.slice(0, 80) : '[消息]';
-    return replaceWechatEmojis(preview);
+    return trimmed ? trimmed.slice(0, 80) : '[消息]';
   },
 
   confirmDeleteMessage(dataset) {
@@ -1288,7 +1286,6 @@ Page({
         nickname: replyNickname,
         avatar: message.reply_to_avatar_url || '',
         content: replyContent,
-        displayContent: (message.reply_to_type || 'text') === 'text' ? replaceWechatEmojis(replyContent) : replyContent,
         type: message.reply_to_type || 'text'
       };
     }
@@ -1296,7 +1293,6 @@ Page({
       id: message.id,
       userId: message.user_id,
       content: rawContent,
-      displayContent: type === 'text' ? replaceWechatEmojis(rawContent) : rawContent,
       displayTime: formatTime(message.created_at, message.created_at_ts),
       isSelf: message.user_id === myId,
       avatar,

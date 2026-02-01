@@ -19,7 +19,7 @@
             <button size="mini" class="ghost" data-id="{{item.id}}" bindtap="deletePost">删除</button>
           </view>
         </view>
-        <view wx:if="{{item.content}}" class="post-content">{{item.renderedContent || item.content}}</view>
+        <emoji-text wx:if="{{item.content}}" text="{{item.content}}" size="24" mode="block" customClass="post-content" />
         <view wx:if="{{item.media_type==='image'}}" class="images">
           <image wx:for="{{item.media_urls}}" wx:for-item="imgSrc" wx:key="*this" class="image" mode="aspectFill" src="{{imgSrc}}" data-urls="{{item.media_urls}}" data-current="{{imgSrc}}" bindtap="previewImage" />
         </view>
@@ -58,7 +58,7 @@
                   <button class="link-button" size="mini" wx:if="{{item.canDelete}}" data-id="{{item.id}}" catchtap="deleteComment">删除</button>
                 </view>
               </view>
-              <view class="comment-content">{{item.renderedContent || item.content}}</view>
+              <emoji-text text="{{item.content}}" size="22" mode="block" customClass="comment-content" />
             </view>
           </view>
         </view>

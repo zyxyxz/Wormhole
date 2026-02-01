@@ -1,5 +1,4 @@
 const { BASE_URL } = require('../../utils/config.js');
-const { replaceWechatEmojis } = require('../../utils/wechat-emoji.js');
 
 function normalizeDateString(str) {
   if (!str) return '';
@@ -218,7 +217,6 @@ Page({
       avatar: comment.avatar_url || '',
       initial: (comment.alias || comment.user_id || '匿').charAt(0),
       canDelete: this.data.isOwner || comment.user_id === this.data.myUserId,
-      renderedContent: replaceWechatEmojis(comment.content || ''),
       displayTime: this.formatFriendlyTime(comment.created_at, comment.created_at_ts)
     }));
     const likes = (post.likes || []).map(like => ({
@@ -231,7 +229,6 @@ Page({
       avatar: post.avatar_url || '',
       initial,
       canDelete,
-      renderedContent: replaceWechatEmojis(post.content || ''),
       comments,
       likes,
       likeCount: post.like_count || 0,
