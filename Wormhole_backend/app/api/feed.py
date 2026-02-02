@@ -106,7 +106,7 @@ async def list_posts(space_id: int, user_id: str | None = None, db: AsyncSession
         like_detail_rows = await db.execute(
             select(PostLike.post_id, PostLike.user_id)
             .where(PostLike.post_id.in_(post_ids))
-            .order_by(PostLike.created_at.desc())
+            .order_by(PostLike.created_at)
         )
         for post_id, liked_user in like_detail_rows:
             ua_entry = alias_map.get(liked_user)
