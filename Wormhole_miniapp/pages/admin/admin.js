@@ -381,6 +381,8 @@ Page({
     });
   },
 
+  noop() {},
+
   closeAliasModal() {
     this.setData({ showAliasModal: false, activeAliasList: [], activeUserId: '' });
   },
