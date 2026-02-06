@@ -52,6 +52,21 @@ const THEME_PRESETS = {
   }
 };
 
+const TAB_ICON_SETS = {
+  light: [
+    { icon: '/assets/icons/chat.png', selected: '/assets/icons/chat-active.png' },
+    { icon: '/assets/icons/notes.png', selected: '/assets/icons/notes-active.png' },
+    { icon: '/assets/icons/wallet.png', selected: '/assets/icons/wallet-active.png' },
+    { icon: '/assets/icons/settings.png', selected: '/assets/icons/settings-active.png' }
+  ],
+  dark: [
+    { icon: '/assets/icons/chat-dark.png', selected: '/assets/icons/chat-active.png' },
+    { icon: '/assets/icons/notes-dark.png', selected: '/assets/icons/notes-active.png' },
+    { icon: '/assets/icons/wallet-dark.png', selected: '/assets/icons/wallet-active.png' },
+    { icon: '/assets/icons/settings-dark.png', selected: '/assets/icons/settings-active.png' }
+  ]
+};
+
 const originalPage = Page;
 Page = function (pageConfig) {
   const lifecycleHooks = new Set([
@@ -257,6 +272,22 @@ App({
         borderStyle: this.globalData.themeTabBorderStyle
       });
     } catch (e) {}
+    this.applyTabBarIcons();
+  },
+
+  applyTabBarIcons() {
+    if (!wx.setTabBarItem) return;
+    const mode = this.globalData.themeMode || 'light';
+    const set = TAB_ICON_SETS[mode] || TAB_ICON_SETS.light;
+    set.forEach((item, index) => {
+      try {
+        wx.setTabBarItem({
+          index,
+          iconPath: item.icon,
+          selectedIconPath: item.selected
+        });
+      } catch (e) {}
+    });
   },
 
   applyThemeToPage(page) {
