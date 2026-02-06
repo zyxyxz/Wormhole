@@ -1,36 +1,39 @@
-<view class="page theme-root {{themeClass}}">
-  <view class="bg-orb orb-one"></view>
-  <view class="bg-orb orb-two"></view>
+<view class="join-root theme-root {{themeClass}}">
+  <navigation-bar title="口令加入" back="{{true}}" bind:back="goBack" home-button="{{false}}" background="{{themeNavBg}}" color="{{themeNavText}}" />
+  <scroll-view class="page" scroll-y="true">
+    <view class="bg-orb orb-one"></view>
+    <view class="bg-orb orb-two"></view>
 
-  <view class="header">
-    <view class="title">口令加入</view>
-    <view class="subtitle">像朋友圈一样加入私密空间</view>
-  </view>
-
-  <view class="card">
-    <view class="step">
-      <text class="step-index">1</text>
-      <view class="step-body">
-        <text class="step-title">分享口令</text>
-        <text class="step-desc">输入好友给你的 8 位口令</text>
-      </view>
+    <view class="header">
+      <view class="title">口令加入</view>
+      <view class="subtitle">像朋友圈一样加入私密空间</view>
     </view>
-    <input class="input" placeholder="例如：A1B2C3D4" maxlength="16" bindinput="onShareCodeInput" />
-  </view>
 
-  <view class="card">
-    <view class="step">
-      <text class="step-index">2</text>
-      <view class="step-body">
-        <text class="step-title">你的房间号</text>
-        <text class="step-desc">设置 6 位数字，便于快速进入</text>
+    <view class="card">
+      <view class="step">
+        <text class="step-index">1</text>
+        <view class="step-body">
+          <text class="step-title">分享口令</text>
+          <text class="step-desc">输入好友给你的 8 位口令</text>
+        </view>
       </view>
+      <input class="input" placeholder="例如：A1B2C3D4" maxlength="16" bindinput="onShareCodeInput" />
     </view>
-    <input class="input" type="number" maxlength="6" placeholder="6 位数字" bindinput="onNewCodeInput" />
-  </view>
 
-  <view class="footer">
-    <button class="submit" bindtap="submit">立即加入</button>
-    <view class="hint">口令仅对你可见，请妥善保管</view>
-  </view>
+    <view class="card">
+      <view class="step">
+        <text class="step-index">2</text>
+        <view class="step-body">
+          <text class="step-title">你的房间号</text>
+          <text class="step-desc">设置 6 位数字，便于快速进入</text>
+        </view>
+      </view>
+      <input class="input" type="number" maxlength="6" placeholder="6 位数字" bindinput="onNewCodeInput" />
+    </view>
+
+    <view class="footer">
+      <button class="submit" bindtap="submit">立即加入</button>
+      <view class="hint">口令仅对你可见，请妥善保管</view>
+    </view>
+  </scroll-view>
 </view>

@@ -1,6 +1,11 @@
-page { background: var(--bg); }
+page { background: var(--bg); overflow: hidden; }
+.join-root {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
 .page {
-  min-height: 100vh;
+  flex: 1;
   padding: 28rpx 24rpx 40rpx;
   position: relative;
   font-family: "PingFang SC", "SF Pro Text", "Helvetica Neue", Arial, sans-serif;

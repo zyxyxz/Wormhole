@@ -13,10 +13,12 @@ const SPACE_ROUTES = new Set([
 ]);
 
 const CUSTOM_NAV_ROUTES = new Set([
+  'pages/index/index',
   'pages/chat/chat',
   'pages/notes/notes',
   'pages/wallet/wallet',
   'pages/settings/settings',
+  'pages/join/join',
   'pages/admin/admin',
   'pages/admin-space/admin-space',
   'pages/admin-logs/admin-logs'

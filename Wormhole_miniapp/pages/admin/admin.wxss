@@ -1,4 +1,6 @@
-.admin-scroll { height: calc(100vh - 44px); }
+page { overflow: hidden; }
+.theme-root { height: 100vh; display: flex; flex-direction: column; }
+.admin-scroll { flex: 1; }
 .admin-container { padding: 30rpx; display: flex; flex-direction: column; gap: 24rpx; }
 .stats-card { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20rpx; background: var(--panel); border-radius: 20rpx; padding: 20rpx; }
 .stat-item { background: var(--surface); border-radius: 16rpx; padding: 24rpx; box-shadow: var(--shadow); }

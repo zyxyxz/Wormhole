@@ -6,6 +6,15 @@ Page({
     newCode: ''
   },
 
+  goBack() {
+    const pages = getCurrentPages();
+    if (pages.length > 1) {
+      wx.navigateBack({ delta: 1 });
+    } else {
+      wx.reLaunch({ url: '/pages/index/index' });
+    }
+  },
+
   onShareCodeInput(e) {
     this.setData({ shareCode: e.detail.value.toUpperCase() });
   },

@@ -1,6 +1,6 @@
 <!--index.wxml-->
 <view class="index-root theme-root {{themeClass}}">
-  <navigation-bar title="" back="{{false}}" home-button="{{false}}" background="{{themeNavBg}}" color="{{themeNavText}}" />
+  <navigation-bar title="{{reviewMode ? '私人日记本' : '虫洞'}}" back="{{false}}" home-button="{{false}}" background="{{themeNavBg}}" color="{{themeNavText}}" />
   <scroll-view class="scrollarea" scroll-y="true" type="list">
     <view class="aurora-bg">
       <view class="blob blob-a"></view>
