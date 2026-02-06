@@ -71,6 +71,23 @@ const TAB_ICON_SETS = {
 
 const originalPage = Page;
 Page = function (pageConfig) {
+  const appInstance = typeof getApp === 'function' ? getApp() : null;
+  const themeDefaults = appInstance && appInstance.globalData ? {
+    themePreference: appInstance.globalData.themePreference,
+    themeMode: appInstance.globalData.themeMode,
+    themeClass: appInstance.globalData.themeClass,
+    themeNavBg: appInstance.globalData.themeNavBg,
+    themeNavText: appInstance.globalData.themeNavText,
+    themeNavFront: appInstance.globalData.themeNavFront
+  } : {};
+  const originalData = pageConfig.data;
+  if (typeof originalData === 'function') {
+    pageConfig.data = function () {
+      return Object.assign({}, themeDefaults, originalData.call(this));
+    };
+  } else {
+    pageConfig.data = Object.assign({}, themeDefaults, originalData || {});
+  }
   const lifecycleHooks = new Set([
     'onLoad', 'onShow', 'onReady', 'onHide', 'onUnload',
     'onPullDownRefresh', 'onReachBottom', 'onPageScroll',
