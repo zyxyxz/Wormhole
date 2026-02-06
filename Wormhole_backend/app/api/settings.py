@@ -138,7 +138,15 @@ async def admin_cleanup_spaces(
         ~exists().where(Post.space_id == Space.id),
         ~exists().where(Note.space_id == Space.id),
         ~exists().where(Comment.post_id.in_(select(Post.id).where(Post.space_id == Space.id))),
-        ~exists().where(UserAlias.space_id == Space.id),
+        ~exists().where(
+            and_(
+                UserAlias.space_id == Space.id,
+                or_(
+                    UserAlias.alias.is_not(None) & (UserAlias.alias != ""),
+                    UserAlias.avatar_url.is_not(None) & (UserAlias.avatar_url != "")
+                )
+            )
+        ),
         ~exists().where(SpaceMapping.space_id == Space.id),
         ~exists().where(SpaceCode.space_id == Space.id),
         ~exists().where(and_(SpaceMember.space_id == Space.id, SpaceMember.user_id != Space.owner_user_id)),
