@@ -28,7 +28,7 @@
 </view>
 
 <!-- 付款码弹窗 -->
-<view class="pay-code-modal" wx:if="{{showPayCode}}">
+<view class="pay-code-modal theme-root {{themeClass}}" wx:if="{{showPayCode}}">
   <view class="modal-content">
     <view class="modal-title">付款码</view>
     <image class="pay-code" src="{{payCodeUrl}}"/>

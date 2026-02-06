@@ -87,7 +87,7 @@
 </view>
 
 <!-- 修改空间号弹窗 -->
-<view class="modal" wx:if="{{showModifyModal}}">
+<view class="modal theme-root {{themeClass}}" wx:if="{{showModifyModal}}">
   <view class="modal-content">
     <view class="modal-title">修改空间号</view>
     <input class="space-input" 
@@ -104,7 +104,7 @@
 </view>
 
 <!-- 分享弹窗 -->
-<view class="modal" wx:if="{{showShareModal}}">
+<view class="modal theme-root {{themeClass}}" wx:if="{{showShareModal}}">
   <view class="modal-content">
     <view class="modal-title">分享口令</view>
     <view class="share-code">{{shareCode}}</view>
@@ -115,7 +115,7 @@
 </view> 
 
 <!-- 别名弹窗 -->
-<view class="modal" wx:if="{{showAliasModal}}">
+<view class="modal theme-root {{themeClass}}" wx:if="{{showAliasModal}}">
   <view class="modal-content">
     <view class="modal-title">设置房间内别名</view>
     <input class="space-input" maxlength="20" value="{{newAlias}}" bindinput="onAliasInput" placeholder="输入别名"/>
@@ -127,7 +127,7 @@
 </view>
 
 <!-- 成员列表弹窗 -->
-<view class="modal" wx:if="{{showMembersModal}}">
+<view class="modal theme-root {{themeClass}}" wx:if="{{showMembersModal}}">
   <view class="modal-content members-modal">
     <view class="modal-title">成员（{{members.length}}人）</view>
     <scroll-view class="members-scroll" scroll-y="true">
@@ -151,7 +151,7 @@
 </view>
 
 <!-- 删除空间确认弹窗 -->
-<view class="modal" wx:if="{{showDeleteModal}}">
+<view class="modal theme-root {{themeClass}}" wx:if="{{showDeleteModal}}">
   <view class="modal-content">
     <view class="modal-title">确认删除空间</view>
     <view class="share-hint">请输入：{{deleteConfirmPhrase}}</view>

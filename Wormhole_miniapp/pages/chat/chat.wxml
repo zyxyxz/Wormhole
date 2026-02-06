@@ -146,7 +146,7 @@
   </view>
 </view>
 
-<view wx:if="{{showMemberModal}}" class="modal-mask" bindtap="closeMembers">
+<view wx:if="{{showMemberModal}}" class="modal-mask theme-root {{themeClass}}" bindtap="closeMembers">
   <view class="modal-card" catchtap="noop">
     <view class="modal-title">成员 ({{memberCount}})</view>
     <scroll-view class="modal-list" scroll-y="true">
@@ -161,7 +161,7 @@
   </view>
 </view>
 
-<view wx:if="{{showOnlineModal}}" class="modal-mask" bindtap="closeOnline">
+<view wx:if="{{showOnlineModal}}" class="modal-mask theme-root {{themeClass}}" bindtap="closeOnline">
   <view class="modal-card" catchtap="noop">
     <view class="modal-title">在线 ({{onlineCount}})</view>
     <scroll-view class="modal-list" scroll-y="true">
@@ -177,7 +177,7 @@
   </view>
 </view>
 
-<view wx:if="{{showReadModal}}" class="modal-mask" bindtap="closeReadModal">
+<view wx:if="{{showReadModal}}" class="modal-mask theme-root {{themeClass}}" bindtap="closeReadModal">
   <view class="modal-card" catchtap="noop">
     <view class="modal-title">已读成员</view>
     <scroll-view class="modal-list" scroll-y="true">
