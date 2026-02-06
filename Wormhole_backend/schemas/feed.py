@@ -73,3 +73,23 @@ class PostResponse(BaseModel):
 
 class FeedListResponse(BaseModel):
     posts: List[PostResponse]
+
+
+class ActivityEntry(BaseModel):
+    id: str
+    type: str
+    post_id: int
+    post_content: str = ""
+    post_media_type: str = "none"
+    post_media_urls: List[str] = Field(default_factory=list)
+    comment_id: Optional[int] = None
+    comment_content: Optional[str] = None
+    user_id: str
+    alias: Optional[str] = None
+    avatar_url: Optional[str] = None
+    created_at: datetime
+    created_at_ts: Optional[int] = None
+
+
+class ActivityListResponse(BaseModel):
+    items: List[ActivityEntry]

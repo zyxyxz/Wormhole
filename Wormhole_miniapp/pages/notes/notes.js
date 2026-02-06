@@ -28,6 +28,7 @@ Page({
   },
   onBack() { wx.reLaunch({ url: '/pages/index/index' }); },
   goHome() { wx.reLaunch({ url: '/pages/index/index' }); },
+  openActivity() { wx.navigateTo({ url: '/pages/notes-activity/notes-activity' }); },
 
   onLoad() {
     const spaceId = wx.getStorageSync('currentSpaceId');

@@ -4,6 +4,7 @@
     "pages/space/space",
     "pages/chat/chat",
     "pages/notes/notes",
+    "pages/notes-activity/notes-activity",
     "pages/note-edit/note-edit",
     "pages/post-create/post-create",
     "pages/wallet/wallet",

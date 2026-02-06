@@ -21,6 +21,38 @@ page {
   box-sizing: border-box;
 }
 
+.activity-entry {
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
+  padding: 16rpx 20rpx;
+  margin-bottom: 16rpx;
+  background: var(--surface);
+  border: 1rpx solid var(--border);
+  border-radius: 16rpx;
+  box-shadow: var(--shadow-soft);
+}
+
+.activity-icon {
+  width: 44rpx;
+  height: 44rpx;
+  border-radius: 14rpx;
+  background: linear-gradient(135deg, var(--accent-cyan), var(--accent-green));
+  box-shadow: 0 6rpx 12rpx rgba(20, 184, 166, 0.2);
+}
+
+.activity-text {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.activity-arrow {
+  margin-left: auto;
+  font-size: 34rpx;
+  color: var(--text-muted);
+}
+
 .notes-list {
   padding-bottom: 120rpx;
 }

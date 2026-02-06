@@ -2,6 +2,11 @@
 <view class="notes-container theme-root {{themeClass}}">
   <scroll-view class="notes-scroll" scroll-y="true" refresher-enabled="true" refresher-triggered="{{refreshing}}" bindrefresherrefresh="onPullDownRefresh">
     <skeleton-list show="{{loading}}" rows="6" />
+    <view class="activity-entry" wx:if="{{!reviewMode}}" bindtap="openActivity">
+      <view class="activity-icon"></view>
+      <text class="activity-text">查看动态</text>
+      <text class="activity-arrow">></text>
+    </view>
     <view class="notes-list" wx:if="{{!loading}}">
       <view wx:for="{{posts}}" wx:key="id" class="post card">
         <view class="post-header">

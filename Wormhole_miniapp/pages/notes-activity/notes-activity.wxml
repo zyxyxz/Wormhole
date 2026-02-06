@@ -1,0 +1,30 @@
+<navigation-bar title="互动动态" back="{{true}}" bind:back="goBack" home-button="{{false}}" background="{{themeNavBg}}" color="{{themeNavText}}" />
+<view class="activity-page theme-root {{themeClass}}">
+  <scroll-view class="activity-scroll" scroll-y="true" refresher-enabled="true" refresher-triggered="{{refreshing}}" bindrefresherrefresh="onPullDownRefresh" bindscrolltolower="onReachBottom" lower-threshold="80">
+    <skeleton-list show="{{loading}}" rows="6" />
+    <view class="activity-list" wx:if="{{!loading}}">
+      <view class="activity-item" wx:for="{{items}}" wx:key="id" bindtap="openNotes">
+        <view class="activity-avatar">
+          <image wx:if="{{item.avatar}}" src="{{item.avatar}}" mode="aspectFill"></image>
+          <text wx:else>{{item.initial}}</text>
+        </view>
+        <view class="activity-body">
+          <view class="activity-header">
+            <text class="name">{{item.displayName}}</text>
+            <text class="time muted">{{item.displayTime}}</text>
+          </view>
+          <view class="activity-action">{{item.actionText}}</view>
+          <emoji-text wx:if="{{item.commentPreview}}" text="{{item.commentPreview}}" size="22" mode="block" customClass="comment-preview" />
+          <view class="post-preview">
+            <text class="post-text">{{item.postSnippet}}</text>
+            <image wx:if="{{item.previewImage}}" class="preview-image" src="{{item.previewImage}}" mode="aspectFill"></image>
+            <view wx:if="{{item.previewVideo}}" class="preview-video">视频</view>
+          </view>
+        </view>
+      </view>
+      <empty wx:if="{{!items.length}}" text="暂无互动" />
+      <view class="load-more" wx:if="{{loadingMore}}">加载中...</view>
+      <view class="load-more muted" wx:if="{{!hasMore && items.length}}">没有更多了</view>
+    </view>
+  </scroll-view>
+</view>

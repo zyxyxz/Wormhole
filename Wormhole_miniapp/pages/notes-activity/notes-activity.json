@@ -1,0 +1,9 @@
+{
+  "navigationStyle": "custom",
+  "usingComponents": {
+    "navigation-bar": "/components/navigation-bar/navigation-bar",
+    "emoji-text": "/components/emoji-text/emoji-text",
+    "skeleton-list": "/components/skeleton-list/skeleton-list",
+    "empty": "/components/empty/empty"
+  }
+}

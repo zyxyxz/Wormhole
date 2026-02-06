@@ -4,6 +4,7 @@ const { BASE_URL } = require('./utils/config.js');
 const SPACE_ROUTES = new Set([
   'pages/chat/chat',
   'pages/notes/notes',
+  'pages/notes-activity/notes-activity',
   'pages/space/space',
   'pages/wallet/wallet',
   'pages/post-create/post-create',
@@ -16,6 +17,7 @@ const CUSTOM_NAV_ROUTES = new Set([
   'pages/index/index',
   'pages/chat/chat',
   'pages/notes/notes',
+  'pages/notes-activity/notes-activity',
   'pages/wallet/wallet',
   'pages/settings/settings',
   'pages/join/join',

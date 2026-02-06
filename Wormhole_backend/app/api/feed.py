@@ -17,6 +17,8 @@ from schemas.feed import (
     CommentDeleteRequest,
     PostLikeRequest,
     LikeEntry,
+    ActivityEntry,
+    ActivityListResponse,
 )
 import json
 from datetime import datetime
@@ -280,6 +282,125 @@ async def like_post(payload: PostLikeRequest, request: Request, db: AsyncSession
         user_agent=request.headers.get("user-agent")
     )
     return {"success": True, "like_count": like_count, "liked": payload.like}
+
+
+@router.get("/activity", response_model=ActivityListResponse)
+async def activity_list(
+    space_id: int,
+    user_id: str,
+    limit: int = 20,
+    before_ts: int | None = None,
+    db: AsyncSession = Depends(get_db)
+):
+    if not user_id:
+        raise HTTPException(status_code=400, detail="缺少用户ID")
+    space = (await db.execute(select(Space).where(Space.id == space_id, Space.deleted_at.is_(None)))).scalar_one_or_none()
+    if not space:
+        raise HTTPException(status_code=404, detail="空间不存在")
+    limit = max(1, min(int(limit or 20), 50))
+    before_dt = None
+    if before_ts is not None:
+        try:
+            ts = int(before_ts)
+            if ts < 1e12:
+                ts *= 1000
+            before_dt = datetime.utcfromtimestamp(ts / 1000)
+        except Exception:
+            before_dt = None
+
+    post_rows = await db.execute(
+        select(Post.id, Post.content, Post.media_type, Post.media_urls)
+        .where(Post.space_id == space_id, Post.user_id == user_id, Post.deleted_at.is_(None))
+    )
+    post_map = {}
+    post_ids = []
+    for row in post_rows.all():
+        media_urls = process_feed_media_urls(json.loads(row.media_urls or "[]"), row.media_type or "none")
+        post_map[row.id] = {
+            "content": row.content or "",
+            "media_type": row.media_type or "none",
+            "media_urls": media_urls
+        }
+        post_ids.append(row.id)
+    if not post_ids:
+        return ActivityListResponse(items=[])
+
+    comment_query = (
+        select(Comment)
+        .where(Comment.post_id.in_(post_ids), Comment.deleted_at.is_(None), Comment.user_id != user_id)
+        .order_by(Comment.created_at.desc())
+        .limit(limit * 2)
+    )
+    if before_dt:
+        comment_query = comment_query.where(Comment.created_at < before_dt)
+    comment_rows = await db.execute(comment_query)
+    comments = comment_rows.scalars().all()
+
+    like_query = (
+        select(PostLike)
+        .where(PostLike.post_id.in_(post_ids), PostLike.user_id != user_id)
+        .order_by(PostLike.created_at.desc())
+        .limit(limit * 2)
+    )
+    if before_dt:
+        like_query = like_query.where(PostLike.created_at < before_dt)
+    like_rows = await db.execute(like_query)
+    likes = like_rows.scalars().all()
+
+    actor_ids = {c.user_id for c in comments} | {l.user_id for l in likes}
+    alias_map = {}
+    if actor_ids:
+        alias_rows = await db.execute(
+            select(UserAlias)
+            .where(UserAlias.space_id == space_id, UserAlias.user_id.in_(actor_ids))
+        )
+        for ua in alias_rows.scalars().all():
+            alias_map[ua.user_id] = ua
+
+    items = []
+    for c in comments:
+        post_info = post_map.get(c.post_id)
+        if not post_info:
+            continue
+        ua = alias_map.get(c.user_id)
+        items.append(ActivityEntry(
+            id=f"comment_{c.id}",
+            type="comment",
+            post_id=c.post_id,
+            post_content=post_info["content"],
+            post_media_type=post_info["media_type"],
+            post_media_urls=post_info["media_urls"],
+            comment_id=c.id,
+            comment_content=c.content,
+            user_id=c.user_id,
+            alias=ua.alias if ua else None,
+            avatar_url=process_avatar_url(ua.avatar_url) if ua else None,
+            created_at=c.created_at,
+            created_at_ts=int(c.created_at.timestamp() * 1000) if c.created_at else None
+        ))
+    for l in likes:
+        post_info = post_map.get(l.post_id)
+        if not post_info:
+            continue
+        ua = alias_map.get(l.user_id)
+        items.append(ActivityEntry(
+            id=f"like_{l.id}",
+            type="like",
+            post_id=l.post_id,
+            post_content=post_info["content"],
+            post_media_type=post_info["media_type"],
+            post_media_urls=post_info["media_urls"],
+            comment_id=None,
+            comment_content=None,
+            user_id=l.user_id,
+            alias=ua.alias if ua else None,
+            avatar_url=process_avatar_url(ua.avatar_url) if ua else None,
+            created_at=l.created_at,
+            created_at_ts=int(l.created_at.timestamp() * 1000) if l.created_at else None
+        ))
+
+    items.sort(key=lambda x: x.created_at or datetime.min, reverse=True)
+    return ActivityListResponse(items=items[:limit])
 
 
 @router.get("/unread-count")
