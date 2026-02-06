@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Body, Request
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update, delete, exists
+from sqlalchemy import select, update, delete
 from app.database import get_db
 from models.space import Space, SpaceMapping, SpaceCode, ShareCode, SpaceMember
 from models.user import UserAlias
@@ -132,32 +132,51 @@ async def admin_cleanup_spaces(
     verify_admin(auth_user, auth_room)
     # 找出无任何有效数据痕迹的空间（仅允许房主进入产生的日志）
     now = datetime.utcnow()
-    idle_filters = [
-        Space.deleted_at.is_(None),
-        ~exists().where(Message.space_id == Space.id),
-        ~exists().where(Post.space_id == Space.id),
-        ~exists().where(Note.space_id == Space.id),
-        ~exists().where(Comment.post_id.in_(select(Post.id).where(Post.space_id == Space.id))),
-        ~exists().where(
-            and_(
-                UserAlias.space_id == Space.id,
-                or_(
-                    UserAlias.alias.is_not(None) & (UserAlias.alias != ""),
-                    UserAlias.avatar_url.is_not(None) & (UserAlias.avatar_url != "")
-                )
-            )
-        ),
-        ~exists().where(and_(SpaceMember.space_id == Space.id, SpaceMember.user_id != Space.owner_user_id)),
-        ~exists().where(
-            and_(
-                ShareCode.space_id == Space.id,
+    space_rows = await db.execute(
+        select(Space.id, Space.code, Space.owner_user_id, Space.created_at)
+        .where(Space.deleted_at.is_(None))
+    )
+    spaces = space_rows.all()
+    space_ids_all = [row.id for row in spaces]
+    space_id_set = set(space_ids_all)
+
+    msg_ids = set((await db.execute(select(Message.space_id).distinct())).scalars().all())
+    post_ids = set((await db.execute(select(Post.space_id).distinct())).scalars().all())
+    note_ids = set((await db.execute(select(Note.space_id).distinct())).scalars().all())
+    comment_space_ids = set(
+        (await db.execute(
+            select(Post.space_id).distinct()
+            .join(Comment, Comment.post_id == Post.id)
+        )).scalars().all()
+    )
+    member_ids = set(
+        (await db.execute(
+            select(SpaceMember.space_id).distinct()
+            .join(Space, SpaceMember.space_id == Space.id)
+            .where(SpaceMember.user_id != Space.owner_user_id)
+        )).scalars().all()
+    )
+    share_ids = set(
+        (await db.execute(
+            select(ShareCode.space_id).distinct().where(
                 ShareCode.used.is_(False),
                 or_(ShareCode.expires_at.is_(None), ShareCode.expires_at >= now)
             )
-        )
-    ]
-    subquery = select(Space.id).where(*idle_filters)
-    idle_space_ids = [row[0] for row in (await db.execute(subquery)).fetchall()]
+        )).scalars().all()
+    )
+    alias_ids = set(
+        (await db.execute(
+            select(UserAlias.space_id).distinct().where(
+                or_(
+                    and_(UserAlias.alias.is_not(None), UserAlias.alias != ""),
+                    and_(UserAlias.avatar_url.is_not(None), UserAlias.avatar_url != "")
+                )
+            )
+        )).scalars().all()
+    )
+
+    blocked_ids = msg_ids | post_ids | note_ids | comment_space_ids | member_ids | share_ids | alias_ids
+    idle_space_ids = [sid for sid in space_ids_all if sid in (space_id_set - blocked_ids)]
     if space_ids:
         allow_set = {int(sid) for sid in space_ids if sid}
         idle_space_ids = [sid for sid in idle_space_ids if sid in allow_set]
@@ -182,7 +201,20 @@ async def admin_cleanup_spaces(
                     "created_at": sp.created_at,
                     "log_count": log_counts.get(sp.id, 0)
                 })
-        return {"spaces": spaces, "total": len(idle_space_ids)}
+        return {
+            "spaces": spaces,
+            "total": len(idle_space_ids),
+            "diagnostics": {
+                "spaces_total": len(space_ids_all),
+                "blocked_messages": len(msg_ids),
+                "blocked_posts": len(post_ids),
+                "blocked_notes": len(note_ids),
+                "blocked_comments": len(comment_space_ids),
+                "blocked_members": len(member_ids),
+                "blocked_share_codes": len(share_ids),
+                "blocked_aliases": len(alias_ids)
+            }
+        }
     deleted = 0
     for sid in idle_space_ids:
         await db.execute(delete(SpaceMember).where(SpaceMember.space_id == sid))
