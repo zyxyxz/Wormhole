@@ -1,5 +1,4 @@
-.container { padding: 24rpx; }
-.label { margin-bottom: 16rpx; color: #666; }
-.amount { height: 80rpx; background: #f5f5f5; border-radius: 8rpx; padding: 0 20rpx; margin-bottom: 20rpx; }
-.submit { background: #1296db; color: #fff; }
-
+.container { padding: 24rpx; background: var(--bg); color: var(--text); min-height: 100vh; }
+.label { margin-bottom: 16rpx; color: var(--text-muted); }
+.amount { height: 80rpx; background: var(--input); border-radius: 8rpx; padding: 0 20rpx; margin-bottom: 20rpx; color: var(--text); }
+.submit { background: var(--primary); color: #fff; }

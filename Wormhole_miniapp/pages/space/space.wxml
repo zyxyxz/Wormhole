@@ -1,2 +1,4 @@
 <!--pages/space/space.wxml-->
-<text>pages/space/space.wxml</text>
+<view class="theme-root {{themeClass}}">
+  <text>pages/space/space.wxml</text>
+</view>

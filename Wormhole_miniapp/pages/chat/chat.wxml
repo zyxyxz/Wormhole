@@ -1,10 +1,10 @@
-<navigation-bar title="聊天" back="{{false}}" home-button="{{true}}" bind:home="goHome" background="#FFFFFF" color="#0F172A">
+<navigation-bar title="聊天" back="{{false}}" home-button="{{true}}" bind:home="goHome" background="{{themeNavBg}}" color="{{themeNavText}}">
   <view slot="right" class="nav-chips">
     <view class="nav-chip" bindtap="openMembers">人数 {{memberCount}}</view>
     <view class="nav-chip online" bindtap="openOnline">在线 {{onlineCount}}</view>
   </view>
 </navigation-bar>
-<view class="chat-container" bindtap="closeOverlayPanels">
+<view class="chat-container theme-root {{themeClass}}" bindtap="closeOverlayPanels">
   <scroll-view class="message-list" scroll-y="true" scroll-with-animation="{{scrollWithAnimation}}" scroll-into-view="{{scrollTargetId}}" scroll-top="{{scrollTop}}" enable-flex="true" upper-threshold="80" bindscrolltoupper="loadOlderMessages" bindscrolltolower="onScrollToLower" bindscroll="onScroll" bindtap="closeOverlayPanels" style="padding-bottom: {{bottomPadding}}px;">
     <view class="history-hint">
       <text wx:if="{{historyLoading}}">加载中...</text>

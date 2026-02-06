@@ -1,6 +1,6 @@
-<navigation-bar title="日志" back="{{true}}" bind:back="goBack" home-button="{{false}}" />
+<navigation-bar title="日志" back="{{true}}" bind:back="goBack" home-button="{{false}}" background="{{themeNavBg}}" color="{{themeNavText}}" />
 
-<view class="page">
+<view class="page theme-root {{themeClass}}">
   <view class="hero-card">
     <view class="hero-title" wx:if="{{targetType === 'space'}}">房间 {{space.code || space.space_id}}@{{space.owner || '未设置'}}</view>
     <view class="hero-title" wx:if="{{targetType === 'user'}}">用户 {{user.alias || user.user_id || '未知用户'}}</view>

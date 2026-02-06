@@ -1,6 +1,6 @@
 page {
-  background: #F8FAFC;
-  color: #0F172A;
+  background: var(--bg);
+  color: var(--text);
 }
 
 .page {
@@ -8,10 +8,10 @@ page {
 }
 
 .hero-card {
-  background: linear-gradient(135deg, #E0F2FE, #E0E7FF);
+  background: linear-gradient(135deg, rgba(14,165,233,0.12), rgba(99,102,241,0.12));
   border-radius: 24rpx;
   padding: 28rpx;
-  box-shadow: 0 20rpx 50rpx rgba(15, 23, 42, 0.12);
+  box-shadow: var(--shadow-panel);
 }
 
 .hero-title {
@@ -22,7 +22,7 @@ page {
 
 .hero-sub {
   font-size: 24rpx;
-  color: rgba(15, 23, 42, 0.6);
+  color: var(--text-muted);
 }
 
 .hero-actions {
@@ -31,10 +31,10 @@ page {
 
 .filter-card {
   margin-top: 16rpx;
-  background: #FFFFFF;
+  background: var(--surface);
   border-radius: 18rpx;
   padding: 16rpx 18rpx;
-  box-shadow: 0 10rpx 24rpx rgba(15, 23, 42, 0.08);
+  box-shadow: var(--shadow);
 }
 
 .filter-row {
@@ -53,17 +53,18 @@ page {
 
 .filter-label {
   font-size: 22rpx;
-  color: rgba(15, 23, 42, 0.7);
+  color: var(--text-muted);
 }
 
 .limit-input {
   width: 90rpx;
   height: 52rpx;
   border-radius: 12rpx;
-  border: 1rpx solid #E2E8F0;
+  border: 1rpx solid var(--border);
   padding: 0 12rpx;
   font-size: 22rpx;
-  background: #F8FAFC;
+  background: var(--bg-secondary);
+  color: var(--text);
 }
 
 .stat-grid {
@@ -74,10 +75,10 @@ page {
 }
 
 .stat-item {
-  background: #FFFFFF;
+  background: var(--surface);
   border-radius: 18rpx;
   padding: 20rpx;
-  box-shadow: 0 10rpx 24rpx rgba(15, 23, 42, 0.08);
+  box-shadow: var(--shadow);
 }
 
 .stat-value {
@@ -87,7 +88,7 @@ page {
 
 .stat-label {
   font-size: 22rpx;
-  color: rgba(15, 23, 42, 0.6);
+  color: var(--text-muted);
 }
 
 .section {
@@ -101,15 +102,15 @@ page {
 }
 
 .card {
-  background: #FFFFFF;
+  background: var(--surface);
   border-radius: 18rpx;
   padding: 16rpx 18rpx;
-  box-shadow: 0 10rpx 24rpx rgba(15, 23, 42, 0.08);
+  box-shadow: var(--shadow);
 }
 
 .member-row {
   padding: 12rpx 0;
-  border-bottom: 1rpx solid #E2E8F0;
+  border-bottom: 1rpx solid var(--border);
 }
 
 .member-row:last-child { border-bottom: none; }
@@ -130,24 +131,24 @@ page {
   border-radius: 999rpx;
   font-size: 20rpx;
   background: rgba(37, 99, 235, 0.12);
-  color: #2563EB;
+  color: var(--accent-indigo);
 }
 
 .member-id {
   font-size: 22rpx;
-  color: rgba(15, 23, 42, 0.6);
+  color: var(--text-muted);
 }
 
 .activity {
   padding: 12rpx 0;
-  border-bottom: 1rpx solid #E2E8F0;
+  border-bottom: 1rpx solid var(--border);
 }
 
 .activity:last-child { border-bottom: none; }
 
 .activity-meta {
   font-size: 22rpx;
-  color: rgba(15, 23, 42, 0.6);
+  color: var(--text-muted);
   margin-bottom: 6rpx;
 }
 
@@ -156,19 +157,19 @@ page {
   padding: 2rpx 10rpx;
   border-radius: 999rpx;
   background: rgba(239, 68, 68, 0.12);
-  color: #EF4444;
+  color: var(--danger);
   font-size: 20rpx;
 }
 
 .activity-content {
   font-size: 24rpx;
-  color: #0F172A;
+  color: var(--text);
 }
 
 .activity-title {
   font-size: 24rpx;
   font-weight: 600;
-  color: #0F172A;
+  color: var(--text);
   margin-bottom: 6rpx;
 }
 
@@ -200,11 +201,11 @@ page {
 .empty {
   text-align: center;
   padding: 18rpx 0;
-  color: rgba(15, 23, 42, 0.5);
+  color: var(--text-muted);
 }
 
 .ghost {
-  background: #FFFFFF;
-  color: #2563EB;
+  background: var(--surface);
+  color: var(--accent-indigo);
   border: 1rpx solid rgba(37, 99, 235, 0.3);
 }

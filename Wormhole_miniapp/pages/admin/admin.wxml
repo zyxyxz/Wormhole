@@ -1,9 +1,10 @@
-<navigation-bar title="超级管理" back="{{true}}" bind:back="goBack" home-button="{{false}}" />
+<navigation-bar title="超级管理" back="{{true}}" bind:back="goBack" home-button="{{false}}" background="{{themeNavBg}}" color="{{themeNavText}}" />
 
-<view class="admin-placeholder" wx:if="{{loading}}">加载中...</view>
-<view class="admin-placeholder" wx:elif="{{!loading && !hasAccess}}">无权限</view>
+<view class="theme-root {{themeClass}}">
+  <view class="admin-placeholder" wx:if="{{loading}}">加载中...</view>
+  <view class="admin-placeholder" wx:elif="{{!loading && !hasAccess}}">无权限</view>
 
-<scroll-view wx:elif="{{hasAccess}}" class="admin-scroll" scroll-y="true">
+  <scroll-view wx:elif="{{hasAccess}}" class="admin-scroll" scroll-y="true">
   <view class="admin-container">
     <view class="meta-card">
         <view class="meta-head">
@@ -118,4 +119,5 @@
       <view class="section-empty" wx:if="{{!postsLoading && !recentPosts.length}}">暂无动态</view>
     </view>
   </view>
-</scroll-view>
+  </scroll-view>
+</view>

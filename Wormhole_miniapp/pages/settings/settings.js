@@ -38,7 +38,11 @@ Page({
     autoLockOnHide: true,
     showDeleteModal: false,
     deleteConfirmInput: '',
-    deleteConfirmPhrase: ''
+    deleteConfirmPhrase: '',
+    themeOptions: ['跟随微信', '深色模式', '浅色模式'],
+    themeValues: ['system', 'dark', 'light'],
+    themeIndex: 0,
+    themePreference: 'system'
   },
   onBack() {
     wx.reLaunch({ url: '/pages/index/index' });
@@ -61,12 +65,64 @@ Page({
       aliasInitial: (cachedAlias || myUserId || '我').charAt(0)
     });
     this.loadCachedSettings();
+    this.syncThemePreference();
     this.fetchAlias();
     this.fetchSpaceInfo();
     const autoLockSeconds = wx.getStorageSync('autoLockSeconds');
     this.updateAutoLockDisplay(autoLockSeconds);
     const autoLockOnHide = wx.getStorageSync('autoLockOnHide');
     this.setData({ autoLockOnHide: autoLockOnHide === '' || autoLockOnHide === undefined || autoLockOnHide === null ? true : !!autoLockOnHide });
+  },
+
+  getThemeIndex(pref) {
+    const values = this.data.themeValues || [];
+    const idx = values.indexOf(pref);
+    return idx >= 0 ? idx : 0;
+  },
+
+  syncThemePreference() {
+    const app = getApp && getApp();
+    const spaceId = this.data.spaceId;
+    let pref = this.data.themePreference || '';
+    if (app && typeof app.getStoredThemePreference === 'function') {
+      pref = app.getStoredThemePreference(spaceId) || pref;
+    }
+    if (!pref && app && app.globalData) {
+      pref = app.globalData.themePreference || '';
+    }
+    if (!pref) pref = 'system';
+    this.applyThemePreference(pref, { syncRemote: false });
+  },
+
+  applyThemePreference(pref, { syncRemote = false } = {}) {
+    const app = getApp && getApp();
+    const normalized = app && typeof app.normalizeThemePreference === 'function'
+      ? app.normalizeThemePreference(pref)
+      : (pref || 'system');
+    const themeIndex = this.getThemeIndex(normalized);
+    if (normalized === this.data.themePreference && themeIndex === this.data.themeIndex) {
+      if (app && app.globalData && app.globalData.themePreference === normalized) {
+        return;
+      }
+    }
+    this.setData({
+      themePreference: normalized,
+      themeIndex
+    });
+    if (app && typeof app.applyThemePreference === 'function') {
+      app.applyThemePreference(normalized, { spaceId: this.data.spaceId, persist: true });
+      if (typeof app.refreshThemeOnActivePages === 'function') {
+        app.refreshThemeOnActivePages();
+      }
+    }
+    this.persistSettingsCache({ themePreference: normalized });
+    if (syncRemote) {
+      this.saveAlias({
+        alias: this.data.alias,
+        avatarUrl: this.data.avatarUrl,
+        themePreference: normalized
+      });
+    }
   },
 
   fetchSpaceInfo() {
@@ -131,10 +187,13 @@ Page({
     this._aliasSig = this.buildAliasSignature(alias, avatarUrl);
     this._membersSig = cache.membersSig || '';
     this._blocksSig = cache.blocksSig || '';
+    const cachedThemePreference = cache.themePreference || '';
     this.setData({
       alias,
       avatarUrl,
       aliasInitial,
+      themePreference: cachedThemePreference || this.data.themePreference,
+      themeIndex: this.getThemeIndex(cachedThemePreference || this.data.themePreference),
       members,
       memberPreview: members.slice(0, 4),
       blocks,
@@ -155,6 +214,7 @@ Page({
       blocks: this.data.blocks || [],
       membersSig: this._membersSig || '',
       blocksSig: this._blocksSig || '',
+      themePreference: this.data.themePreference || 'system',
       cached_at: Date.now(),
       ...extra
     };
@@ -216,8 +276,12 @@ Page({
         if (res.data && res.data.alias !== undefined) {
           const alias = res.data.alias;
           const avatarUrl = res.data.avatar_url || '';
+          const themePreference = res.data.theme_preference || '';
           const nextSig = this.buildAliasSignature(alias, avatarUrl);
           if (nextSig === this._aliasSig) {
+            if (themePreference) {
+              this.applyThemePreference(themePreference, { syncRemote: false });
+            }
             return;
           }
           this._aliasSig = nextSig;
@@ -227,6 +291,9 @@ Page({
             aliasInitial: (alias || openid || '我').charAt(0)
           });
           this.persistSettingsCache();
+          if (themePreference) {
+            this.applyThemePreference(themePreference, { syncRemote: false });
+          }
           try {
             wx.setStorageSync(`myAlias_${this.data.spaceId}`, alias);
             wx.setStorageSync(`myAvatar_${this.data.spaceId}`, avatarUrl);
@@ -336,6 +403,12 @@ Page({
     this.setData({ autoLockIndex: idx }, () => {
       this.applyAutoLockSelection();
     });
+  },
+
+  onThemeChange(e) {
+    const idx = Number(e.detail.value || 0);
+    const pref = (this.data.themeValues && this.data.themeValues[idx]) || 'system';
+    this.applyThemePreference(pref, { syncRemote: true });
   },
 
   applyAutoLockSelection() {
@@ -453,7 +526,7 @@ Page({
   onAliasInput(e) {
     this.setData({ newAlias: e.detail.value });
   },
-  saveAlias({ alias = this.data.alias, avatarUrl = this.data.avatarUrl, closeModal = false } = {}) {
+  saveAlias({ alias = this.data.alias, avatarUrl = this.data.avatarUrl, themePreference = this.data.themePreference, closeModal = false } = {}) {
     const openid = wx.getStorageSync('openid');
     if (!openid) {
       wx.showToast({ title: '未登录', icon: 'none' });
@@ -462,11 +535,11 @@ Page({
     wx.request({
       url: `${BASE_URL}/api/user/set-alias`,
       method: 'POST',
-      data: { space_id: this.data.spaceId, user_id: openid, alias, avatar_url: avatarUrl },
+      data: { space_id: this.data.spaceId, user_id: openid, alias, avatar_url: avatarUrl, theme_preference: themePreference },
       success: () => {
         const aliasInitial = (alias || openid || '我').charAt(0);
         this._aliasSig = this.buildAliasSignature(alias, avatarUrl);
-        this.setData({ alias, avatarUrl, aliasInitial, showAliasModal: closeModal ? false : this.data.showAliasModal });
+        this.setData({ alias, avatarUrl, aliasInitial, themePreference, themeIndex: this.getThemeIndex(themePreference), showAliasModal: closeModal ? false : this.data.showAliasModal });
         this.persistSettingsCache();
         try {
           wx.setStorageSync(`myAlias_${this.data.spaceId}`, alias);
@@ -485,8 +558,7 @@ Page({
   deleteSpace() {
     const phrase = `我确定删除空间${this.data.spaceCode || ''}`;
     this.setData({ showDeleteModal: true, deleteConfirmInput: '', deleteConfirmPhrase: phrase });
-  }
-  ,
+  },
   onDeleteConfirmInput(e) {
     this.setData({ deleteConfirmInput: e.detail.value || '' });
   },

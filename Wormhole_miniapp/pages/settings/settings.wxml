@@ -1,5 +1,5 @@
-<navigation-bar title="设置" back="{{false}}" home-button="{{true}}" bind:home="goHome" background="#FFFFFF" color="#0F172A" />
-<view class="settings-container">
+<navigation-bar title="设置" back="{{false}}" home-button="{{true}}" bind:home="goHome" background="{{themeNavBg}}" color="{{themeNavText}}" />
+<view class="settings-container theme-root {{themeClass}}">
   <scroll-view class="settings-scroll" scroll-y="true">
     <view class="room-card">
       <view class="room-card-header">
@@ -51,6 +51,16 @@
           <text>无操作锁定时间</text>
           <view class="settings-item-right">
             <text class="space-code">{{autoLockOptions[autoLockIndex]}}</text>
+            <text class="arrow">></text>
+          </view>
+        </view>
+      </picker>
+
+      <picker mode="selector" range="{{themeOptions}}" value="{{themeIndex}}" bindchange="onThemeChange">
+        <view class="settings-item">
+          <text>主题模式</text>
+          <view class="settings-item-right">
+            <text class="space-code">{{themeOptions[themeIndex]}}</text>
             <text class="arrow">></text>
           </view>
         </view>

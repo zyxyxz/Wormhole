@@ -59,6 +59,11 @@ async def add_user_avatar(conn):
         return
     await conn.execute(text("ALTER TABLE user_aliases ADD COLUMN avatar_url TEXT"))
 
+async def add_user_theme_preference(conn):
+    if await column_exists(conn, "user_aliases", "theme_preference"):
+        return
+    await conn.execute(text("ALTER TABLE user_aliases ADD COLUMN theme_preference TEXT"))
+
 
 async def add_message_media_columns(conn):
     if not await column_exists(conn, "messages", "message_type"):
@@ -125,6 +130,7 @@ MIGRATIONS = [
     ("202401_add_deleted_at_to_posts", add_deleted_at_to_posts),
     ("202402_add_share_code_expiry", add_share_code_expiry),
     ("202402_add_user_alias_avatar", add_user_avatar),
+    ("202602_add_user_theme_preference", add_user_theme_preference),
     ("202402_add_message_media", add_message_media_columns),
     ("202601_add_operation_logs", add_operation_logs),
     ("202601_add_soft_delete_columns", add_soft_delete_columns),

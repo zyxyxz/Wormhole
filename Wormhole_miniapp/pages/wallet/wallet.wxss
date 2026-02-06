@@ -5,6 +5,8 @@ page { overflow: hidden; }
   height: calc(100vh - 44px - env(safe-area-inset-top));
   display: flex;
   flex-direction: column;
+  background: var(--bg);
+  color: var(--text);
 }
 
 .wallet-scroll {
@@ -13,7 +15,7 @@ page { overflow: hidden; }
   box-sizing: border-box;
 }
 
-.balance-card { background: linear-gradient(135deg, #5EEAD4, #22D3EE); border-radius: 24rpx; padding: 40rpx; color: #0F172A; margin-bottom: 40rpx; box-shadow: 0 16rpx 34rpx rgba(45,212,191,0.25); }
+.balance-card { background: linear-gradient(135deg, var(--accent-teal), var(--accent-cyan)); border-radius: 24rpx; padding: 40rpx; color: #0F172A; margin-bottom: 40rpx; box-shadow: var(--shadow-strong); }
 
 .balance-title {
   font-size: 28rpx;
@@ -31,9 +33,9 @@ page { overflow: hidden; }
   gap: 20rpx;
 }
 
-.action-button { flex: 1; height: 80rpx; line-height: 80rpx; background: rgba(255, 255, 255, 0.9); border: 1rpx solid #BAF2E3; color: #0F172A; font-size: 28rpx; border-radius: 12rpx; }
+.action-button { flex: 1; height: 80rpx; line-height: 80rpx; background: var(--surface-alt); border: 1rpx solid var(--border); color: var(--text); font-size: 28rpx; border-radius: 12rpx; }
 
-.transaction-list { background: #FFFFFF; border-radius: 20rpx; padding: 30rpx; border: 1rpx solid #E2E8F0; box-shadow: 0 8rpx 24rpx rgba(2,132,199,0.08); }
+.transaction-list { background: var(--surface); border-radius: 20rpx; padding: 30rpx; border: 1rpx solid var(--border); box-shadow: var(--shadow); }
 
 .list-title {
   font-size: 32rpx;
@@ -46,7 +48,7 @@ page { overflow: hidden; }
   justify-content: space-between;
   align-items: center;
   padding: 20rpx 0;
-  border-bottom: 1rpx solid #f5f5f5;
+  border-bottom: 1rpx solid var(--border);
 }
 
 .transaction-type {
@@ -56,7 +58,7 @@ page { overflow: hidden; }
 
 .transaction-time {
   font-size: 24rpx;
-  color: #999;
+  color: var(--text-muted);
 }
 
 .transaction-amount {
@@ -65,11 +67,11 @@ page { overflow: hidden; }
 }
 
 .income {
-  color: #07c160;
+  color: var(--success);
 }
 
 .expense {
-  color: #ff4d4f;
+  color: var(--danger);
 }
 
 .pay-code-modal {
@@ -85,7 +87,7 @@ page { overflow: hidden; }
 }
 
 .modal-content {
-  background: white;
+  background: var(--surface);
   border-radius: 20rpx;
   padding: 40rpx;
   width: 80%;
@@ -96,6 +98,7 @@ page { overflow: hidden; }
   font-size: 32rpx;
   font-weight: bold;
   margin-bottom: 30rpx;
+  color: var(--text);
 }
 
 .pay-code {
@@ -106,5 +109,5 @@ page { overflow: hidden; }
 
 .close-button {
   margin-top: 30rpx;
-  background: #f5f5f5;
+  background: var(--bg-secondary);
 } 

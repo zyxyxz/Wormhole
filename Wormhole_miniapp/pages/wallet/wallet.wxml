@@ -1,5 +1,5 @@
-<navigation-bar title="钱包" back="{{false}}" home-button="{{true}}" bind:home="goHome" background="#FFFFFF" color="#0F172A" />
-<view class="wallet-container">
+<navigation-bar title="钱包" back="{{false}}" home-button="{{true}}" bind:home="goHome" background="{{themeNavBg}}" color="{{themeNavText}}" />
+<view class="wallet-container theme-root {{themeClass}}">
   <scroll-view class="wallet-scroll" scroll-y="true">
     <!-- 余额展示 -->
     <view class="balance-card">

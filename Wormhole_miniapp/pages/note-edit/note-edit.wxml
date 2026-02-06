@@ -1,4 +1,4 @@
-<view class="container">
+<view class="container theme-root {{themeClass}}">
   <input class="title" placeholder="标题" value="{{title}}" bindinput="onTitleInput" />
   <textarea class="content" placeholder="内容" value="{{content}}" bindinput="onContentInput" />
   <view class="row">

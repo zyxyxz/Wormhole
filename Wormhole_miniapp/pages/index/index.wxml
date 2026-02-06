@@ -1,5 +1,5 @@
 <!--index.wxml-->
-<scroll-view class="scrollarea" scroll-y="true" type="list">
+<scroll-view class="scrollarea theme-root {{themeClass}}" scroll-y="true" type="list">
   <view class="aurora-bg">
     <view class="blob blob-a"></view>
     <view class="blob blob-b"></view>

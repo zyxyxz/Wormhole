@@ -1,5 +1,5 @@
-<navigation-bar title="{{reviewMode ? '私人日记本' : '动态'}}" back="{{false}}" home-button="{{true}}" bind:home="goHome" background="#FFFFFF" color="#0F172A" />
-<view class="notes-container">
+<navigation-bar title="{{reviewMode ? '私人日记本' : '动态'}}" back="{{false}}" home-button="{{true}}" bind:home="goHome" background="{{themeNavBg}}" color="{{themeNavText}}" />
+<view class="notes-container theme-root {{themeClass}}">
   <scroll-view class="notes-scroll" scroll-y="true" refresher-enabled="true" refresher-triggered="{{refreshing}}" bindrefresherrefresh="onPullDownRefresh">
     <skeleton-list show="{{loading}}" rows="6" />
     <view class="notes-list" wx:if="{{!loading}}">

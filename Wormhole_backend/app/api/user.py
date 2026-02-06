@@ -21,6 +21,7 @@ async def get_alias(space_id: int, user_id: str, db: AsyncSession = Depends(get_
         user_id=alias.user_id,
         alias=alias.alias or "",
         avatar_url=process_avatar_url(alias.avatar_url),
+        theme_preference=alias.theme_preference
     )
 
 @router.post("/set-alias", response_model=AliasResponse)
@@ -32,8 +33,16 @@ async def set_alias(payload: AliasSetRequest, request: Request, db: AsyncSession
         alias.alias = payload.alias
         if avatar_url is not None:
             alias.avatar_url = avatar_url
+        if payload.theme_preference is not None:
+            alias.theme_preference = payload.theme_preference
     else:
-        alias = UserAlias(space_id=payload.space_id, user_id=payload.user_id, alias=payload.alias, avatar_url=avatar_url)
+        alias = UserAlias(
+            space_id=payload.space_id,
+            user_id=payload.user_id,
+            alias=payload.alias,
+            avatar_url=avatar_url,
+            theme_preference=payload.theme_preference
+        )
         db.add(alias)
     await db.commit()
     # 广播别名更新事件
@@ -58,4 +67,5 @@ async def set_alias(payload: AliasSetRequest, request: Request, db: AsyncSession
         user_id=payload.user_id,
         alias=payload.alias,
         avatar_url=process_avatar_url(avatar_url),
+        theme_preference=alias.theme_preference
     )
