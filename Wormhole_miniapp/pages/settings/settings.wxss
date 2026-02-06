@@ -200,3 +200,32 @@ page { overflow: hidden; }
 .member-name { font-weight: 600; color: var(--text); }
 .member-id { font-size: 24rpx; color: var(--text-muted); }
 .member-actions { display: flex; gap: 12rpx; }
+
+.danger-section {
+  margin-top: 30rpx;
+  padding: 18rpx 10rpx 10rpx;
+  border-radius: 16rpx;
+}
+
+.danger-title {
+  font-size: 22rpx;
+  color: var(--text-muted);
+  margin-left: 6rpx;
+  margin-bottom: 12rpx;
+}
+
+.danger-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18rpx 12rpx;
+  border-radius: 14rpx;
+  border: 1rpx dashed rgba(239, 68, 68, 0.4);
+  background: rgba(239, 68, 68, 0.06);
+}
+
+.danger-text {
+  font-size: 24rpx;
+  color: var(--danger);
+  letter-spacing: 1rpx;
+}

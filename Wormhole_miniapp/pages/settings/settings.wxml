@@ -41,11 +41,6 @@
         <text class="arrow">></text>
       </view>
 
-      <view class="settings-item" bindtap="deleteSpace">
-        <text>删除空间</text>
-        <text class="arrow">></text>
-      </view>
-
       <picker mode="selector" range="{{autoLockOptions}}" value="{{autoLockIndex}}" bindchange="onAutoLockChange">
         <view class="settings-item">
           <text>无操作锁定时间</text>
@@ -79,6 +74,13 @@
       <view class="member-item" wx:for="{{blocks}}" wx:key="user_id">
         <text>{{item.alias || item.user_id}}</text>
         <button size="mini" bindtap="unblockMember" data-userid="{{item.user_id}}">取消拉黑</button>
+      </view>
+    </view>
+
+    <view class="danger-section" wx:if="{{isOwner}}">
+      <view class="danger-title">危险操作</view>
+      <view class="danger-item" bindtap="deleteSpace">
+        <text class="danger-text">删除空间</text>
       </view>
     </view>
   </scroll-view>
