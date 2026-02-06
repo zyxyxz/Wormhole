@@ -43,9 +43,13 @@ Page({
       method: 'POST',
       data: { share_code: shareCode, new_code: newCode, user_id: userId },
       success: (res) => {
+        const app = getApp && getApp();
         if (res.statusCode === 200 && res.data.success) {
           wx.setStorageSync('currentSpaceId', res.data.space_id);
           wx.setStorageSync('currentSpaceCode', newCode);
+          if (app && typeof app.primeRoomRuntimeConfig === 'function') {
+            app.primeRoomRuntimeConfig({ spaceId: res.data.space_id, themePreference: res.data.theme_preference || '' });
+          }
           wx.switchTab({ url: '/pages/chat/chat' });
         } else {
           const msg = res.data.detail || res.data.message || '加入失败';

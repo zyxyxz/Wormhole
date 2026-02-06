@@ -65,6 +65,7 @@ Page({
       data: { space_code: code, user_id: openid, create_if_missing: true },
       success: (res) => {
         const data = res.data || {};
+        const app = getApp && getApp();
         if (data.admin_entry) {
           this.resetSpaceCode(true);
           wx.navigateTo({ url: `/pages/admin/admin?room_code=${code}` });
@@ -73,6 +74,9 @@ Page({
         if (data.success) {
           wx.setStorageSync('currentSpaceId', data.space_id);
           wx.setStorageSync('currentSpaceCode', code);
+          if (app && typeof app.primeRoomRuntimeConfig === 'function') {
+            app.primeRoomRuntimeConfig({ spaceId: data.space_id, themePreference: data.theme_preference || '' });
+          }
           const review = !!wx.getStorageSync('reviewMode');
           if (review) {
             wx.reLaunch({ url: '/pages/notes/notes' });

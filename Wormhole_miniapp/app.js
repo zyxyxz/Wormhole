@@ -72,6 +72,7 @@ const TAB_ICON_SETS = {
 const originalPage = Page;
 Page = function (pageConfig) {
   const appInstance = typeof getApp === 'function' ? getApp() : null;
+  const originalData = (pageConfig.data && typeof pageConfig.data === 'object') ? pageConfig.data : {};
   const themeDefaults = appInstance && appInstance.globalData ? {
     themePreference: appInstance.globalData.themePreference,
     themeMode: appInstance.globalData.themeMode,
@@ -80,14 +81,7 @@ Page = function (pageConfig) {
     themeNavText: appInstance.globalData.themeNavText,
     themeNavFront: appInstance.globalData.themeNavFront
   } : {};
-  const originalData = pageConfig.data;
-  if (typeof originalData === 'function') {
-    pageConfig.data = function () {
-      return Object.assign({}, themeDefaults, originalData.call(this));
-    };
-  } else {
-    pageConfig.data = Object.assign({}, themeDefaults, originalData || {});
-  }
+  pageConfig.data = Object.assign({}, themeDefaults, originalData);
   const lifecycleHooks = new Set([
     'onLoad', 'onShow', 'onReady', 'onHide', 'onUnload',
     'onPullDownRefresh', 'onReachBottom', 'onPageScroll',
@@ -246,6 +240,10 @@ App({
     return spaceId ? `space_theme_${spaceId}` : 'space_theme_default';
   },
 
+  getSpaceSettingsCacheKey(spaceId) {
+    return spaceId ? `settings_cache_${spaceId}` : '';
+  },
+
   getStoredThemePreference(spaceId) {
     try {
       return wx.getStorageSync(this.getSpaceThemeKey(spaceId)) || '';
@@ -259,6 +257,25 @@ App({
     try {
       wx.setStorageSync(this.getSpaceThemeKey(spaceId), pref);
     } catch (e) {}
+  },
+
+  getCachedThemePreference(spaceId) {
+    if (!spaceId) return '';
+    try {
+      const cache = wx.getStorageSync(this.getSpaceSettingsCacheKey(spaceId));
+      return cache?.themePreference || '';
+    } catch (e) {
+      return '';
+    }
+  },
+
+  primeRoomRuntimeConfig({ spaceId = null, themePreference = '' } = {}) {
+    const sid = spaceId || wx.getStorageSync('currentSpaceId');
+    if (!sid) return;
+    const sourcePref = themePreference || this.getStoredThemePreference(sid) || this.getCachedThemePreference(sid) || '';
+    if (!sourcePref) return;
+    const normalized = this.normalizeThemePreference(sourcePref);
+    this.applyThemePreference(normalized, { spaceId: sid, persist: true });
   },
 
   applyThemePreference(pref, { spaceId = null, persist = false } = {}) {
@@ -365,16 +382,15 @@ App({
     }
     const spaceId = wx.getStorageSync('currentSpaceId');
     const stored = this.getStoredThemePreference(spaceId);
-    if (stored) {
-      this.applyThemePreference(stored, { spaceId, persist: false });
-      this.applyThemeToPage(page);
-    } else {
-      this.applyThemePreference('system', { spaceId, persist: false });
-      this.applyThemeToPage(page);
+    const cached = this.getCachedThemePreference(spaceId);
+    const bootPref = stored || cached;
+    if (bootPref) {
+      this.applyThemePreference(bootPref, { spaceId, persist: !stored && !!cached });
     }
+    this.applyThemeToPage(page);
     this.fetchThemePreference(spaceId).then((remotePref) => {
       if (!remotePref) return;
-      if (remotePref === stored) return;
+      if (remotePref === (stored || cached)) return;
       this.applyThemePreference(remotePref, { spaceId, persist: true });
       this.refreshThemeOnActivePages();
     });

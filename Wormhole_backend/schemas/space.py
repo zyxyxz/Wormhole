@@ -24,6 +24,7 @@ class SpaceEnterResponse(BaseModel):
     success: bool
     message: str
     space_id: Optional[int] = None
+    theme_preference: Optional[str] = None
     admin_entry: bool = False
     requires_creation: bool = False
 

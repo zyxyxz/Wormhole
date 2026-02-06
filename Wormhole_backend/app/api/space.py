@@ -127,11 +127,22 @@ async def enter_space(
                 commit_needed = True
     if commit_needed:
         await db.commit()
+
+    theme_preference = None
+    if request.user_id:
+        alias_row = await db.execute(
+            select(UserAlias.theme_preference).where(
+                UserAlias.space_id == space.id,
+                UserAlias.user_id == request.user_id
+            )
+        )
+        theme_preference = alias_row.scalar_one_or_none()
     
     return SpaceEnterResponse(
         success=True,
         message="进入空间成功",
-        space_id=space.id
+        space_id=space.id,
+        theme_preference=theme_preference
     )
 
 @router.post("/share")
@@ -208,7 +219,14 @@ async def join_by_share(payload: JoinByShareRequest, db: AsyncSession = Depends(
     db.add(SpaceMapping(space_id=share.space_id, user_id=payload.user_id, space_code=payload.new_code))
     share.used = True
     await db.commit()
-    return {"success": True, "space_id": share.space_id}
+    alias_row = await db.execute(
+        select(UserAlias.theme_preference).where(
+            UserAlias.space_id == share.space_id,
+            UserAlias.user_id == payload.user_id
+        )
+    )
+    theme_preference = alias_row.scalar_one_or_none()
+    return {"success": True, "space_id": share.space_id, "theme_preference": theme_preference}
 
 @router.post("/modify-code")
 async def modify_space_code(payload: ModifyCodeRequest, db: AsyncSession = Depends(get_db)):
