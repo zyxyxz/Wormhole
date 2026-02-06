@@ -6,6 +6,7 @@ page {
   background: var(--bg);
   color: var(--text);
   font-family: "ZCOOL XiaoWei", "Songti SC", "STSong", "PingFang SC", serif;
+  overflow: hidden;
 }
 
 .index-root {
@@ -49,7 +50,7 @@ page {
 .container {
   position: relative;
   z-index: 1;
-  min-height: 100vh;
+  min-height: 100%;
   padding: 40rpx 40rpx calc(50rpx + env(safe-area-inset-bottom));
   display: flex;
   flex-direction: column;
