@@ -229,7 +229,7 @@ Page({
     }
     wx.showModal({
       title: '确认清理空房',
-      content: '将清理只有房主、且无任何数据记录（含软删除数据和日志）的房间，确认继续？',
+      content: '将清理无任何数据记录（允许仅有房间日志）、且无其他成员/别名/有效口令的房间，确认继续？',
       success: (res) => {
         if (!res.confirm) return;
         wx.showLoading({ title: '清理中', mask: true });
