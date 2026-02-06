@@ -125,7 +125,7 @@
   </scroll-view>
 </view>
 
-<view class="modal" wx:if="{{showAliasModal}}" bindtap="closeAliasModal">
+<view class="modal theme-root {{themeClass}}" wx:if="{{showAliasModal}}" bindtap="closeAliasModal">
   <view class="modal-content" catchtap="noop">
     <view class="modal-title">别名列表</view>
     <view class="modal-meta">用户 {{activeUserId}}</view>
@@ -139,7 +139,7 @@
   </view>
 </view>
 
-<view class="modal" wx:if="{{showCleanupPreview}}" bindtap="closeCleanupModal">
+<view class="modal theme-root {{themeClass}}" wx:if="{{showCleanupPreview}}" bindtap="closeCleanupModal">
   <view class="modal-content" catchtap="noop">
     <view class="modal-title">拟清理空房</view>
     <view class="modal-meta">共 {{cleanupCandidates.length}} 个空房</view>
