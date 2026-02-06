@@ -12,6 +12,12 @@ Page({
   onShow() {
     this.resetSpaceCode();
     this.syncReviewMode();
+    const app = getApp && getApp();
+    if (app && typeof app.applyThemeForRoute === 'function') {
+      app.applyThemeForRoute(this.route, this);
+    } else if (app && typeof app.applyThemeToPage === 'function') {
+      app.applyThemeToPage(this);
+    }
   },
 
   syncReviewMode() {
