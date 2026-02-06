@@ -322,12 +322,38 @@ async def activity_list(
             "media_urls": media_urls
         }
         post_ids.append(row.id)
-    if not post_ids:
+    comment_post_rows = await db.execute(
+        select(Comment.post_id)
+        .join(Post, Comment.post_id == Post.id)
+        .where(
+            Comment.user_id == user_id,
+            Comment.deleted_at.is_(None),
+            Post.space_id == space_id,
+            Post.deleted_at.is_(None)
+        )
+        .distinct()
+    )
+    comment_post_ids = {pid for (pid,) in comment_post_rows}
+    related_post_ids = set(post_ids) | comment_post_ids
+    if not related_post_ids:
         return ActivityListResponse(items=[])
+    missing_ids = list(related_post_ids - set(post_map.keys()))
+    if missing_ids:
+        extra_rows = await db.execute(
+            select(Post.id, Post.content, Post.media_type, Post.media_urls)
+            .where(Post.id.in_(missing_ids))
+        )
+        for row in extra_rows.all():
+            media_urls = process_feed_media_urls(json.loads(row.media_urls or "[]"), row.media_type or "none")
+            post_map[row.id] = {
+                "content": row.content or "",
+                "media_type": row.media_type or "none",
+                "media_urls": media_urls
+            }
 
     comment_query = (
         select(Comment)
-        .where(Comment.post_id.in_(post_ids), Comment.deleted_at.is_(None), Comment.user_id != user_id)
+        .where(Comment.post_id.in_(related_post_ids), Comment.deleted_at.is_(None), Comment.user_id != user_id)
         .order_by(Comment.created_at.desc())
         .limit(limit * 2)
     )
@@ -338,7 +364,7 @@ async def activity_list(
 
     like_query = (
         select(PostLike)
-        .where(PostLike.post_id.in_(post_ids), PostLike.user_id != user_id)
+        .where(PostLike.post_id.in_(related_post_ids), PostLike.user_id != user_id)
         .order_by(PostLike.created_at.desc())
         .limit(limit * 2)
     )
