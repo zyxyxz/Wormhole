@@ -113,6 +113,15 @@ page {
 .comment-content { margin-top: 4rpx; font-size: 28rpx; color: var(--text); white-space: pre-wrap; word-break: break-word; }
 .comment-box { display: flex; gap: 10rpx; margin-top: 10rpx; }
 .comment-input { flex: 1; background: var(--input); border: 1rpx solid var(--border); border-radius: 12rpx; padding: 0 20rpx; height: 72rpx; color: var(--text); }
+.comment-send {
+  height: 72rpx;
+  padding: 0 24rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: normal;
+  font-size: 26rpx;
+}
 
 .note-time {
   font-size: 24rpx;

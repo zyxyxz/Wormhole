@@ -70,7 +70,7 @@
 
         <view class="comment-box" wx:if="{{!reviewMode}}">
           <input class="comment-input" placeholder="{{commentPlaceholders[item.id] || '评论...'}}" value="{{commentInputs[item.id]}}" data-id="{{item.id}}" bindinput="onCommentInput" bindfocus="onCommentFocus" focus="{{activeCommentInput === item.id}}" />
-          <button class="btn btn-primary" size="mini" data-id="{{item.id}}" bindtap="submitComment">发送</button>
+          <button class="btn btn-primary comment-send" data-id="{{item.id}}" bindtap="submitComment">发送</button>
         </view>
       </view>
       <empty wx:if="{{!posts.length}}" text="暂无动态，点击下方 + 发布" />
