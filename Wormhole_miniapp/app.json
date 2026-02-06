@@ -20,6 +20,7 @@
     "navigationBarTitleText": "虫洞私密共享空间",
     "navigationBarTextStyle": "black"
   },
+  "darkmode": true,
   "tabBar": {
     "color": "#64748B",
     "selectedColor": "#14B8A6",

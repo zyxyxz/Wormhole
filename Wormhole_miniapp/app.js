@@ -22,6 +22,13 @@ const CUSTOM_NAV_ROUTES = new Set([
   'pages/admin-logs/admin-logs'
 ]);
 
+const TAB_ROUTES = new Set([
+  'pages/chat/chat',
+  'pages/notes/notes',
+  'pages/wallet/wallet',
+  'pages/settings/settings'
+]);
+
 const THEME_PRESETS = {
   light: {
     navBg: '#FFFFFF',
@@ -252,6 +259,7 @@ App({
 
   applyThemeToPage(page) {
     if (!page || typeof page.setData !== 'function') return;
+    const route = page.route || page.__route__ || '';
     page.setData({
       themePreference: this.globalData.themePreference,
       themeMode: this.globalData.themeMode,
@@ -260,7 +268,10 @@ App({
       themeNavText: this.globalData.themeNavText,
       themeNavFront: this.globalData.themeNavFront
     });
-    if (page.route && !CUSTOM_NAV_ROUTES.has(page.route)) {
+    if (route && TAB_ROUTES.has(route)) {
+      this.applyTabBarStyle();
+    }
+    if (!route || !CUSTOM_NAV_ROUTES.has(route)) {
       try {
         wx.setNavigationBarColor({
           frontColor: this.globalData.themeNavFront,
