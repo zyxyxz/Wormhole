@@ -138,3 +138,26 @@
     <button class="close-button" bindtap="closeAliasModal">关闭</button>
   </view>
 </view>
+
+<view class="modal" wx:if="{{showCleanupPreview}}" bindtap="closeCleanupModal">
+  <view class="modal-content" catchtap="noop">
+    <view class="modal-title">拟清理空房</view>
+    <view class="modal-meta">共 {{cleanupCandidates.length}} 个空房</view>
+    <scroll-view class="cleanup-scroll" scroll-y="true">
+      <view class="cleanup-row" wx:for="{{cleanupCandidates}}" wx:key="space_id" wx:for-index="index">
+        <view class="cleanup-info">
+          <text class="cleanup-code">房间号 {{item.code}}</text>
+          <text class="cleanup-owner">房主 {{item.owner_user_id}}</text>
+          <text class="cleanup-time">创建 {{item.created_at_bj || item.created_at}}</text>
+          <text class="cleanup-meta">日志 {{item.log_count}}</text>
+        </view>
+        <view class="cleanup-check {{item.selected ? 'on' : ''}}" bindtap="toggleCleanupSelection" data-index="{{index}}"></view>
+      </view>
+      <view class="section-empty" wx:if="{{!cleanupCandidates.length}}">暂无可清理房间</view>
+    </scroll-view>
+    <view class="cleanup-actions">
+      <button size="mini" class="refresh-btn" bindtap="toggleCleanupAll">{{cleanupAllSelected ? '全不选' : '全选'}}</button>
+      <button size="mini" class="refresh-btn danger" bindtap="confirmCleanupDelete">确认清理</button>
+    </view>
+  </view>
+</view>

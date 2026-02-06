@@ -61,6 +61,16 @@ page { overflow: hidden; }
 .alias-row:last-child { border-bottom: none; }
 .alias-name { font-size: 26rpx; color: var(--text); }
 .alias-space { font-size: 22rpx; color: var(--text-muted); }
+
+.cleanup-scroll { max-height: 60vh; margin-top: 12rpx; }
+.cleanup-row { display: flex; justify-content: space-between; align-items: center; padding: 12rpx 0; border-bottom: 1rpx solid var(--border); }
+.cleanup-row:last-child { border-bottom: none; }
+.cleanup-info { display: flex; flex-direction: column; gap: 6rpx; flex: 1; min-width: 0; }
+.cleanup-code { font-size: 26rpx; color: var(--text); font-weight: 600; }
+.cleanup-owner, .cleanup-time, .cleanup-meta { font-size: 22rpx; color: var(--text-muted); }
+.cleanup-check { width: 36rpx; height: 36rpx; border-radius: 50%; border: 2rpx solid var(--border); margin-left: 16rpx; }
+.cleanup-check.on { background: var(--primary-strong); border-color: var(--primary-strong); }
+.cleanup-actions { display: flex; justify-content: flex-end; gap: 12rpx; margin-top: 16rpx; }
 .modal-section { margin-top: 20rpx; }
 .modal-section-head { font-size: 28rpx; font-weight: 600; margin-bottom: 10rpx; }
 .member-row { display: flex; flex-direction: column; border-bottom: 1rpx solid var(--border); padding: 8rpx 0; }

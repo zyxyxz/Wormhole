@@ -51,7 +51,11 @@ Page({
     postsLoading: false,
     showAliasModal: false,
     activeAliasList: [],
-    activeUserId: ''
+    activeUserId: '',
+    showCleanupPreview: false,
+    cleanupCandidates: [],
+    cleanupAllSelected: true,
+    cleanupLoading: false
   },
   onLoad(options = {}) {
     const openid = wx.getStorageSync('openid') || '';
@@ -229,19 +233,89 @@ Page({
     }
     wx.showModal({
       title: '确认清理空房',
-      content: '将清理无任何数据记录（允许仅有房间日志）、且无其他成员/别名/有效口令的房间，确认继续？',
+      content: '将进入空房预览列表（仅允许日志存在），你可手动选择要删除的房间，继续？',
+      success: (res) => {
+        if (!res.confirm) return;
+        this.loadCleanupPreview();
+      }
+    });
+  },
+
+  loadCleanupPreview() {
+    const { adminOpenId, adminRoomCode } = this.data;
+    if (!adminOpenId || !adminRoomCode) return;
+    this.setData({ cleanupLoading: true });
+    wx.request({
+      url: `${BASE_URL}/api/settings/admin/cleanup-spaces`,
+      method: 'POST',
+      data: { user_id: adminOpenId, room_code: adminRoomCode, preview: true },
+      success: (res) => {
+        const list = Array.isArray(res.data?.spaces) ? res.data.spaces : [];
+        const candidates = list.map((item) => ({
+          ...item,
+          selected: true,
+          created_at_bj: formatBeijingTime(item.created_at)
+        }));
+        this.setData({
+          cleanupCandidates: candidates,
+          cleanupAllSelected: candidates.length > 0,
+          showCleanupPreview: true,
+          cleanupLoading: false
+        });
+        if (!candidates.length) {
+          wx.showToast({ title: '暂无可清理的空房', icon: 'none' });
+        }
+      },
+      fail: () => {
+        this.setData({ cleanupLoading: false });
+        wx.showToast({ title: '加载预览失败', icon: 'none' });
+      }
+    });
+  },
+
+  toggleCleanupSelection(e) {
+    const index = Number(e.currentTarget.dataset.index);
+    const list = [...(this.data.cleanupCandidates || [])];
+    if (!list[index]) return;
+    list[index].selected = !list[index].selected;
+    const allSelected = list.length > 0 && list.every(item => item.selected);
+    this.setData({ cleanupCandidates: list, cleanupAllSelected: allSelected });
+  },
+
+  toggleCleanupAll() {
+    const list = [...(this.data.cleanupCandidates || [])];
+    if (!list.length) return;
+    const next = !this.data.cleanupAllSelected;
+    list.forEach(item => { item.selected = next; });
+    this.setData({ cleanupCandidates: list, cleanupAllSelected: next });
+  },
+
+  confirmCleanupDelete() {
+    const { adminOpenId, adminRoomCode } = this.data;
+    const selected = (this.data.cleanupCandidates || []).filter(item => item.selected);
+    if (!selected.length) {
+      wx.showToast({ title: '请选择要删除的房间', icon: 'none' });
+      return;
+    }
+    wx.showModal({
+      title: '确认删除',
+      content: `将删除 ${selected.length} 个空房（含日志），确认继续？`,
       success: (res) => {
         if (!res.confirm) return;
         wx.showLoading({ title: '清理中', mask: true });
-        const url = `${BASE_URL}/api/settings/admin/cleanup-spaces?user_id=${encodeURIComponent(adminOpenId)}&room_code=${encodeURIComponent(adminRoomCode)}`;
         wx.request({
-          url,
+          url: `${BASE_URL}/api/settings/admin/cleanup-spaces`,
           method: 'POST',
-          data: { user_id: adminOpenId, room_code: adminRoomCode },
+          data: {
+            user_id: adminOpenId,
+            room_code: adminRoomCode,
+            space_ids: selected.map(item => item.space_id)
+          },
           success: (res) => {
             wx.hideLoading();
             const deleted = res.data?.deleted ?? 0;
             wx.showToast({ title: `已清理 ${deleted} 个`, icon: 'none' });
+            this.setData({ showCleanupPreview: false, cleanupCandidates: [] });
             if (deleted > 0) {
               this.refreshData({ silent: true });
             }
@@ -253,6 +327,10 @@ Page({
         });
       }
     });
+  },
+
+  closeCleanupModal() {
+    this.setData({ showCleanupPreview: false });
   },
 
   exitDueToNoAccess(message) {

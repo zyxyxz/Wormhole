@@ -13,7 +13,7 @@ from sqlalchemy import func, or_, and_
 import random
 import string
 from datetime import datetime, timedelta
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from app.utils.media import process_avatar_url, process_feed_media_urls, process_message_media_url
 from app.utils.operation_log import add_operation_log
 import json
@@ -110,15 +110,23 @@ class ReviewModePayload(AdminAuth):
     review_mode: bool
 
 
+class CleanupSpacesPayload(AdminAuth):
+    preview: bool = False
+    space_ids: list[int] | None = Field(default=None)
+
+
 @router.post("/admin/cleanup-spaces")
 async def admin_cleanup_spaces(
-    payload: AdminAuth | None = Body(default=None),
+    payload: CleanupSpacesPayload | None = Body(default=None),
     user_id: str | None = None,
     room_code: str | None = None,
+    preview: bool | None = None,
     db: AsyncSession = Depends(get_db)
 ):
     auth_user = payload.user_id if payload and payload.user_id else user_id
     auth_room = payload.room_code if payload and payload.room_code else room_code
+    preview_flag = payload.preview if payload else (preview if preview is not None else False)
+    space_ids = payload.space_ids if payload else None
     if not auth_user or not auth_room:
         raise HTTPException(status_code=400, detail="缺少管理员凭据")
     verify_admin(auth_user, auth_room)
@@ -144,6 +152,31 @@ async def admin_cleanup_spaces(
     ]
     subquery = select(Space.id).where(*idle_filters)
     idle_space_ids = [row[0] for row in (await db.execute(subquery)).fetchall()]
+    if space_ids:
+        allow_set = {int(sid) for sid in space_ids if sid}
+        idle_space_ids = [sid for sid in idle_space_ids if sid in allow_set]
+
+    if preview_flag:
+        spaces = []
+        log_counts = {}
+        if idle_space_ids:
+            rows = await db.execute(
+                select(OperationLog.space_id, func.count(OperationLog.id))
+                .where(OperationLog.space_id.in_(idle_space_ids))
+                .group_by(OperationLog.space_id)
+            )
+            for sid, count in rows:
+                log_counts[sid] = count
+            space_rows = await db.execute(select(Space).where(Space.id.in_(idle_space_ids)))
+            for sp in space_rows.scalars().all():
+                spaces.append({
+                    "space_id": sp.id,
+                    "code": sp.code,
+                    "owner_user_id": sp.owner_user_id,
+                    "created_at": sp.created_at,
+                    "log_count": log_counts.get(sp.id, 0)
+                })
+        return {"spaces": spaces, "total": len(idle_space_ids)}
     deleted = 0
     for sid in idle_space_ids:
         await db.execute(delete(SpaceMember).where(SpaceMember.space_id == sid))
