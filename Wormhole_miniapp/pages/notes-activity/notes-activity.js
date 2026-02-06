@@ -70,14 +70,17 @@ Page({
     } else if (refresh) {
       this.setData({ loading: this.data.items.length === 0 });
     }
+    const params = {
+      space_id: this.data.spaceId,
+      user_id: this.data.myUserId,
+      limit
+    };
+    if (before) {
+      params.before_ts = before;
+    }
     wx.request({
       url: `${BASE_URL}/api/feed/activity`,
-      data: {
-        space_id: this.data.spaceId,
-        user_id: this.data.myUserId,
-        limit,
-        before_ts: before
-      },
+      data: params,
       success: (res) => {
         const list = Array.isArray(res.data?.items) ? res.data.items : [];
         const decorated = list.map(item => this.decorateItem(item));

@@ -289,7 +289,7 @@ async def activity_list(
     space_id: int,
     user_id: str,
     limit: int = 20,
-    before_ts: int | None = None,
+    before_ts: str | None = None,
     db: AsyncSession = Depends(get_db)
 ):
     if not user_id:
@@ -299,7 +299,7 @@ async def activity_list(
         raise HTTPException(status_code=404, detail="空间不存在")
     limit = max(1, min(int(limit or 20), 50))
     before_dt = None
-    if before_ts is not None:
+    if before_ts:
         try:
             ts = int(before_ts)
             if ts < 1e12:
