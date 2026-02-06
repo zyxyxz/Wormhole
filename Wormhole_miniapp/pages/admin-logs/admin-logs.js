@@ -74,7 +74,9 @@ Page({
     hasMore: true,
     startDate: '',
     endDate: '',
-    filterLabel: '最近 100 条日志 · 北京时间'
+    filterLabel: '最近 100 条日志 · 北京时间',
+    spaceCodeFilter: '',
+    spaceIdFilter: null
   },
 
   onLoad(options = {}) {
@@ -119,35 +121,89 @@ Page({
     this.setData({ endDate: value }, () => this.updateFilterLabel());
   },
 
+  onSpaceCodeInput(e) {
+    const value = (e.detail.value || '').trim();
+    this.setData({ spaceCodeFilter: value }, () => this.updateFilterLabel());
+  },
+
   applyFilter() {
     const { startDate, endDate } = this.data;
     if (startDate && endDate && startDate > endDate) {
       wx.showToast({ title: '开始日期不能晚于结束日期', icon: 'none' });
       return;
     }
-    this.fetchLogs({ reset: true });
+    this.resolveSpaceFilter()
+      .then((spaceId) => {
+        this.setData({ spaceIdFilter: spaceId }, () => this.fetchLogs({ reset: true }));
+      })
+      .catch(() => {});
   },
 
   resetFilter() {
-    this.setData({ startDate: '', endDate: '' }, () => {
+    this.setData({ startDate: '', endDate: '', spaceCodeFilter: '', spaceIdFilter: null }, () => {
       this.updateFilterLabel();
       this.fetchLogs({ reset: true });
     });
   },
 
   updateFilterLabel() {
-    const { startDate, endDate, limit } = this.data;
+    const { startDate, endDate, limit, targetType, spaceCodeFilter } = this.data;
+    const spaceLabel = targetType === 'user' && spaceCodeFilter ? ` · 房间号 ${spaceCodeFilter}` : '';
     if (!startDate && !endDate) {
-      this.setData({ filterLabel: `最近 ${limit} 条日志 · 北京时间` });
+      this.setData({ filterLabel: `最近 ${limit} 条日志${spaceLabel} · 北京时间` });
       return;
     }
     const left = startDate || '开始';
     const right = endDate || '结束';
-    this.setData({ filterLabel: `${left} 至 ${right} · 北京时间` });
+    this.setData({ filterLabel: `${left} 至 ${right}${spaceLabel} · 北京时间` });
+  },
+
+  resolveSpaceFilter() {
+    const { targetType, spaceCodeFilter } = this.data;
+    if (targetType !== 'user') {
+      return Promise.resolve(null);
+    }
+    const code = (spaceCodeFilter || '').trim();
+    if (!code) {
+      return Promise.resolve(null);
+    }
+    return this.getSpaceIdByCode(code).then((spaceId) => {
+      if (!spaceId) {
+        wx.showToast({ title: '房间号不存在', icon: 'none' });
+        throw new Error('space-not-found');
+      }
+      return spaceId;
+    });
+  },
+
+  getSpaceIdByCode(code) {
+    if (this._spaceCodeMap && this._spaceCodeMap[code]) {
+      return Promise.resolve(this._spaceCodeMap[code]);
+    }
+    const { adminOpenId, adminRoomCode } = this.data;
+    if (!adminOpenId || !adminRoomCode) {
+      return Promise.resolve(null);
+    }
+    return new Promise((resolve) => {
+      wx.request({
+        url: `${BASE_URL}/api/settings/admin/spaces`,
+        data: { user_id: adminOpenId, room_code: adminRoomCode },
+        success: (res) => {
+          const list = Array.isArray(res.data?.spaces) ? res.data.spaces : [];
+          this._spaceCodeMap = list.reduce((acc, s) => {
+            const key = String(s.code || '');
+            if (key) acc[key] = s.space_id || s.id;
+            return acc;
+          }, {});
+          resolve(this._spaceCodeMap[code] || null);
+        },
+        fail: () => resolve(null)
+      });
+    });
   },
 
   fetchLogs({ reset }) {
-    const { adminOpenId, adminRoomCode, targetType, space, user, limit, startDate, endDate } = this.data;
+    const { adminOpenId, adminRoomCode, targetType, space, user, limit, startDate, endDate, spaceIdFilter } = this.data;
     if (!adminOpenId || !adminRoomCode) {
       this.setData({ loading: false, loadingMore: false });
       wx.showToast({ title: '缺少管理员信息', icon: 'none' });
@@ -165,6 +221,9 @@ Page({
     }
     if (targetType === 'user' && user.user_id) {
       params.target_user_id = user.user_id;
+    }
+    if (targetType === 'user' && spaceIdFilter) {
+      params.space_id = spaceIdFilter;
     }
     if (startDate) params.start_time = startDate;
     if (endDate) params.end_time = endDate;

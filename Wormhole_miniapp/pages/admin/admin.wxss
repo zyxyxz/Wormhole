@@ -20,7 +20,9 @@ page { overflow: hidden; }
 .user-main { flex: 1; min-width: 0; }
 .user-actions { display: flex; gap: 12rpx; }
 .user-actions.vertical { flex-direction: column; align-items: flex-end; gap: 8rpx; }
+.user-alias-row { display: flex; align-items: center; gap: 10rpx; cursor: pointer; }
 .user-alias { display: block; font-size: 30rpx; color: var(--text); }
+.user-alias-count { font-size: 22rpx; color: var(--text-muted); background: var(--panel); padding: 2rpx 10rpx; border-radius: 999rpx; }
 .user-id { display: block; font-size: 24rpx; color: var(--text-muted); }
 .space-row { padding: 16rpx 0; border-bottom: 1rpx solid var(--border); }
 .space-row:last-child { border-bottom: none; }
@@ -53,6 +55,11 @@ page { overflow: hidden; }
 .modal-title { font-size: 34rpx; font-weight: 700; text-align: center; margin-bottom: 16rpx; }
 .modal-meta { display: flex; justify-content: space-between; font-size: 26rpx; color: var(--text-muted); margin-bottom: 12rpx; }
 .modal-stats { display: flex; flex-wrap: wrap; gap: 16rpx; font-size: 24rpx; color: var(--text); margin-bottom: 16rpx; }
+.alias-list { margin-top: 10rpx; }
+.alias-row { display: flex; justify-content: space-between; align-items: center; padding: 10rpx 0; border-bottom: 1rpx solid var(--border); }
+.alias-row:last-child { border-bottom: none; }
+.alias-name { font-size: 26rpx; color: var(--text); }
+.alias-space { font-size: 22rpx; color: var(--text-muted); }
 .modal-section { margin-top: 20rpx; }
 .modal-section-head { font-size: 28rpx; font-weight: 600; margin-bottom: 10rpx; }
 .member-row { display: flex; flex-direction: column; border-bottom: 1rpx solid var(--border); padding: 8rpx 0; }

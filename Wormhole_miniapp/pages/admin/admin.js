@@ -37,6 +37,7 @@ Page({
     adminRoomCode: '',
     overview: {},
     users: [],
+    userGroups: [],
     loading: true,
     hasAccess: false,
     spaces: [],
@@ -47,7 +48,10 @@ Page({
     recentMessages: [],
     reviewMode: false,
     messagesLoading: false,
-    postsLoading: false
+    postsLoading: false,
+    showAliasModal: false,
+    activeAliasList: [],
+    activeUserId: ''
   },
   onLoad(options = {}) {
     const openid = wx.getStorageSync('openid') || '';
@@ -121,7 +125,8 @@ Page({
               ...u,
               created_at_bj: formatBeijingTime(u.created_at)
             }));
-            this.setData({ users: list });
+            this._userRaw = list;
+            this.updateUserGroups();
             resolve(res.data.users);
           } else {
             if (!silent) {
@@ -138,6 +143,60 @@ Page({
         }
       });
     });
+  },
+
+  updateUserGroups() {
+    const raw = Array.isArray(this._userRaw) ? this._userRaw : [];
+    const spaceCodeMap = this._spaceCodeMap || {};
+    const map = new Map();
+    raw.forEach((item) => {
+      const userId = item.user_id || '';
+      if (!userId) return;
+      let entry = map.get(userId);
+      if (!entry) {
+        entry = {
+          user_id: userId,
+          aliases: [],
+          _aliasKeys: new Set()
+        };
+        map.set(userId, entry);
+      }
+      const aliasText = (item.alias || '').trim();
+      const spaceId = item.space_id;
+      const spaceCode = spaceCodeMap[spaceId] || '';
+      const displayAlias = aliasText || maskOpenId(userId);
+      const key = `${aliasText}|${spaceId}`;
+      if (!entry._aliasKeys.has(key)) {
+        entry._aliasKeys.add(key);
+        entry.aliases.push({
+          alias: aliasText,
+          display: displayAlias,
+          space_id: spaceId,
+          space_code: spaceCode
+        });
+      }
+    });
+    const grouped = Array.from(map.values()).map((entry) => {
+      const names = [];
+      entry.aliases.forEach((a) => {
+        if (!names.includes(a.display)) {
+          names.push(a.display);
+        }
+      });
+      const maxShown = 3;
+      let summary = names.join(' / ');
+      if (names.length > maxShown) {
+        summary = `${names.slice(0, maxShown).join(' / ')} 等${names.length}个`;
+      }
+      return {
+        user_id: entry.user_id,
+        aliasSummary: summary || '未设置',
+        aliasCount: entry.aliases.length,
+        aliases: entry.aliases
+      };
+    });
+    grouped.sort((a, b) => (a.user_id > b.user_id ? 1 : -1));
+    this.setData({ userGroups: grouped });
   },
 
   refreshData(arg = {}) {
@@ -282,6 +341,11 @@ Page({
               created_at_bj: formatBeijingTime(s.created_at),
               owner_display: resolveDisplayName(s.owner_alias, s.owner_user_id)
             }));
+            this._spaceCodeMap = (res.data.spaces || []).reduce((acc, s) => {
+              acc[s.space_id || s.id] = s.code;
+              return acc;
+            }, {});
+            this.updateUserGroups();
             const filterOwner = (this.data.spaceOwnerFilter || '').trim();
             const spaceList = filterOwner
               ? spaces.filter(s => s.owner_user_id === filterOwner)
@@ -303,6 +367,22 @@ Page({
         }
       });
     });
+  },
+
+  openAliasModal(e) {
+    const index = e.currentTarget.dataset.index;
+    const list = Array.isArray(this.data.userGroups) ? this.data.userGroups : [];
+    const target = list[index];
+    if (!target) return;
+    this.setData({
+      showAliasModal: true,
+      activeAliasList: target.aliases || [],
+      activeUserId: target.user_id || ''
+    });
+  },
+
+  closeAliasModal() {
+    this.setData({ showAliasModal: false, activeAliasList: [], activeUserId: '' });
   },
 
   fetchRecentMessages(opts = {}) {

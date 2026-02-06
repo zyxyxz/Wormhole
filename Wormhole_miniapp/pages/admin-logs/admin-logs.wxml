@@ -8,6 +8,10 @@
   </view>
 
   <view class="filter-card">
+    <view class="filter-item full" wx:if="{{targetType === 'user'}}">
+      <text class="filter-label">房间号</text>
+      <input class="filter-input" placeholder="输入房间号" value="{{spaceCodeFilter}}" bindinput="onSpaceCodeInput" />
+    </view>
     <picker mode="date" value="{{startDate}}" bindchange="onStartDateChange">
       <view class="filter-item">
         <text class="filter-label">开始</text>

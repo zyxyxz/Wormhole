@@ -44,6 +44,10 @@ page {
   gap: 12rpx;
 }
 
+.filter-item.full {
+  grid-column: span 2;
+}
+
 .filter-item {
   background: var(--bg-secondary);
   border-radius: 14rpx;
@@ -60,6 +64,17 @@ page {
   font-size: 24rpx;
   font-weight: 600;
   margin-top: 6rpx;
+  color: var(--text);
+}
+
+.filter-input {
+  margin-top: 6rpx;
+  height: 60rpx;
+  border-radius: 12rpx;
+  padding: 0 12rpx;
+  background: var(--input);
+  border: 1rpx solid var(--border);
+  font-size: 24rpx;
   color: var(--text);
 }
 
