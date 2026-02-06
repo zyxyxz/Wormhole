@@ -147,8 +147,6 @@ async def admin_cleanup_spaces(
                 )
             )
         ),
-        ~exists().where(SpaceMapping.space_id == Space.id),
-        ~exists().where(SpaceCode.space_id == Space.id),
         ~exists().where(and_(SpaceMember.space_id == Space.id, SpaceMember.user_id != Space.owner_user_id)),
         ~exists().where(
             and_(
