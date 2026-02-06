@@ -8,6 +8,12 @@ page {
   font-family: "ZCOOL XiaoWei", "Songti SC", "STSong", "PingFang SC", serif;
 }
 
+.index-root {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
 .scrollarea { flex: 1; }
 
 .aurora-bg {
