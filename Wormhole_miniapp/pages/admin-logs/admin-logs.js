@@ -59,6 +59,26 @@ const ACTION_LEVELS = {
   space_unblock_member: 'minor'
 };
 
+function parseDetail(detail) {
+  if (!detail) return null;
+  try {
+    const parsed = JSON.parse(detail);
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function formatDetail(detail) {
+  if (!detail) return '';
+  const parsed = parseDetail(detail);
+  if (!parsed) return detail;
+  const items = Object.keys(parsed)
+    .filter((key) => parsed[key] !== null && parsed[key] !== undefined && typeof parsed[key] !== 'object')
+    .map((key) => `${key}: ${parsed[key]}`);
+  return items.join(' · ');
+}
+
 Page({
   data: {
     adminOpenId: '',
@@ -236,7 +256,9 @@ Page({
           created_at_bj: formatBeijingTime(item.created_at),
           action_label: ACTION_LABELS[item.action] || item.action || '操作',
           action_level: ACTION_LEVELS[item.action] || 'normal',
-          is_page_view: item.action === 'page_view'
+          is_page_view: item.action === 'page_view',
+          detail_text: formatDetail(item.detail),
+          content_preview: item.content_preview || ''
         }));
         const total = res.data?.total ?? 0;
         const merged = reset ? decorated : (this.data.logEntries || []).concat(decorated);

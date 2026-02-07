@@ -42,7 +42,11 @@
         <text class="log-page {{item.is_page_view ? 'muted' : ''}}">{{item.page || '-'}}</text>
         <text>{{item.created_at_bj}}</text>
       </view>
-      <view class="log-detail" wx:if="{{item.detail && !item.is_page_view}}">{{item.detail}}</view>
+      <view class="log-content" wx:if="{{item.content_preview && !item.is_page_view}}">
+        <text class="log-content-label">内容</text>
+        <text class="log-content-text">{{item.content_preview}}</text>
+      </view>
+      <view class="log-detail" wx:if="{{item.detail_text && !item.is_page_view}}">{{item.detail_text}}</view>
     </view>
     <view class="empty" wx:if="{{loading}}">加载中...</view>
     <view class="empty" wx:if="{{!loading && !logEntries.length}}">暂无日志</view>

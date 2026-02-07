@@ -17,6 +17,10 @@ class LogEntry(BaseModel):
     action: str
     page: str | None = None
     detail: str | None = None
+    message_content: str | None = None
+    post_content: str | None = None
+    comment_content: str | None = None
+    content_preview: str | None = None
     space_id: int | None = None
     ip: str | None = None
     created_at: datetime | None = None
