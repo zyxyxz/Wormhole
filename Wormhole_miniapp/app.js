@@ -63,14 +63,14 @@ const THEME_PRESETS = {
 const TAB_ICON_SETS = {
   light: [
     { icon: '/assets/icons/chat.png', selected: '/assets/icons/chat-active.png' },
-    { icon: '/assets/icons/notes.png', selected: '/assets/icons/notes-active.png' },
+    { icon: '/assets/icons/feed.png', selected: '/assets/icons/feed-active.png' },
     { icon: '/assets/icons/notebook.png', selected: '/assets/icons/notebook-active.png' },
     { icon: '/assets/icons/wallet.png', selected: '/assets/icons/wallet-active.png' },
     { icon: '/assets/icons/settings.png', selected: '/assets/icons/settings-active.png' }
   ],
   dark: [
     { icon: '/assets/icons/chat-dark.png', selected: '/assets/icons/chat-active.png' },
-    { icon: '/assets/icons/notes-dark.png', selected: '/assets/icons/notes-active.png' },
+    { icon: '/assets/icons/feed-dark.png', selected: '/assets/icons/feed-active.png' },
     { icon: '/assets/icons/notebook-dark.png', selected: '/assets/icons/notebook-active.png' },
     { icon: '/assets/icons/wallet-dark.png', selected: '/assets/icons/wallet-active.png' },
     { icon: '/assets/icons/settings-dark.png', selected: '/assets/icons/settings-active.png' }

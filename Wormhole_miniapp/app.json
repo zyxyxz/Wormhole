@@ -37,8 +37,8 @@
       {
         "pagePath": "pages/notes/notes",
         "text": "动态",
-        "iconPath": "/assets/icons/notes.png",
-        "selectedIconPath": "/assets/icons/notes-active.png"
+        "iconPath": "/assets/icons/feed.png",
+        "selectedIconPath": "/assets/icons/feed-active.png"
       },
       {
         "pagePath": "pages/notebook/notebook",
