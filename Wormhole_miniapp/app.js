@@ -4,6 +4,7 @@ const { BASE_URL } = require('./utils/config.js');
 const SPACE_ROUTES = new Set([
   'pages/chat/chat',
   'pages/notes/notes',
+  'pages/notebook/notebook',
   'pages/notes-activity/notes-activity',
   'pages/space/space',
   'pages/wallet/wallet',
@@ -18,7 +19,9 @@ const CUSTOM_NAV_ROUTES = new Set([
   'pages/index/index',
   'pages/chat/chat',
   'pages/notes/notes',
+  'pages/notebook/notebook',
   'pages/notes-activity/notes-activity',
+  'pages/note-edit/note-edit',
   'pages/wallet/wallet',
   'pages/settings/settings',
   'pages/notify/notify',
@@ -31,6 +34,7 @@ const CUSTOM_NAV_ROUTES = new Set([
 const TAB_ROUTES = new Set([
   'pages/chat/chat',
   'pages/notes/notes',
+  'pages/notebook/notebook',
   'pages/wallet/wallet',
   'pages/settings/settings'
 ]);
@@ -60,12 +64,14 @@ const TAB_ICON_SETS = {
   light: [
     { icon: '/assets/icons/chat.png', selected: '/assets/icons/chat-active.png' },
     { icon: '/assets/icons/notes.png', selected: '/assets/icons/notes-active.png' },
+    { icon: '/assets/icons/notebook.png', selected: '/assets/icons/notebook-active.png' },
     { icon: '/assets/icons/wallet.png', selected: '/assets/icons/wallet-active.png' },
     { icon: '/assets/icons/settings.png', selected: '/assets/icons/settings-active.png' }
   ],
   dark: [
     { icon: '/assets/icons/chat-dark.png', selected: '/assets/icons/chat-active.png' },
     { icon: '/assets/icons/notes-dark.png', selected: '/assets/icons/notes-active.png' },
+    { icon: '/assets/icons/notebook-dark.png', selected: '/assets/icons/notebook-active.png' },
     { icon: '/assets/icons/wallet-dark.png', selected: '/assets/icons/wallet-active.png' },
     { icon: '/assets/icons/settings-dark.png', selected: '/assets/icons/settings-active.png' }
   ]

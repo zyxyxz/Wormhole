@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from datetime import datetime
 from typing import List, Optional
 
@@ -13,8 +13,11 @@ class NoteCreate(NoteBase):
 
 class NoteResponse(NoteBase):
     id: int
+    space_id: Optional[int] = None
     user_id: str
     alias: Optional[str] = None
+    editable_by_others: bool = True
+    can_edit: Optional[bool] = None
     created_at: datetime
     updated_at: datetime
     
@@ -22,7 +25,7 @@ class NoteResponse(NoteBase):
         from_attributes = True
 
 class NoteListResponse(BaseModel):
-    notes: List[NoteResponse]
+    notes: List[NoteResponse] = Field(default_factory=list)
 
 class NoteUpdate(BaseModel):
     title: Optional[str] = None

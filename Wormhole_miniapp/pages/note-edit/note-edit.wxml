@@ -1,10 +1,61 @@
-<view class="container theme-root {{themeClass}}">
-  <input class="title" placeholder="标题" value="{{title}}" bindinput="onTitleInput" />
-  <textarea class="content" placeholder="内容" value="{{content}}" bindinput="onContentInput" />
-  <view class="row">
-    <text class="label">允许房间共享编辑</text>
-    <switch checked="{{allowEdit}}" bindchange="onToggleEdit" />
+<navigation-bar title="{{id ? '编辑笔记' : '新建笔记'}}" back="{{true}}" bind:back="onBack" home-button="{{true}}" bind:home="goHome" background="{{themeNavBg}}" color="{{themeNavText}}" />
+<view class="note-edit-page theme-root {{themeClass}}">
+  <view wx:if="{{loading}}" class="loading">加载中...</view>
+  <scroll-view wx:else class="note-edit-scroll" scroll-y="true">
+    <view class="section">
+      <input
+        class="title-input"
+        placeholder="笔记标题"
+        value="{{title}}"
+        bindinput="onTitleInput"
+        disabled="{{!canEdit}}"
+      />
+      <view class="perm-row">
+        <text class="perm-label">共享权限</text>
+        <radio-group class="perm-group" bindchange="onPermissionChange">
+          <label class="perm-item">
+            <radio value="readonly" checked="{{!allowEdit}}" disabled="{{!canEdit || permissionLocked}}" />
+            <text>只读共享</text>
+          </label>
+          <label class="perm-item">
+            <radio value="editable" checked="{{allowEdit}}" disabled="{{!canEdit || permissionLocked}}" />
+            <text>协作编辑</text>
+          </label>
+        </radio-group>
+      </view>
+    </view>
+
+    <view class="toolbar" wx:if="{{canEdit}}">
+      <view class="tool-btn" data-action="heading" bindtap="insertMarkdown">H2</view>
+      <view class="tool-btn" data-action="bold" bindtap="insertMarkdown">粗体</view>
+      <view class="tool-btn" data-action="list" bindtap="insertMarkdown">列表</view>
+      <view class="tool-btn" data-action="quote" bindtap="insertMarkdown">引用</view>
+      <view class="tool-btn" data-action="code" bindtap="insertMarkdown">代码</view>
+      <view class="tool-btn" data-action="link" bindtap="insertMarkdown">链接</view>
+    </view>
+
+    <view class="mode-tabs">
+      <view class="mode-tab {{mode==='edit' ? 'active' : ''}} {{!canEdit ? 'disabled' : ''}}" data-mode="edit" bindtap="switchMode">编辑</view>
+      <view class="mode-tab {{mode==='preview' ? 'active' : ''}}" data-mode="preview" bindtap="switchMode">预览</view>
+    </view>
+
+    <view class="editor-box" wx:if="{{mode==='edit'}}">
+      <textarea
+        class="content-input"
+        placeholder="支持 Markdown，开始记录吧..."
+        value="{{content}}"
+        bindinput="onContentInput"
+        disabled="{{!canEdit}}"
+      />
+      <view wx:if="{{!canEdit}}" class="readonly-tip">当前为只读共享笔记，你可以预览但不能编辑。</view>
+    </view>
+
+    <view class="preview-box" wx:if="{{mode==='preview'}}">
+      <rich-text nodes="{{previewHtml}}"></rich-text>
+    </view>
+  </scroll-view>
+
+  <view class="bottom-bar">
+    <button class="save-btn" bindtap="saveNote" loading="{{saving}}" disabled="{{!canEdit}}">保存</button>
   </view>
-  <button class="save" bindtap="saveNote">保存</button>
-  
 </view>

@@ -1,0 +1,118 @@
+page {
+  overflow: hidden;
+}
+
+.notebook-page {
+  height: calc(100vh - 44px - constant(safe-area-inset-top));
+  height: calc(100vh - 44px - env(safe-area-inset-top));
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.notebook-scroll {
+  flex: 1;
+  height: 100%;
+  min-height: 0;
+  padding: 20rpx;
+  box-sizing: border-box;
+}
+
+.notes-list {
+  padding-bottom: 120rpx;
+}
+
+.note-card {
+  margin-bottom: 16rpx;
+  padding: 20rpx;
+  border-radius: 18rpx;
+  background: var(--surface);
+  border: 1rpx solid var(--border);
+  box-shadow: var(--shadow-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+}
+
+.note-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12rpx;
+}
+
+.note-title {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: var(--text);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.note-tags {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+}
+
+.tag {
+  font-size: 22rpx;
+  padding: 6rpx 14rpx;
+  border-radius: 999rpx;
+}
+
+.tag.editable {
+  color: var(--primary-strong);
+  background: rgba(20, 184, 166, 0.16);
+}
+
+.tag.readonly {
+  color: #ea580c;
+  background: rgba(249, 115, 22, 0.16);
+}
+
+.delete-btn {
+  border-radius: 999rpx;
+  border: 1rpx solid var(--border);
+  color: var(--text-muted);
+  background: transparent;
+}
+
+.note-preview {
+  font-size: 26rpx;
+  line-height: 1.6;
+  color: var(--text);
+  word-break: break-word;
+}
+
+.note-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 22rpx;
+  color: var(--text-muted);
+}
+
+.fab {
+  position: fixed;
+  right: 34rpx;
+  bottom: calc(40rpx + env(safe-area-inset-bottom));
+  width: 96rpx;
+  height: 96rpx;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent-cyan), var(--accent-green));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-soft);
+}
+
+.fab-text {
+  font-size: 62rpx;
+  line-height: 1;
+  color: #0f172a;
+}

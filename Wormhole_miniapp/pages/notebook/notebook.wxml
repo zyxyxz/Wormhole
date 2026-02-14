@@ -1,0 +1,33 @@
+<navigation-bar title="笔记" back="{{false}}" home-button="{{true}}" bind:home="goHome" background="{{themeNavBg}}" color="{{themeNavText}}" />
+<view class="notebook-page theme-root {{themeClass}}">
+  <scroll-view
+    class="notebook-scroll"
+    scroll-y="true"
+    refresher-enabled="true"
+    refresher-triggered="{{refreshing}}"
+    bindrefresherrefresh="onPullDownRefresh"
+  >
+    <skeleton-list show="{{loading}}" rows="6" />
+    <view class="notes-list" wx:if="{{!loading}}">
+      <view class="note-card" wx:for="{{notes}}" wx:key="id" data-id="{{item.id}}" bindtap="openNote">
+        <view class="note-head">
+          <view class="note-title">{{item.title || '未命名笔记'}}</view>
+          <view class="note-tags">
+            <view class="tag {{item.permissionClass}}">{{item.permissionText}}</view>
+            <button wx:if="{{item.canDelete}}" class="delete-btn" size="mini" data-id="{{item.id}}" catchtap="deleteNote">删除</button>
+          </view>
+        </view>
+        <view class="note-preview">{{item.preview}}</view>
+        <view class="note-meta">
+          <text>作者：{{item.ownerName}}</text>
+          <text>{{item.displayTime}}</text>
+        </view>
+      </view>
+      <empty wx:if="{{!notes.length}}" text="还没有笔记，点击下方 + 新建" />
+    </view>
+  </scroll-view>
+
+  <view class="fab" bindtap="createNote">
+    <text class="fab-text">+</text>
+  </view>
+</view>

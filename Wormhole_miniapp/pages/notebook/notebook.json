@@ -1,0 +1,8 @@
+{
+  "navigationStyle": "custom",
+  "usingComponents": {
+    "navigation-bar": "/components/navigation-bar/navigation-bar",
+    "empty": "/components/empty/empty",
+    "skeleton-list": "/components/skeleton-list/skeleton-list"
+  }
+}
