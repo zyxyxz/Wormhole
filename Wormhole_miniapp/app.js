@@ -766,27 +766,51 @@ App({
     });
   },
 
-  onLaunch() {
-    this.patchNetworkSecurity();
-    this.initThemeManager();
-    // 登录获取openid
-    wx.login({
-      success: (res) => {
-        if (res.code) {
+  ensureOpenId(forceRefresh = false) {
+    let existing = '';
+    try {
+      existing = wx.getStorageSync('openid') || '';
+    } catch (e) {}
+    if (existing && !forceRefresh) {
+      return Promise.resolve(existing);
+    }
+    if (this._openidPromise && !forceRefresh) {
+      return this._openidPromise;
+    }
+    this._openidPromise = new Promise((resolve) => {
+      wx.login({
+        success: (res) => {
+          const code = res && res.code;
+          if (!code) {
+            resolve('');
+            return;
+          }
           wx.request({
             url: `${BASE_URL}/api/auth/login`,
             method: 'POST',
-            data: { code: res.code },
+            data: { code },
             success: (resp) => {
-              const openid = resp.data.openid || resp.data.data?.openid;
+              const openid = resp.data?.openid || resp.data?.data?.openid || '';
               if (openid) {
-                wx.setStorageSync('openid', openid);
+                try { wx.setStorageSync('openid', openid); } catch (e) {}
               }
-            }
+              resolve(openid || '');
+            },
+            fail: () => resolve('')
           });
-        }
-      }
+        },
+        fail: () => resolve('')
+      });
+    }).finally(() => {
+      this._openidPromise = null;
     });
+    return this._openidPromise;
+  },
+
+  onLaunch() {
+    this.patchNetworkSecurity();
+    this.initThemeManager();
+    this.ensureOpenId();
     this.loadSystemFlags();
   },
 

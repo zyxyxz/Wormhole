@@ -58,39 +58,47 @@ Page({
   onConfirm() {
     const code = this.data.spaceCode.join('');
     if (code.length !== 6) return;
-    const openid = wx.getStorageSync('openid') || '';
-    wx.request({
-      url: `${BASE_URL}/api/space/enter`,
-      method: 'POST',
-      data: { space_code: code, user_id: openid, create_if_missing: true },
-      success: (res) => {
-        const data = res.data || {};
-        const app = getApp && getApp();
-        if (data.admin_entry) {
-          this.resetSpaceCode(true);
-          wx.navigateTo({ url: `/pages/admin/admin?room_code=${code}` });
-          return;
-        }
-        if (data.success) {
-          wx.setStorageSync('currentSpaceId', data.space_id);
-          wx.setStorageSync('currentSpaceCode', code);
-          if (app && typeof app.primeRoomRuntimeConfig === 'function') {
-            app.primeRoomRuntimeConfig({ spaceId: data.space_id, themePreference: data.theme_preference || '' });
-          }
-          const review = !!wx.getStorageSync('reviewMode');
-          if (review) {
-            wx.reLaunch({ url: '/pages/notes/notes' });
-            try { wx.hideTabBar({ animation: false }); } catch (e) {}
-          } else {
-            wx.switchTab({ url: '/pages/chat/chat' });
-          }
-        } else {
-          wx.showToast({ title: data?.message || '进入失败', icon: 'none' });
-        }
-      },
-      fail: () => {
-        wx.showToast({ title: '网络异常', icon: 'none' });
+    const app = getApp && getApp();
+    const ensure = app && typeof app.ensureOpenId === 'function'
+      ? app.ensureOpenId()
+      : Promise.resolve(wx.getStorageSync('openid') || '');
+    ensure.then((openid) => {
+      if (!openid) {
+        wx.showToast({ title: '登录中，请稍后再试', icon: 'none' });
+        return;
       }
+      wx.request({
+        url: `${BASE_URL}/api/space/enter`,
+        method: 'POST',
+        data: { space_code: code, user_id: openid, create_if_missing: true },
+        success: (res) => {
+          const data = res.data || {};
+          if (data.admin_entry) {
+            this.resetSpaceCode(true);
+            wx.navigateTo({ url: `/pages/admin/admin?room_code=${code}` });
+            return;
+          }
+          if (data.success) {
+            wx.setStorageSync('currentSpaceId', data.space_id);
+            wx.setStorageSync('currentSpaceCode', code);
+            if (app && typeof app.primeRoomRuntimeConfig === 'function') {
+              app.primeRoomRuntimeConfig({ spaceId: data.space_id, themePreference: data.theme_preference || '' });
+            }
+            const review = !!wx.getStorageSync('reviewMode');
+            if (review) {
+              wx.reLaunch({ url: '/pages/notes/notes' });
+              try { wx.hideTabBar({ animation: false }); } catch (e) {}
+            } else {
+              wx.switchTab({ url: '/pages/chat/chat' });
+            }
+          } else {
+            wx.showToast({ title: data?.message || '进入失败', icon: 'none' });
+          }
+        },
+        fail: () => {
+          wx.showToast({ title: '网络异常', icon: 'none' });
+        }
+      });
     });
   },
 

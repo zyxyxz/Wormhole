@@ -25,7 +25,6 @@ Page({
 
   submit() {
     const { shareCode, newCode } = this.data;
-    const userId = wx.getStorageSync('openid');
     if (!shareCode || shareCode.length < 6) {
       wx.showToast({ title: '请输入分享口令', icon: 'none' });
       return;
@@ -34,31 +33,36 @@ Page({
       wx.showToast({ title: '请输入6位数字新空间号', icon: 'none' });
       return;
     }
-    if (!userId) {
-      wx.showToast({ title: '未登录', icon: 'none' });
-      return;
-    }
-    wx.request({
-      url: `${BASE_URL}/api/space/join-by-share`,
-      method: 'POST',
-      data: { share_code: shareCode, new_code: newCode, user_id: userId },
-      success: (res) => {
-        const app = getApp && getApp();
-        if (res.statusCode === 200 && res.data.success) {
-          wx.setStorageSync('currentSpaceId', res.data.space_id);
-          wx.setStorageSync('currentSpaceCode', newCode);
-          if (app && typeof app.primeRoomRuntimeConfig === 'function') {
-            app.primeRoomRuntimeConfig({ spaceId: res.data.space_id, themePreference: res.data.theme_preference || '' });
-          }
-          wx.switchTab({ url: '/pages/chat/chat' });
-        } else {
-          const msg = res.data.detail || res.data.message || '加入失败';
-          wx.showToast({ title: msg, icon: 'none' });
-        }
-      },
-      fail: () => {
-        wx.showToast({ title: '网络异常', icon: 'none' });
+    const app = getApp && getApp();
+    const ensure = app && typeof app.ensureOpenId === 'function'
+      ? app.ensureOpenId()
+      : Promise.resolve(wx.getStorageSync('openid') || '');
+    ensure.then((userId) => {
+      if (!userId) {
+        wx.showToast({ title: '登录中，请稍后再试', icon: 'none' });
+        return;
       }
+      wx.request({
+        url: `${BASE_URL}/api/space/join-by-share`,
+        method: 'POST',
+        data: { share_code: shareCode, new_code: newCode, user_id: userId },
+        success: (res) => {
+          if (res.statusCode === 200 && res.data.success) {
+            wx.setStorageSync('currentSpaceId', res.data.space_id);
+            wx.setStorageSync('currentSpaceCode', newCode);
+            if (app && typeof app.primeRoomRuntimeConfig === 'function') {
+              app.primeRoomRuntimeConfig({ spaceId: res.data.space_id, themePreference: res.data.theme_preference || '' });
+            }
+            wx.switchTab({ url: '/pages/chat/chat' });
+          } else {
+            const msg = res.data.detail || res.data.message || '加入失败';
+            wx.showToast({ title: msg, icon: 'none' });
+          }
+        },
+        fail: () => {
+          wx.showToast({ title: '网络异常', icon: 'none' });
+        }
+      });
     });
   }
 });
