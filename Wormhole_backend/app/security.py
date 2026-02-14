@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import HTTPException, Request
 from jose import JWTError, jwt
 from sqlalchemy import select
@@ -22,6 +24,47 @@ TOKEN_HEADER_NAMES = _split_header_names(
 )
 JWT_SECRET = settings.AUTH_JWT_SECRET or settings.WECHAT_APP_SECRET or "wormhole-dev-secret"
 JWT_ALGORITHM = settings.AUTH_JWT_ALGORITHM or "HS256"
+logger = logging.getLogger("wormhole.security")
+
+
+def _mask_user_id(user_id: str | None) -> str:
+    value = (user_id or "").strip()
+    if not value:
+        return "-"
+    if len(value) <= 8:
+        return value
+    return f"{value[:4]}...{value[-4:]}"
+
+
+def _audit_auth_failure(
+    request: Request | None,
+    reason: str,
+    *,
+    claimed_user_id: str | None = None,
+    declared_user_id: str | None = None,
+    token_present: bool | None = None,
+) -> None:
+    if not request:
+        logger.warning("AUTH_DENY reason=%s", reason)
+        return
+    path = getattr(getattr(request, "url", None), "path", "-")
+    method = getattr(request, "method", "-")
+    client = getattr(request, "client", None)
+    ip = getattr(client, "host", "-") if client else "-"
+    if declared_user_id is None:
+        declared_user_id = _extract_declared_user_id(request)
+    if token_present is None:
+        token_present = bool(_extract_auth_token(request))
+    logger.warning(
+        "AUTH_DENY reason=%s method=%s path=%s ip=%s claimed=%s declared=%s token_present=%s",
+        reason,
+        method,
+        path,
+        ip,
+        _mask_user_id(claimed_user_id),
+        _mask_user_id(declared_user_id),
+        int(bool(token_present)),
+    )
 
 
 def _extract_declared_user_id(request: Request) -> str | None:
@@ -68,27 +111,36 @@ def _extract_auth_token(request: Request) -> str | None:
     return token or None
 
 
-def _decode_token_user_id(token: str | None, *, strict: bool) -> str | None:
+def _decode_token_user_id(token: str | None, *, strict: bool, request: Request | None = None) -> str | None:
     if not token:
         return None
     try:
         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
     except JWTError:
         if strict:
+            _audit_auth_failure(request, "invalid_token", token_present=True)
             raise HTTPException(status_code=401, detail="无效登录凭证")
         return None
     subject = payload.get("sub")
     if not subject:
         if strict:
+            _audit_auth_failure(request, "token_missing_sub", token_present=True)
             raise HTTPException(status_code=401, detail="登录凭证缺少用户信息")
         return None
     return str(subject)
 
 
 def get_header_user_id(request: Request) -> str | None:
-    token_user_id = _decode_token_user_id(_extract_auth_token(request), strict=False)
+    token_user_id = _decode_token_user_id(_extract_auth_token(request), strict=False, request=request)
     declared_user_id = _extract_declared_user_id(request)
     if token_user_id and declared_user_id and token_user_id != declared_user_id:
+        _audit_auth_failure(
+            request,
+            "token_declared_mismatch",
+            claimed_user_id=token_user_id,
+            declared_user_id=declared_user_id,
+            token_present=True,
+        )
         return None
     return token_user_id or declared_user_id
 
@@ -100,16 +152,37 @@ def verify_request_user(
     required: bool = True,
 ) -> str | None:
     token = _extract_auth_token(request)
-    token_user_id = _decode_token_user_id(token, strict=bool(token))
+    token_user_id = _decode_token_user_id(token, strict=bool(token), request=request)
     declared_user_id = _extract_declared_user_id(request)
 
     if token_user_id and declared_user_id and token_user_id != declared_user_id:
+        _audit_auth_failure(
+            request,
+            "token_declared_mismatch",
+            claimed_user_id=claimed_user_id,
+            declared_user_id=declared_user_id,
+            token_present=True,
+        )
         raise HTTPException(status_code=403, detail="登录凭证与用户头不匹配")
 
     header_user_id = token_user_id or declared_user_id
     if required and not header_user_id:
+        _audit_auth_failure(
+            request,
+            "missing_identity",
+            claimed_user_id=claimed_user_id,
+            declared_user_id=declared_user_id,
+            token_present=bool(token),
+        )
         raise HTTPException(status_code=401, detail="缺少用户身份")
     if claimed_user_id and header_user_id and claimed_user_id != header_user_id:
+        _audit_auth_failure(
+            request,
+            "claimed_mismatch",
+            claimed_user_id=claimed_user_id,
+            declared_user_id=declared_user_id,
+            token_present=bool(token),
+        )
         raise HTTPException(status_code=403, detail="用户身份不匹配")
     return claimed_user_id or header_user_id
 
