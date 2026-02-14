@@ -290,7 +290,7 @@ async def delete_message(payload: MessageDeleteRequest, request: Request, db: As
 async def unread_count(space_id: int, user_id: str, request: Request, db: AsyncSession = Depends(get_db)):
     if not user_id:
         raise HTTPException(status_code=400, detail="缺少用户ID")
-    verify_request_user(request, user_id)
+    verify_request_user(request, user_id, required=False)
     await require_space_member(db, space_id, user_id)
     mem_res = await db.execute(select(SpaceMember).where(SpaceMember.space_id == space_id, SpaceMember.user_id == user_id))
     mem = mem_res.scalar_one_or_none()

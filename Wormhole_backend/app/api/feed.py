@@ -473,7 +473,9 @@ async def activity_list(
 
 @router.get("/unread-count")
 async def unread_count(space_id: int, request: Request, since_ts: int | None = None, user_id: str | None = None, db: AsyncSession = Depends(get_db)):
-    actor_user_id = verify_request_user(request, user_id, required=True)
+    actor_user_id = verify_request_user(request, user_id, required=False)
+    if not actor_user_id:
+        raise HTTPException(status_code=401, detail="缺少用户身份")
     await require_space_member(db, space_id, actor_user_id)
     user_id = user_id or actor_user_id
     if not since_ts:

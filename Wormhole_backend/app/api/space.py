@@ -56,7 +56,8 @@ async def enter_space(
     # 需要明确的用户身份，才能保证空间号仅在用户范围内唯一
     if not request.user_id:
         raise HTTPException(status_code=400, detail="缺少用户ID")
-    verify_request_user(req, request.user_id)
+    # 兼容 iOS 下自定义头可能被网关丢失的场景：进入空间阶段允许以 body.user_id 作为兜底身份。
+    verify_request_user(req, request.user_id, required=False)
 
     # 验证空间号格式
     if not request.space_code.isdigit() or len(request.space_code) != 6:
