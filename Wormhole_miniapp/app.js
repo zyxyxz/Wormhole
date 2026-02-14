@@ -221,6 +221,25 @@ App({
     );
   },
 
+  getCachedAccessToken() {
+    try {
+      return wx.getStorageSync('accessToken') || '';
+    } catch (e) {
+      return '';
+    }
+  },
+
+  appendAuthTokenToUrl(url = '', token = '') {
+    const source = String(url || '');
+    if (!source || !token) return source;
+    if (/[?&](token|access_token)=/.test(source)) return source;
+    const hashIndex = source.indexOf('#');
+    const base = hashIndex >= 0 ? source.slice(0, hashIndex) : source;
+    const hash = hashIndex >= 0 ? source.slice(hashIndex) : '';
+    const sep = base.includes('?') ? '&' : '?';
+    return `${base}${sep}access_token=${encodeURIComponent(token)}${hash}`;
+  },
+
   getAuthHeaders(extra = {}, requestOptions = null) {
     const headers = Object.assign({}, extra || {});
     let openid = '';
@@ -253,16 +272,22 @@ App({
 
     const originalRequest = wx.request;
     wx.request = function (options = {}) {
+      const token = app.getCachedAccessToken();
+      const nextUrl = app.appendAuthTokenToUrl(options.url || '', token);
       const nextOptions = Object.assign({}, options, {
-        header: app.getAuthHeaders(options.header || {}, options)
+        url: nextUrl,
+        header: app.getAuthHeaders(options.header || {}, { ...options, url: nextUrl })
       });
       return originalRequest.call(wx, nextOptions);
     };
 
     const originalUploadFile = wx.uploadFile;
     wx.uploadFile = function (options = {}) {
+      const token = app.getCachedAccessToken();
+      const nextUrl = app.appendAuthTokenToUrl(options.url || '', token);
       const nextOptions = Object.assign({}, options, {
-        header: app.getAuthHeaders(options.header || {}, options)
+        url: nextUrl,
+        header: app.getAuthHeaders(options.header || {}, { ...options, url: nextUrl })
       });
       return originalUploadFile.call(wx, nextOptions);
     };
@@ -270,11 +295,8 @@ App({
     const originalConnectSocket = wx.connectSocket;
     wx.connectSocket = function (options = {}) {
       let nextUrl = options.url || '';
-      let accessToken = '';
-      try { accessToken = wx.getStorageSync('accessToken') || ''; } catch (e) {}
-      if (accessToken && nextUrl && !/[?&](token|access_token)=/.test(nextUrl)) {
-        nextUrl = `${nextUrl}${nextUrl.includes('?') ? '&' : '?'}token=${encodeURIComponent(accessToken)}`;
-      }
+      const accessToken = app.getCachedAccessToken();
+      nextUrl = app.appendAuthTokenToUrl(nextUrl, accessToken);
       const nextOptions = Object.assign({}, options, {
         url: nextUrl,
         header: app.getAuthHeaders(options.header || {}, { ...options, url: nextUrl })
