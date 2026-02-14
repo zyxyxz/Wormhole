@@ -190,12 +190,49 @@ App({
     themeTabBorderStyle: THEME_PRESETS.light.tabBorderStyle
   },
 
-  getAuthHeaders(extra = {}) {
+  parseUserIdFromUrl(url = '') {
+    const text = String(url || '');
+    if (!text) return '';
+    const match = text.match(/[?&](user_id|operator_user_id)=([^&]+)/);
+    if (!match || !match[2]) return '';
+    try {
+      return decodeURIComponent(match[2]);
+    } catch (e) {
+      return match[2];
+    }
+  },
+
+  pickUserIdFromPayload(payload) {
+    if (!payload) return '';
+    if (typeof payload === 'string') {
+      try {
+        return this.pickUserIdFromPayload(JSON.parse(payload));
+      } catch (e) {
+        return '';
+      }
+    }
+    if (typeof payload !== 'object') return '';
+    return (
+      payload.user_id
+      || payload.userId
+      || payload.operator_user_id
+      || payload.operatorUserId
+      || ''
+    );
+  },
+
+  getAuthHeaders(extra = {}, requestOptions = null) {
     const headers = Object.assign({}, extra || {});
     let openid = '';
     try {
       openid = wx.getStorageSync('openid') || '';
     } catch (e) {}
+    if (!openid && requestOptions) {
+      openid = this.pickUserIdFromPayload(requestOptions.data)
+        || this.pickUserIdFromPayload(requestOptions.formData)
+        || this.parseUserIdFromUrl(requestOptions.url)
+        || '';
+    }
     if (openid) {
       headers['X-User-Id'] = openid;
       headers['X-Openid'] = openid;
@@ -211,7 +248,7 @@ App({
     const originalRequest = wx.request;
     wx.request = function (options = {}) {
       const nextOptions = Object.assign({}, options, {
-        header: app.getAuthHeaders(options.header || {})
+        header: app.getAuthHeaders(options.header || {}, options)
       });
       return originalRequest.call(wx, nextOptions);
     };
@@ -219,7 +256,7 @@ App({
     const originalUploadFile = wx.uploadFile;
     wx.uploadFile = function (options = {}) {
       const nextOptions = Object.assign({}, options, {
-        header: app.getAuthHeaders(options.header || {})
+        header: app.getAuthHeaders(options.header || {}, options)
       });
       return originalUploadFile.call(wx, nextOptions);
     };
@@ -234,7 +271,7 @@ App({
       }
       const nextOptions = Object.assign({}, options, {
         url: nextUrl,
-        header: app.getAuthHeaders(options.header || {})
+        header: app.getAuthHeaders(options.header || {}, { ...options, url: nextUrl })
       });
       return originalConnectSocket.call(wx, nextOptions);
     };
