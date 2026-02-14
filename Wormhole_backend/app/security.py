@@ -22,6 +22,10 @@ def verify_request_user(
     required: bool = True,
 ) -> str | None:
     header_user_id = get_header_user_id(request)
+    # iOS 真机网络调试里有时看不到（或网关丢失）自定义头，这里兼容回退到已声明的 user_id。
+    # 若同时存在 header 与 declared user_id，仍严格比对防止串号。
+    if not header_user_id and claimed_user_id:
+        return claimed_user_id
     if required and not header_user_id:
         raise HTTPException(status_code=401, detail="缺少用户身份")
     if claimed_user_id and header_user_id and claimed_user_id != header_user_id:
@@ -56,4 +60,3 @@ async def require_space_owner(db: AsyncSession, space_id: int, user_id: str) -> 
     if space.owner_user_id != user_id:
         raise HTTPException(status_code=403, detail="仅房主可操作")
     return space
-
