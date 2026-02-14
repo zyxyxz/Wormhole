@@ -228,7 +228,10 @@ Page({
     this._wsShouldReconnect = true;
     this._wsSpaceId = this.data.spaceId;
     this._wsConnecting = true;
-    const url = `${WS_URL}/ws/chat/${this.data.spaceId}`;
+    const userId = this._currentUserId || wx.getStorageSync('openid') || '';
+    const url = userId
+      ? `${WS_URL}/ws/chat/${this.data.spaceId}?user_id=${encodeURIComponent(userId)}`
+      : `${WS_URL}/ws/chat/${this.data.spaceId}`;
     const ws = wx.connectSocket({ url });
 
     ws.onOpen(() => {
@@ -368,12 +371,12 @@ Page({
 
   fetchSpaceInfo() {
     if (!this.data.spaceId) return;
+    const myId = this._currentUserId || wx.getStorageSync('openid') || '';
     wx.request({
       url: `${BASE_URL}/api/space/info`,
-      data: { space_id: this.data.spaceId },
+      data: { space_id: this.data.spaceId, user_id: myId },
       success: (res) => {
         const info = res.data || {};
-        const myId = this._currentUserId || wx.getStorageSync('openid');
         const ownerId = info.owner_user_id || '';
         this.setData({ ownerUserId: ownerId, isOwner: !!ownerId && ownerId === myId });
       }
@@ -382,9 +385,10 @@ Page({
 
   fetchMembers() {
     if (!this.data.spaceId) return;
+    const myId = this._currentUserId || wx.getStorageSync('openid') || '';
     wx.request({
       url: `${BASE_URL}/api/space/members`,
-      data: { space_id: this.data.spaceId },
+      data: { space_id: this.data.spaceId, user_id: myId },
       success: (res) => {
         if (res.statusCode !== 200) return;
         const members = Array.isArray(res.data?.members) ? res.data.members : [];
@@ -407,9 +411,10 @@ Page({
 
   fetchReadState() {
     if (!this.data.spaceId) return;
+    const myId = this._currentUserId || wx.getStorageSync('openid') || '';
     wx.request({
       url: `${BASE_URL}/api/chat/readers`,
-      data: { space_id: this.data.spaceId },
+      data: { space_id: this.data.spaceId, user_id: myId },
       success: (res) => {
         if (res.statusCode !== 200) return;
         const readers = Array.isArray(res.data?.readers) ? res.data.readers : [];
@@ -419,7 +424,6 @@ Page({
             map[r.user_id] = r.last_read_message_id || 0;
           }
         });
-        const myId = this._currentUserId || wx.getStorageSync('openid');
         const selfReader = readers.find(r => r.user_id === myId);
         const serverLastRead = selfReader?.last_read_message_id || 0;
         if (serverLastRead && serverLastRead > (this.data.lastReadId || 0)) {
@@ -991,7 +995,8 @@ Page({
     }
     this.setData({ historyLoading: true });
     const limit = this.data.historyLimit || 50;
-    const params = { space_id: this.data.spaceId, limit };
+    const userId = this._currentUserId || wx.getStorageSync('openid') || '';
+    const params = { space_id: this.data.spaceId, limit, user_id: userId };
     if (beforeId) params.before_id = beforeId;
     wx.request({
       url: `${BASE_URL}/api/chat/history`,
@@ -1549,9 +1554,10 @@ Page({
       this.getHistoryMessages({ reset: true });
       return;
     }
+    const userId = this._currentUserId || wx.getStorageSync('openid') || '';
     wx.request({
       url: `${BASE_URL}/api/chat/history`,
-      data: { space_id: this.data.spaceId, limit: 1 },
+      data: { space_id: this.data.spaceId, limit: 1, user_id: userId },
       success: (res) => {
         if (res.statusCode !== 200) return;
         const latest = (res.data?.messages || [])[0];

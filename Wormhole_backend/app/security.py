@@ -67,6 +67,28 @@ def _audit_auth_failure(
     )
 
 
+def _audit_auth_fallback(
+    request: Request | None,
+    *,
+    user_id: str | None,
+    source: str,
+) -> None:
+    if not request:
+        return
+    path = getattr(getattr(request, "url", None), "path", "-")
+    method = getattr(request, "method", "-")
+    client = getattr(request, "client", None)
+    ip = getattr(client, "host", "-") if client else "-"
+    logger.info(
+        "AUTH_FALLBACK source=%s method=%s path=%s ip=%s user=%s",
+        source,
+        method,
+        path,
+        ip,
+        _mask_user_id(user_id),
+    )
+
+
 def _extract_declared_user_id(request: Request) -> str | None:
     if not request:
         return None
@@ -75,6 +97,19 @@ def _extract_declared_user_id(request: Request) -> str | None:
         return None
     for name in USER_HEADER_NAMES:
         value = headers.get(name)
+        if value:
+            return value.strip()
+    return None
+
+
+def _extract_query_user_id(request: Request) -> str | None:
+    if not request:
+        return None
+    query = getattr(request, "query_params", None)
+    if not query:
+        return None
+    for key in ("user_id", "operator_user_id", "auth_user", "openid"):
+        value = query.get(key)
         if value:
             return value.strip()
     return None
@@ -133,6 +168,7 @@ def _decode_token_user_id(token: str | None, *, strict: bool, request: Request |
 def get_header_user_id(request: Request) -> str | None:
     token_user_id = _decode_token_user_id(_extract_auth_token(request), strict=False, request=request)
     declared_user_id = _extract_declared_user_id(request)
+    query_user_id = _extract_query_user_id(request)
     if token_user_id and declared_user_id and token_user_id != declared_user_id:
         _audit_auth_failure(
             request,
@@ -142,7 +178,27 @@ def get_header_user_id(request: Request) -> str | None:
             token_present=True,
         )
         return None
-    return token_user_id or declared_user_id
+    if token_user_id and query_user_id and token_user_id != query_user_id:
+        _audit_auth_failure(
+            request,
+            "token_query_mismatch",
+            claimed_user_id=query_user_id,
+            declared_user_id=token_user_id,
+            token_present=True,
+        )
+        return None
+    if declared_user_id and query_user_id and declared_user_id != query_user_id:
+        _audit_auth_failure(
+            request,
+            "declared_query_mismatch",
+            claimed_user_id=query_user_id,
+            declared_user_id=declared_user_id,
+            token_present=bool(token_user_id),
+        )
+        return None
+    if query_user_id and not (token_user_id or declared_user_id):
+        _audit_auth_fallback(request, user_id=query_user_id, source="query")
+    return token_user_id or declared_user_id or query_user_id
 
 
 def verify_request_user(
@@ -154,6 +210,7 @@ def verify_request_user(
     token = _extract_auth_token(request)
     token_user_id = _decode_token_user_id(token, strict=bool(token), request=request)
     declared_user_id = _extract_declared_user_id(request)
+    query_user_id = _extract_query_user_id(request)
 
     if token_user_id and declared_user_id and token_user_id != declared_user_id:
         _audit_auth_failure(
@@ -165,16 +222,18 @@ def verify_request_user(
         )
         raise HTTPException(status_code=403, detail="登录凭证与用户头不匹配")
 
-    header_user_id = token_user_id or declared_user_id
-    if required and not header_user_id:
+    if claimed_user_id and query_user_id and claimed_user_id != query_user_id:
         _audit_auth_failure(
             request,
-            "missing_identity",
+            "claimed_query_mismatch",
             claimed_user_id=claimed_user_id,
-            declared_user_id=declared_user_id,
+            declared_user_id=query_user_id,
             token_present=bool(token),
         )
-        raise HTTPException(status_code=401, detail="缺少用户身份")
+        raise HTTPException(status_code=403, detail="请求用户参数不匹配")
+
+    header_user_id = token_user_id or declared_user_id
+    fallback_user_id = claimed_user_id or query_user_id
     if claimed_user_id and header_user_id and claimed_user_id != header_user_id:
         _audit_auth_failure(
             request,
@@ -184,7 +243,34 @@ def verify_request_user(
             token_present=bool(token),
         )
         raise HTTPException(status_code=403, detail="用户身份不匹配")
-    return claimed_user_id or header_user_id
+    if query_user_id and header_user_id and query_user_id != header_user_id:
+        _audit_auth_failure(
+            request,
+            "query_mismatch",
+            claimed_user_id=query_user_id,
+            declared_user_id=header_user_id,
+            token_present=bool(token),
+        )
+        raise HTTPException(status_code=403, detail="请求用户身份不匹配")
+    if header_user_id:
+        return claimed_user_id or header_user_id
+    if fallback_user_id:
+        _audit_auth_fallback(
+            request,
+            user_id=fallback_user_id,
+            source="claimed" if claimed_user_id else "query",
+        )
+        return fallback_user_id
+    if required:
+        _audit_auth_failure(
+            request,
+            "missing_identity",
+            claimed_user_id=claimed_user_id,
+            declared_user_id=declared_user_id,
+            token_present=bool(token),
+        )
+        raise HTTPException(status_code=401, detail="缺少用户身份")
+    return None
 
 
 async def require_space_member(
