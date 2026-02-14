@@ -357,6 +357,42 @@ Page({
     });
   },
 
+  previewLive(e) {
+    const { cover = '', video = '' } = e.currentTarget.dataset || {};
+    if (!video) {
+      if (cover) {
+        this.previewImage({ currentTarget: { dataset: { urls: [cover], current: cover } } });
+      }
+      return;
+    }
+    const app = getApp && getApp();
+    if (app && typeof app.enterForegroundHold === 'function') {
+      this._previewHoldActive = true;
+      app.enterForegroundHold(60000);
+    } else if (app && typeof app.markTemporaryForegroundAllowed === 'function') {
+      this._previewHoldActive = true;
+      app.markTemporaryForegroundAllowed();
+    } else if (app && app.globalData) {
+      this._previewHoldActive = true;
+      app.globalData.skipNextHideRedirect = true;
+    }
+    if (wx.previewMedia) {
+      wx.previewMedia({
+        sources: [{
+          url: video,
+          type: 'video',
+          poster: cover || ''
+        }]
+      });
+      return;
+    }
+    if (cover) {
+      wx.previewImage({ current: cover, urls: [cover] });
+      return;
+    }
+    wx.showToast({ title: '当前版本暂不支持预览', icon: 'none' });
+  },
+
   deletePost(e) {
     const postId = e.currentTarget.dataset.id;
     const operator = this.data.myUserId;

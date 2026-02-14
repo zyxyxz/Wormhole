@@ -61,6 +61,14 @@
         </view>
       </picker>
 
+      <view class="settings-item" bindtap="openNotifySettings">
+        <text>通知渠道</text>
+        <view class="settings-item-right">
+          <text class="space-code">飞书 / PushBear</text>
+          <text class="arrow">></text>
+        </view>
+      </view>
+
       <view class="settings-item">
         <text>离开小程序自动锁定</text>
         <switch checked="{{autoLockOnHide}}" color="#14B8A6" bindchange="toggleAutoLockOnHide" />

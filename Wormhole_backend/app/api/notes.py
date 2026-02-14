@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.database import get_db
+from app.security import verify_request_user, require_space_member
 from models.notes import Note as DBNote
 from models.user import UserAlias
 from schemas.notes import NoteCreate, NoteResponse, NoteListResponse, NoteBase, NoteUpdate
@@ -14,8 +15,11 @@ router = APIRouter()
 @router.get("", response_model=NoteListResponse)
 async def get_notes(
     space_id: int,
+    request: Request,
     db: AsyncSession = Depends(get_db)
 ):
+    actor_user_id = verify_request_user(request)
+    await require_space_member(db, space_id, actor_user_id)
     query = select(DBNote).where(DBNote.space_id == space_id, DBNote.deleted_at.is_(None)).order_by(DBNote.created_at.desc())
     result = await db.execute(query)
     notes = result.scalars().all()
@@ -42,6 +46,8 @@ async def create_note(
     request: Request,
     db: AsyncSession = Depends(get_db)
 ):
+    actor_user_id = verify_request_user(request, note.user_id)
+    await require_space_member(db, note.space_id, actor_user_id)
     db_note = DBNote(**note.dict())
     db.add(db_note)
     await db.commit()
@@ -86,6 +92,8 @@ async def update_note(
     
     if not db_note:
         raise HTTPException(status_code=404, detail="笔记不存在")
+    actor_user_id = verify_request_user(request, note.user_id)
+    await require_space_member(db, db_note.space_id, actor_user_id)
     # 权限：作者本人可以编辑全部；他人仅在 editable_by_others=True 时可改 title/content，不可改 editable_by_others
     is_author = (note.user_id == db_note.user_id)
     if not is_author and not getattr(db_note, 'editable_by_others', True):
@@ -126,6 +134,7 @@ async def update_note(
 
 @router.delete("/{note_id}")
 async def delete_note(note_id: int, request: Request, user_id: str = Query(...), db: AsyncSession = Depends(get_db)):
+    actor_user_id = verify_request_user(request, user_id)
     q = select(DBNote).where(DBNote.id == note_id, DBNote.deleted_at.is_(None))
     r = await db.execute(q)
     db_note = r.scalar_one_or_none()
@@ -133,6 +142,7 @@ async def delete_note(note_id: int, request: Request, user_id: str = Query(...),
         raise HTTPException(status_code=404, detail="笔记不存在")
     if user_id != db_note.user_id:
         raise HTTPException(status_code=403, detail="仅作者可删除")
+    await require_space_member(db, db_note.space_id, actor_user_id)
     db_note.deleted_at = datetime.utcnow()
     add_operation_log(
         db,

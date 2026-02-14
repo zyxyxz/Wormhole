@@ -10,7 +10,7 @@ class Post(Base):
     space_id = Column(Integer, ForeignKey("spaces.id"), index=True)
     user_id = Column(String, index=True)
     content = Column(Text, default="")
-    media_type = Column(String, default="none")  # none|image|video
+    media_type = Column(String, default="none")  # none|image|video|live
     media_urls = Column(Text, default="[]")  # JSON array string
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())

@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.database import get_db
+from app.security import verify_request_user, require_space_member
 from models.user import UserAlias
 from schemas.user import AliasSetRequest, AliasResponse
 from app.ws import event_manager
@@ -11,7 +12,9 @@ from app.utils.operation_log import add_operation_log
 router = APIRouter()
 
 @router.get("/alias", response_model=AliasResponse | None)
-async def get_alias(space_id: int, user_id: str, db: AsyncSession = Depends(get_db)):
+async def get_alias(space_id: int, user_id: str, request: Request, db: AsyncSession = Depends(get_db)):
+    actor_user_id = verify_request_user(request, user_id)
+    await require_space_member(db, space_id, actor_user_id)
     res = await db.execute(select(UserAlias).where(UserAlias.space_id == space_id, UserAlias.user_id == user_id))
     alias = res.scalar_one_or_none()
     if not alias:
@@ -26,6 +29,8 @@ async def get_alias(space_id: int, user_id: str, db: AsyncSession = Depends(get_
 
 @router.post("/set-alias", response_model=AliasResponse)
 async def set_alias(payload: AliasSetRequest, request: Request, db: AsyncSession = Depends(get_db)):
+    actor_user_id = verify_request_user(request, payload.user_id)
+    await require_space_member(db, payload.space_id, actor_user_id)
     res = await db.execute(select(UserAlias).where(UserAlias.space_id == payload.space_id, UserAlias.user_id == payload.user_id))
     alias = res.scalar_one_or_none()
     avatar_url = strip_url(payload.avatar_url)

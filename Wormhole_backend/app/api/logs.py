@@ -10,6 +10,7 @@ from models.chat import Message
 from models.feed import Post, Comment
 from schemas.logs import LogCreateRequest, LogListResponse, LogEntry
 from app.api.settings import verify_admin
+from app.security import verify_request_user, require_space_member
 
 router = APIRouter()
 
@@ -18,6 +19,9 @@ router = APIRouter()
 async def track_log(payload: LogCreateRequest, request: Request, db: AsyncSession = Depends(get_db)):
     if not payload.user_id or not payload.action:
         raise HTTPException(status_code=400, detail="缺少用户或动作")
+    actor_user_id = verify_request_user(request, payload.user_id)
+    if payload.space_id is not None:
+        await require_space_member(db, payload.space_id, actor_user_id)
     ip = request.client.host if request.client else None
     log = OperationLog(
         user_id=payload.user_id,
@@ -34,6 +38,7 @@ async def track_log(payload: LogCreateRequest, request: Request, db: AsyncSessio
 
 @router.get("/admin/list", response_model=LogListResponse)
 async def admin_list_logs(
+    request: Request,
     user_id: str,
     room_code: str,
     target_user_id: str | None = None,
@@ -46,6 +51,7 @@ async def admin_list_logs(
     offset: int = 0,
     db: AsyncSession = Depends(get_db)
 ):
+    verify_request_user(request, user_id)
     verify_admin(user_id, room_code)
     limit = max(1, min(limit, 200))
     offset = max(0, offset)
@@ -210,6 +216,8 @@ def _format_message_content(message: Message | None) -> str:
         return "[图片消息]"
     if message.message_type == "video":
         return "[视频消息]"
+    if message.message_type == "live":
+        return "[Live消息]"
     if message.message_type == "audio":
         return "[语音消息]"
     return f"[{message.message_type or '消息'}]"
@@ -225,6 +233,8 @@ def _format_post_content(post: Post | None) -> str:
         return "[图片动态]"
     if post.media_type == "video":
         return "[视频动态]"
+    if post.media_type == "live":
+        return "[Live动态]"
     return "[空动态]"
 
 

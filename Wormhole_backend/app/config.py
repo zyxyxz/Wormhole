@@ -18,6 +18,8 @@ class Settings(BaseSettings):
     OSS_BUCKET: str = ""
     OSS_BASE_URL: str = ""
     OSS_PREFIX: str = ""
+    OSS_PRIVATE_ENABLED: bool = True
+    OSS_SIGN_EXPIRE_SECONDS: int = 1800
     OSS_IMAGE_PROCESS_CHAT: str = "image/resize,m_lfit,w_1080/quality,q_80"
     OSS_IMAGE_PROCESS_FEED: str = "image/resize,m_lfit,w_1280/quality,q_80"
     OSS_IMAGE_PROCESS_AVATAR: str = "image/resize,m_lfit,w_256/quality,q_80"

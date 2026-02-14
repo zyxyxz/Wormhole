@@ -10,6 +10,8 @@ class MessageCreate(MessageBase):
     user_id: str
     message_type: str = "text"
     media_url: Optional[str] = None
+    live_cover_url: Optional[str] = None
+    live_video_url: Optional[str] = None
     media_duration: Optional[int] = None
     reply_to_id: Optional[int] = None
     reply_to_user_id: Optional[str] = None
@@ -23,6 +25,8 @@ class MessageResponse(MessageBase):
     alias: Optional[str] = None
     message_type: str = "text"
     media_url: Optional[str] = None
+    live_cover_url: Optional[str] = None
+    live_video_url: Optional[str] = None
     media_duration: Optional[int] = None
     avatar_url: Optional[str] = None
     created_at_ts: Optional[int] = None

@@ -28,6 +28,7 @@ async def recreate_db():
     import models.notes  # noqa: F401
     import models.wallet # noqa: F401
     import models.feed   # noqa: F401
+    import models.notify  # noqa: F401
     await create_tables()
 
 

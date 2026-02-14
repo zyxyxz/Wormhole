@@ -411,6 +411,14 @@ Page({
     this.applyThemePreference(pref, { syncRemote: true });
   },
 
+  openNotifySettings() {
+    if (!this.data.spaceId) {
+      wx.showToast({ title: '空间信息缺失', icon: 'none' });
+      return;
+    }
+    wx.navigateTo({ url: '/pages/notify/notify' });
+  },
+
   applyAutoLockSelection() {
     const map = [0, 60, 180, 300];
     const seconds = map[this.data.autoLockIndex] || 0;

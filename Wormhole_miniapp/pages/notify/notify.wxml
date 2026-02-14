@@ -1,0 +1,114 @@
+<navigation-bar title="通知渠道" back="{{true}}" home-button="{{true}}" bind:home="goHome" background="{{themeNavBg}}" color="{{themeNavText}}" />
+
+<view class="notify-page theme-root {{themeClass}}">
+  <scroll-view class="notify-scroll" scroll-y="true">
+    <view class="hint-card">
+      <view class="hint-title">离线提醒策略</view>
+      <view class="hint-text">支持飞书机器人、PushBear、Webhook。</view>
+      <view class="hint-text">当你在线时可跳过提醒，避免重复打扰。</view>
+      <view class="hint-text">可配置伪装文案，如价格波动监控、系统巡检提醒。</view>
+    </view>
+
+    <view class="channel-list" wx:if="{{channels.length}}">
+      <view class="channel-card" wx:for="{{channels}}" wx:key="id">
+        <view class="channel-header">
+          <view class="channel-provider">{{item.provider_label}}</view>
+          <view class="channel-status {{item.enabled ? 'on' : 'off'}}">{{item.enabled ? '已启用' : '已停用'}}</view>
+        </view>
+        <view class="channel-remark">{{item.remark || '未命名渠道'}}</view>
+        <view class="channel-meta">事件：{{item.event_text}}</view>
+        <view class="channel-meta">频率：{{item.cooldown_text}}</view>
+        <view class="channel-meta">伪装：{{item.disguise_label}}</view>
+        <view class="channel-meta">在线跳过：{{item.skip_when_online ? '是' : '否'}}</view>
+        <view class="channel-actions">
+          <button size="mini" bindtap="openEditEditor" data-id="{{item.id}}">编辑</button>
+          <button size="mini" bindtap="testChannel" data-id="{{item.id}}">测试</button>
+          <button size="mini" bindtap="toggleChannelEnabled" data-id="{{item.id}}">{{item.enabled ? '停用' : '启用'}}</button>
+          <button size="mini" type="warn" bindtap="removeChannel" data-id="{{item.id}}">删除</button>
+        </view>
+      </view>
+    </view>
+
+    <view class="empty" wx:else>
+      <view class="empty-title">暂无通知渠道</view>
+      <view class="empty-sub">点击下方按钮添加第一个渠道</view>
+    </view>
+  </scroll-view>
+
+  <view class="bottom-bar">
+    <button class="add-button" bindtap="openAddEditor">添加通知渠道</button>
+  </view>
+</view>
+
+<view class="modal theme-root {{themeClass}}" wx:if="{{showEditor}}">
+  <view class="modal-content">
+    <view class="modal-title">{{editingId ? '编辑通知渠道' : '添加通知渠道'}}</view>
+
+    <picker mode="selector" range="{{providerOptions}}" value="{{providerIndex}}" bindchange="onProviderChange">
+      <view class="form-item picker-item">
+        <text class="label">渠道类型</text>
+        <view class="value">{{providerOptions[providerIndex]}}</view>
+      </view>
+    </picker>
+
+    <view class="form-item">
+      <text class="label">通知地址 / Key</text>
+      <input class="input" value="{{form.target}}" bindinput="onTargetInput" placeholder="{{targetPlaceholder}}" />
+    </view>
+
+    <view class="form-item">
+      <text class="label">渠道备注</text>
+      <input class="input" value="{{form.remark}}" bindinput="onRemarkInput" maxlength="20" placeholder="例如：主提醒渠道" />
+    </view>
+
+    <view class="form-switch">
+      <text>提醒新消息</text>
+      <switch checked="{{form.notify_chat}}" bindchange="onNotifyChatChange" color="#14B8A6" />
+    </view>
+
+    <view class="form-switch">
+      <text>提醒新动态</text>
+      <switch checked="{{form.notify_feed}}" bindchange="onNotifyFeedChange" color="#14B8A6" />
+    </view>
+
+    <picker mode="selector" range="{{cooldownOptions}}" value="{{cooldownIndex}}" bindchange="onCooldownChange">
+      <view class="form-item picker-item">
+        <text class="label">提醒频率</text>
+        <view class="value">{{cooldownOptions[cooldownIndex]}}内最多1次</view>
+      </view>
+    </picker>
+
+    <picker mode="selector" range="{{disguiseOptions}}" value="{{disguiseIndex}}" bindchange="onDisguiseChange">
+      <view class="form-item picker-item">
+        <text class="label">伪装文案</text>
+        <view class="value">{{disguiseOptions[disguiseIndex]}}</view>
+      </view>
+    </picker>
+
+    <view wx:if="{{disguiseValues[disguiseIndex] === 'custom'}}">
+      <view class="form-item">
+        <text class="label">自定义标题</text>
+        <input class="input" value="{{form.custom_title}}" bindinput="onCustomTitleInput" maxlength="30" placeholder="请输入标题" />
+      </view>
+      <view class="form-item">
+        <text class="label">自定义内容</text>
+        <textarea class="textarea" value="{{form.custom_body}}" bindinput="onCustomBodyInput" maxlength="200" placeholder="请输入内容" />
+      </view>
+    </view>
+
+    <view class="form-switch">
+      <text>在线时跳过提醒</text>
+      <switch checked="{{form.skip_when_online}}" bindchange="onSkipOnlineChange" color="#14B8A6" />
+    </view>
+
+    <view class="form-switch">
+      <text>启用渠道</text>
+      <switch checked="{{form.enabled}}" bindchange="onEnabledChange" color="#14B8A6" />
+    </view>
+
+    <view class="modal-actions">
+      <button class="btn-cancel" bindtap="closeEditor">取消</button>
+      <button class="btn-confirm" bindtap="submitEditor">保存</button>
+    </view>
+  </view>
+</view>

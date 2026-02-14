@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
 from collections import defaultdict
 from app.database import get_db
+from app.security import verify_request_user, require_space_member
 from models.feed import Post, Comment, PostLike
 from models.user import UserAlias
 from models.space import Space
@@ -25,19 +26,43 @@ from datetime import datetime
 from sqlalchemy import func
 from app.utils.media import process_avatar_url, process_feed_media_urls, strip_urls
 from app.utils.operation_log import add_operation_log
+from app.services.notify_dispatcher import fire_room_notification
 
 router = APIRouter()
 
 
 @router.post("/create", response_model=PostResponse)
 async def create_post(payload: PostCreate, request: Request, db: AsyncSession = Depends(get_db)):
+    actor_user_id = verify_request_user(request, payload.user_id)
+    await require_space_member(db, payload.space_id, actor_user_id)
+    media_type = (payload.media_type or "none").lower()
+    if media_type not in {"none", "image", "video", "live"}:
+        raise HTTPException(status_code=400, detail="不支持的媒体类型")
+
     clean_media_urls = strip_urls(payload.media_urls or [])
+    content = (payload.content or "").strip()
+    if media_type == "image":
+        clean_media_urls = [u for u in clean_media_urls if isinstance(u, str)]
+    elif media_type == "video":
+        clean_media_urls = [u for u in clean_media_urls if isinstance(u, str)]
+        clean_media_urls = clean_media_urls[:1]
+    elif media_type == "live":
+        live_items = [u for u in clean_media_urls if isinstance(u, dict) and u.get("cover_url") and u.get("video_url")]
+        if not live_items:
+            raise HTTPException(status_code=400, detail="Live动态缺少封面或视频")
+        clean_media_urls = live_items[:1]
+    else:
+        clean_media_urls = []
+
+    if not content and not clean_media_urls:
+        raise HTTPException(status_code=400, detail="动态内容不能为空")
+
     media_urls_json = json.dumps(clean_media_urls)
     post = Post(
         space_id=payload.space_id,
         user_id=payload.user_id,
-        content=payload.content or "",
-        media_type=payload.media_type or "none",
+        content=content,
+        media_type=media_type,
         media_urls=media_urls_json,
     )
     db.add(post)
@@ -59,6 +84,12 @@ async def create_post(payload: PostCreate, request: Request, db: AsyncSession = 
         ip=(request.client.host if request.client else None),
         user_agent=request.headers.get("user-agent")
     )
+    fire_room_notification(
+        space_id=post.space_id,
+        event_type="feed",
+        sender_user_id=post.user_id,
+        sender_alias=alias,
+    )
     return PostResponse(
         id=post.id,
         space_id=post.space_id,
@@ -77,7 +108,10 @@ async def create_post(payload: PostCreate, request: Request, db: AsyncSession = 
 
 
 @router.get("/list", response_model=FeedListResponse)
-async def list_posts(space_id: int, user_id: str | None = None, db: AsyncSession = Depends(get_db)):
+async def list_posts(space_id: int, request: Request, user_id: str | None = None, db: AsyncSession = Depends(get_db)):
+    actor_user_id = verify_request_user(request, user_id, required=True)
+    await require_space_member(db, space_id, actor_user_id)
+    user_id = user_id or actor_user_id
     res = await db.execute(
         select(Post)
         .where(Post.space_id == space_id, Post.deleted_at.is_(None))
@@ -156,10 +190,12 @@ async def list_posts(space_id: int, user_id: str | None = None, db: AsyncSession
 
 @router.post("/comment", response_model=CommentResponse)
 async def add_comment(payload: CommentCreate, request: Request, db: AsyncSession = Depends(get_db)):
+    actor_user_id = verify_request_user(request, payload.user_id)
     # 确认post存在
     post = (await db.execute(select(Post).where(Post.id == payload.post_id))).scalar_one_or_none()
     if not post or post.deleted_at:
         raise HTTPException(status_code=404, detail="动态不存在")
+    await require_space_member(db, post.space_id, actor_user_id)
     c = Comment(post_id=payload.post_id, user_id=payload.user_id, content=payload.content)
     db.add(c)
     await db.commit()
@@ -193,10 +229,12 @@ async def add_comment(payload: CommentCreate, request: Request, db: AsyncSession
 
 
 @router.get("/comments", response_model=CommentsListResponse)
-async def list_comments(post_id: int, db: AsyncSession = Depends(get_db)):
+async def list_comments(post_id: int, request: Request, db: AsyncSession = Depends(get_db)):
+    actor_user_id = verify_request_user(request)
     post = (await db.execute(select(Post).where(Post.id == post_id))).scalar_one_or_none()
     if not post or post.deleted_at:
         raise HTTPException(status_code=404, detail="动态不存在")
+    await require_space_member(db, post.space_id, actor_user_id)
     res = await db.execute(
         select(Comment)
         .where(Comment.post_id == post_id, Comment.deleted_at.is_(None))
@@ -220,9 +258,10 @@ async def list_comments(post_id: int, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/delete")
-async def delete_post(payload: PostDeleteRequest, db: AsyncSession = Depends(get_db)):
+async def delete_post(payload: PostDeleteRequest, request: Request, db: AsyncSession = Depends(get_db)):
     if not payload.operator_user_id:
         raise HTTPException(status_code=400, detail="缺少用户ID")
+    verify_request_user(request, payload.operator_user_id)
     post = (await db.execute(select(Post).where(Post.id == payload.post_id))).scalar_one_or_none()
     if not post or post.deleted_at:
         raise HTTPException(status_code=404, detail="动态不存在或已删除")
@@ -237,9 +276,10 @@ async def delete_post(payload: PostDeleteRequest, db: AsyncSession = Depends(get
 
 
 @router.post("/comment/delete")
-async def delete_comment(payload: CommentDeleteRequest, db: AsyncSession = Depends(get_db)):
+async def delete_comment(payload: CommentDeleteRequest, request: Request, db: AsyncSession = Depends(get_db)):
     if not payload.operator_user_id:
         raise HTTPException(status_code=400, detail="缺少用户ID")
+    verify_request_user(request, payload.operator_user_id)
     comment = (await db.execute(select(Comment).where(Comment.id == payload.comment_id, Comment.deleted_at.is_(None)))).scalar_one_or_none()
     if not comment:
         raise HTTPException(status_code=404, detail="评论不存在")
@@ -260,9 +300,11 @@ async def delete_comment(payload: CommentDeleteRequest, db: AsyncSession = Depen
 async def like_post(payload: PostLikeRequest, request: Request, db: AsyncSession = Depends(get_db)):
     if not payload.user_id:
         raise HTTPException(status_code=400, detail="缺少用户ID")
+    verify_request_user(request, payload.user_id)
     post = (await db.execute(select(Post).where(Post.id == payload.post_id))).scalar_one_or_none()
     if not post or post.deleted_at:
         raise HTTPException(status_code=404, detail="动态不存在")
+    await require_space_member(db, post.space_id, payload.user_id)
     if payload.like:
         exists = (await db.execute(select(PostLike).where(PostLike.post_id == payload.post_id, PostLike.user_id == payload.user_id))).scalar_one_or_none()
         if not exists:
@@ -288,15 +330,15 @@ async def like_post(payload: PostLikeRequest, request: Request, db: AsyncSession
 async def activity_list(
     space_id: int,
     user_id: str,
+    request: Request,
     limit: int = 20,
     before_ts: str | None = None,
     db: AsyncSession = Depends(get_db)
 ):
     if not user_id:
         raise HTTPException(status_code=400, detail="缺少用户ID")
-    space = (await db.execute(select(Space).where(Space.id == space_id, Space.deleted_at.is_(None)))).scalar_one_or_none()
-    if not space:
-        raise HTTPException(status_code=404, detail="空间不存在")
+    verify_request_user(request, user_id)
+    await require_space_member(db, space_id, user_id)
     limit = max(1, min(int(limit or 20), 50))
     before_dt = None
     if before_ts:
@@ -430,10 +472,10 @@ async def activity_list(
 
 
 @router.get("/unread-count")
-async def unread_count(space_id: int, since_ts: int | None = None, user_id: str | None = None, db: AsyncSession = Depends(get_db)):
-    space = (await db.execute(select(Space).where(Space.id == space_id, Space.deleted_at.is_(None)))).scalar_one_or_none()
-    if not space:
-        raise HTTPException(status_code=404, detail="空间不存在")
+async def unread_count(space_id: int, request: Request, since_ts: int | None = None, user_id: str | None = None, db: AsyncSession = Depends(get_db)):
+    actor_user_id = verify_request_user(request, user_id, required=True)
+    await require_space_member(db, space_id, actor_user_id)
+    user_id = user_id or actor_user_id
     if not since_ts:
         return {"count": 0}
     try:

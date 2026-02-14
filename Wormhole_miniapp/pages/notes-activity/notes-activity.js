@@ -113,8 +113,17 @@ Page({
     const actionText = item.type === 'comment' ? '评论了你的动态' : '赞了你的动态';
     const commentPreview = item.type === 'comment' ? (item.comment_content || '') : '';
     const postSnippet = this.buildPostSnippet(item.post_content || '', item.post_media_type, item.post_media_urls);
-    const previewImage = item.post_media_type === 'image' && Array.isArray(item.post_media_urls) ? item.post_media_urls[0] : '';
-    const previewVideo = item.post_media_type === 'video';
+    let previewImage = '';
+    let previewVideo = false;
+    if (item.post_media_type === 'image' && Array.isArray(item.post_media_urls)) {
+      previewImage = item.post_media_urls[0] || '';
+    } else if (item.post_media_type === 'video') {
+      previewVideo = true;
+    } else if (item.post_media_type === 'live' && Array.isArray(item.post_media_urls) && item.post_media_urls.length) {
+      const firstLive = item.post_media_urls[0] || {};
+      previewImage = firstLive.cover_url || '';
+      previewVideo = true;
+    }
     return {
       ...item,
       displayName,
@@ -124,6 +133,7 @@ Page({
       postSnippet,
       previewImage,
       previewVideo,
+      previewTag: item.post_media_type === 'live' ? 'Live' : '视频',
       avatar: item.avatar_url || '',
       displayTime: this.formatFriendlyTime(item.created_at, item.created_at_ts)
     };
@@ -139,6 +149,9 @@ Page({
     }
     if (mediaType === 'video') {
       return '[视频]';
+    }
+    if (mediaType === 'live') {
+      return '[Live]';
     }
     return '未填写内容';
   },

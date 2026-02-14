@@ -29,6 +29,13 @@
           <image wx:for="{{item.media_urls}}" wx:for-item="imgSrc" wx:key="*this" class="image" mode="aspectFill" src="{{imgSrc}}" data-urls="{{item.media_urls}}" data-current="{{imgSrc}}" bindtap="previewImage" />
         </view>
         <video wx:if="{{item.media_type==='video'}}" class="video" src="{{item.media_urls[0]}}" controls></video>
+        <view wx:if="{{item.media_type==='live' && item.media_urls.length}}" class="live-card" data-cover="{{item.media_urls[0].cover_url}}" data-video="{{item.media_urls[0].video_url}}" bindtap="previewLive">
+          <image class="live-cover" src="{{item.media_urls[0].cover_url}}" mode="aspectFill"></image>
+          <view class="live-overlay">
+            <view class="live-play"></view>
+          </view>
+          <view class="live-badge">Live</view>
+        </view>
 
         <view class="post-action-bar" wx:if="{{!reviewMode}}">
           <view class="likes-avatars" wx:if="{{item.likes.length}}">

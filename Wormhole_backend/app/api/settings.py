@@ -16,6 +16,7 @@ from datetime import datetime, timedelta
 from pydantic import BaseModel, Field
 from app.utils.media import process_avatar_url, process_feed_media_urls, process_message_media_url
 from app.utils.operation_log import add_operation_log
+from app.security import verify_request_user
 import json
 
 router = APIRouter()
@@ -47,8 +48,10 @@ async def modify_space_code(
     space_id: int,
     new_code: str,
     request: Request,
+    operator_user_id: str | None = None,
     db: AsyncSession = Depends(get_db)
 ):
+    actor_user_id = verify_request_user(request, operator_user_id, required=True)
     if not new_code.isdigit() or len(new_code) != 6:
         raise HTTPException(status_code=400, detail="空间号必须是6位数字")
     
@@ -64,11 +67,13 @@ async def modify_space_code(
     
     if not space:
         raise HTTPException(status_code=404, detail="空间不存在")
+    if space.owner_user_id != actor_user_id:
+        raise HTTPException(status_code=403, detail="无权限")
     
     space.code = new_code
     add_operation_log(
         db,
-        user_id=space.owner_user_id,
+        user_id=actor_user_id,
         action="space_modify_code",
         space_id=space_id,
         detail={"new_code": new_code},
@@ -82,11 +87,16 @@ async def modify_space_code(
 @router.post("/space/delete")
 async def delete_space(
     space_id: int,
+    request: Request,
+    operator_user_id: str | None = None,
     db: AsyncSession = Depends(get_db)
 ):
+    actor_user_id = verify_request_user(request, operator_user_id, required=True)
     space = (await db.execute(select(Space).where(Space.id == space_id, Space.deleted_at.is_(None)))).scalar_one_or_none()
     if not space:
         raise HTTPException(status_code=404, detail="空间不存在")
+    if space.owner_user_id != actor_user_id:
+        raise HTTPException(status_code=403, detail="无权限")
     now = datetime.utcnow()
     space.deleted_at = now
     await db.execute(update(Message).where(Message.space_id == space_id, Message.deleted_at.is_(None)).values(deleted_at=now))
@@ -117,6 +127,7 @@ class CleanupSpacesPayload(AdminAuth):
 
 @router.post("/admin/cleanup-spaces")
 async def admin_cleanup_spaces(
+    request: Request,
     payload: CleanupSpacesPayload | None = Body(default=None),
     user_id: str | None = None,
     room_code: str | None = None,
@@ -129,6 +140,7 @@ async def admin_cleanup_spaces(
     space_ids = payload.space_ids if payload else None
     if not auth_user or not auth_room:
         raise HTTPException(status_code=400, detail="缺少管理员凭据")
+    verify_request_user(request, auth_user)
     verify_admin(auth_user, auth_room)
     # 找出无任何有效数据痕迹的空间（仅允许房主进入产生的日志）
     now = datetime.utcnow()
@@ -235,7 +247,8 @@ async def public_system_flags(db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/admin/system/review-mode")
-async def set_review_mode(payload: ReviewModePayload, db: AsyncSession = Depends(get_db)):
+async def set_review_mode(payload: ReviewModePayload, request: Request, db: AsyncSession = Depends(get_db)):
+    verify_request_user(request, payload.user_id)
     verify_admin(payload.user_id, payload.room_code)
     await _set_setting(db, REVIEW_MODE_KEY, "1" if payload.review_mode else "0")
     return {"review_mode": payload.review_mode}
@@ -264,7 +277,8 @@ async def aggregate_counts(db: AsyncSession, model, space_ids: list[int]):
 
 
 @router.get("/admin/overview")
-async def admin_overview(user_id: str, room_code: str, db: AsyncSession = Depends(get_db)):
+async def admin_overview(user_id: str, room_code: str, request: Request, db: AsyncSession = Depends(get_db)):
+    verify_request_user(request, user_id)
     verify_admin(user_id, room_code)
     alias_count = (await db.execute(
         select(func.count(UserAlias.id))
@@ -287,9 +301,11 @@ async def admin_overview(user_id: str, room_code: str, db: AsyncSession = Depend
 async def admin_recent_messages(
     user_id: str,
     room_code: str,
+    request: Request,
     limit: int = 10,
     db: AsyncSession = Depends(get_db)
 ):
+    verify_request_user(request, user_id)
     verify_admin(user_id, room_code)
     limit = max(1, min(limit, 50))
     rows = await db.execute(
@@ -346,9 +362,11 @@ async def admin_recent_messages(
 async def admin_recent_posts(
     user_id: str,
     room_code: str,
+    request: Request,
     limit: int = 10,
     db: AsyncSession = Depends(get_db)
 ):
+    verify_request_user(request, user_id)
     verify_admin(user_id, room_code)
     limit = max(1, min(limit, 50))
     rows = await db.execute(
@@ -402,7 +420,8 @@ async def admin_recent_posts(
 
 
 @router.get("/admin/users")
-async def admin_users(user_id: str, room_code: str, db: AsyncSession = Depends(get_db)):
+async def admin_users(user_id: str, room_code: str, request: Request, db: AsyncSession = Depends(get_db)):
+    verify_request_user(request, user_id)
     verify_admin(user_id, room_code)
     res = await db.execute(
         select(UserAlias)
@@ -423,7 +442,8 @@ async def admin_users(user_id: str, room_code: str, db: AsyncSession = Depends(g
 
 
 @router.get("/admin/user-spaces")
-async def admin_user_spaces(user_id: str, room_code: str, target_user_id: str, db: AsyncSession = Depends(get_db)):
+async def admin_user_spaces(user_id: str, room_code: str, target_user_id: str, request: Request, db: AsyncSession = Depends(get_db)):
+    verify_request_user(request, user_id)
     verify_admin(user_id, room_code)
     if not target_user_id:
         raise HTTPException(status_code=400, detail="缺少用户ID")
@@ -441,7 +461,8 @@ async def admin_user_spaces(user_id: str, room_code: str, target_user_id: str, d
 
 
 @router.get("/admin/spaces")
-async def admin_spaces(user_id: str, room_code: str, db: AsyncSession = Depends(get_db)):
+async def admin_spaces(user_id: str, room_code: str, request: Request, db: AsyncSession = Depends(get_db)):
+    verify_request_user(request, user_id)
     verify_admin(user_id, room_code)
     res = await db.execute(select(Space).where(Space.deleted_at.is_(None)).order_by(Space.created_at.desc()))
     spaces = res.scalars().all()
@@ -484,11 +505,13 @@ async def admin_spaces(user_id: str, room_code: str, db: AsyncSession = Depends(
 async def admin_space_detail(
     user_id: str,
     room_code: str,
+    request: Request,
     space_id: int,
     include_deleted: bool = False,
     limit: int = 20,
     db: AsyncSession = Depends(get_db)
 ):
+    verify_request_user(request, user_id)
     verify_admin(user_id, room_code)
     space = (await db.execute(select(Space).where(Space.id == space_id, Space.deleted_at.is_(None)))).scalar_one_or_none()
     if not space:
@@ -599,6 +622,7 @@ async def share_space(
     request: Request,
     db: AsyncSession = Depends(get_db)
 ):
+    verify_request_user(request, operator_user_id)
     space_res = await db.execute(select(Space).where(Space.id == space_id))
     space = space_res.scalar_one_or_none()
     if not space:

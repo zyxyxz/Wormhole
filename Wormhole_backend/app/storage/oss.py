@@ -10,6 +10,13 @@ from app.config import settings
 _SEGMENT_RE = re.compile(r"[^a-zA-Z0-9_-]")
 _FILENAME_RE = re.compile(r"[^a-zA-Z0-9._-]")
 _IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".bmp"}
+_SIGN_QUERY_KEYS = {
+    "OSSAccessKeyId",
+    "Signature",
+    "Expires",
+    "security-token",
+    "x-oss-security-token",
+}
 
 
 def is_configured() -> bool:
@@ -64,6 +71,40 @@ def get_public_url(object_key: str) -> str:
     if not base:
         return ""
     return f"{base}/{object_key.lstrip('/')}"
+
+
+def extract_object_key(url_or_key: str | None) -> str:
+    if not url_or_key:
+        return ""
+    candidate = (url_or_key or "").strip()
+    if not candidate:
+        return ""
+    if candidate.startswith("/"):
+        return candidate.lstrip("/")
+    base = get_base_url()
+    if base and candidate.startswith(base):
+        return candidate[len(base):].lstrip("/")
+    parts = urlsplit(candidate)
+    if parts.scheme and parts.netloc:
+        return parts.path.lstrip("/")
+    return candidate.lstrip("/")
+
+
+def get_signed_url(object_key: str, *, process: str | None = None, expire_seconds: int | None = None) -> str:
+    bucket = get_bucket()
+    if not bucket:
+        return ""
+    key = extract_object_key(object_key)
+    if not key:
+        return ""
+    expires = max(60, int(expire_seconds or settings.OSS_SIGN_EXPIRE_SECONDS or 1800))
+    params = {}
+    if process:
+        params["x-oss-process"] = process
+    try:
+        return bucket.sign_url("GET", key, expires, params=params, slash_safe=True)
+    except Exception:
+        return ""
 
 
 def sanitize_segment(value: str, default: str = "") -> str:
@@ -124,11 +165,14 @@ def guess_content_type(filename: str | None, provided: str | None = None) -> str
 
 
 def strip_oss_process(url: str | None) -> str | None:
-    if not url or "x-oss-process" not in url:
+    if not url:
         return url
     parts = urlsplit(url)
     query_pairs = parse_qsl(parts.query, keep_blank_values=True)
-    query_pairs = [(k, v) for k, v in query_pairs if k != "x-oss-process"]
+    query_pairs = [
+        (k, v) for k, v in query_pairs
+        if k != "x-oss-process" and k not in _SIGN_QUERY_KEYS
+    ]
     new_query = urlencode(query_pairs, doseq=True)
     return urlunsplit((parts.scheme, parts.netloc, parts.path, new_query, parts.fragment))
 
@@ -152,16 +196,43 @@ def is_image_url(url: str | None, *, force: bool = False) -> bool:
 
 
 def append_oss_process(url: str | None, process: str, *, force_image: bool = False) -> str | None:
-    if not url or not process:
-        return url
-    if "x-oss-process" in url:
+    if not url:
         return url
     if not is_oss_url(url):
         return url
     if not is_image_url(url, force=force_image):
+        return url
+    if settings.OSS_PRIVATE_ENABLED:
+        signed = get_signed_url(url, process=process)
+        if signed:
+            return signed
+        return url
+    if not process:
+        return strip_oss_process(url)
+    if "x-oss-process" in url:
         return url
     parts = urlsplit(url)
     query = parts.query
     joiner = "&" if query else ""
     new_query = f"{query}{joiner}x-oss-process={process}"
     return urlunsplit((parts.scheme, parts.netloc, parts.path, new_query, parts.fragment))
+
+
+def get_access_url(url_or_key: str | None, *, process: str | None = None, force_image: bool = False) -> str | None:
+    if not url_or_key:
+        return url_or_key
+    key = extract_object_key(url_or_key)
+    if not key:
+        return url_or_key
+    base_url = get_public_url(key)
+    if not base_url:
+        return url_or_key
+    if settings.OSS_PRIVATE_ENABLED:
+        if process and is_image_url(base_url, force=force_image):
+            signed = get_signed_url(key, process=process)
+            return signed or base_url
+        signed = get_signed_url(key)
+        return signed or base_url
+    if process:
+        return append_oss_process(base_url, process, force_image=force_image)
+    return strip_oss_process(base_url)

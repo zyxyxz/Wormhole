@@ -10,7 +10,8 @@ const SPACE_ROUTES = new Set([
   'pages/post-create/post-create',
   'pages/note-edit/note-edit',
   'pages/recharge/recharge',
-  'pages/settings/settings'
+  'pages/settings/settings',
+  'pages/notify/notify'
 ]);
 
 const CUSTOM_NAV_ROUTES = new Set([
@@ -20,6 +21,7 @@ const CUSTOM_NAV_ROUTES = new Set([
   'pages/notes-activity/notes-activity',
   'pages/wallet/wallet',
   'pages/settings/settings',
+  'pages/notify/notify',
   'pages/join/join',
   'pages/admin/admin',
   'pages/admin-space/admin-space',
@@ -180,6 +182,56 @@ App({
     themeTabText: THEME_PRESETS.light.tabText,
     themeTabSelected: THEME_PRESETS.light.tabSelected,
     themeTabBorderStyle: THEME_PRESETS.light.tabBorderStyle
+  },
+
+  getAuthHeaders(extra = {}) {
+    const headers = Object.assign({}, extra || {});
+    let openid = '';
+    try {
+      openid = wx.getStorageSync('openid') || '';
+    } catch (e) {}
+    if (openid) {
+      headers['X-User-Id'] = openid;
+      headers['X-Openid'] = openid;
+    }
+    return headers;
+  },
+
+  patchNetworkSecurity() {
+    if (this._networkPatched) return;
+    this._networkPatched = true;
+    const app = this;
+
+    const originalRequest = wx.request;
+    wx.request = function (options = {}) {
+      const nextOptions = Object.assign({}, options, {
+        header: app.getAuthHeaders(options.header || {})
+      });
+      return originalRequest.call(wx, nextOptions);
+    };
+
+    const originalUploadFile = wx.uploadFile;
+    wx.uploadFile = function (options = {}) {
+      const nextOptions = Object.assign({}, options, {
+        header: app.getAuthHeaders(options.header || {})
+      });
+      return originalUploadFile.call(wx, nextOptions);
+    };
+
+    const originalConnectSocket = wx.connectSocket;
+    wx.connectSocket = function (options = {}) {
+      let nextUrl = options.url || '';
+      let openid = '';
+      try { openid = wx.getStorageSync('openid') || ''; } catch (e) {}
+      if (openid && nextUrl && !/[?&]user_id=/.test(nextUrl)) {
+        nextUrl = `${nextUrl}${nextUrl.includes('?') ? '&' : '?'}user_id=${encodeURIComponent(openid)}`;
+      }
+      const nextOptions = Object.assign({}, options, {
+        url: nextUrl,
+        header: app.getAuthHeaders(options.header || {})
+      });
+      return originalConnectSocket.call(wx, nextOptions);
+    };
   },
 
   enterForegroundHold(ms = 60000) {
@@ -672,6 +724,7 @@ App({
   },
 
   onLaunch() {
+    this.patchNetworkSecurity();
     this.initThemeManager();
     // 登录获取openid
     wx.login({

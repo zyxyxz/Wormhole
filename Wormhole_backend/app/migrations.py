@@ -126,6 +126,36 @@ async def add_message_reply_columns(conn):
         await conn.execute(text("ALTER TABLE messages ADD COLUMN reply_to_type TEXT"))
 
 
+async def add_notify_channels(conn):
+    if not await table_exists(conn, "notify_channels"):
+        await conn.execute(text(
+            """
+            CREATE TABLE notify_channels (
+                id INTEGER PRIMARY KEY,
+                space_id INTEGER NOT NULL,
+                user_id TEXT NOT NULL,
+                provider TEXT NOT NULL DEFAULT 'feishu',
+                target TEXT NOT NULL,
+                remark TEXT,
+                enabled BOOLEAN NOT NULL DEFAULT 1,
+                notify_chat BOOLEAN NOT NULL DEFAULT 1,
+                notify_feed BOOLEAN NOT NULL DEFAULT 1,
+                cooldown_seconds INTEGER NOT NULL DEFAULT 600,
+                disguise_type TEXT NOT NULL DEFAULT 'market',
+                custom_title TEXT,
+                custom_body TEXT,
+                skip_when_online BOOLEAN NOT NULL DEFAULT 1,
+                last_notified_at DATETIME,
+                created_at DATETIME DEFAULT (datetime('now')),
+                updated_at DATETIME
+            )
+            """
+        ))
+    await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_notify_channels_space_id ON notify_channels(space_id)"))
+    await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_notify_channels_user_id ON notify_channels(user_id)"))
+    await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_notify_channels_enabled ON notify_channels(enabled)"))
+
+
 MIGRATIONS = [
     ("202401_add_deleted_at_to_posts", add_deleted_at_to_posts),
     ("202402_add_share_code_expiry", add_share_code_expiry),
@@ -136,6 +166,7 @@ MIGRATIONS = [
     ("202601_add_soft_delete_columns", add_soft_delete_columns),
     ("202601_add_space_member_read_columns", add_space_member_read_columns),
     ("202601_add_message_reply_columns", add_message_reply_columns),
+    ("202602_add_notify_channels", add_notify_channels),
 ]
 
 

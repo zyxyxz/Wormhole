@@ -14,6 +14,7 @@ from datetime import datetime, timedelta
 from app.config import settings
 from app.utils.media import process_avatar_url
 from app.utils.operation_log import add_operation_log
+from app.security import verify_request_user, require_space_member
 
 router = APIRouter()
 
@@ -49,11 +50,13 @@ class SpaceInfoResponse(BaseModel):
 @router.post("/enter", response_model=SpaceEnterResponse)
 async def enter_space(
     request: SpaceEnterRequest,
+    req: Request,
     db: AsyncSession = Depends(get_db)
 ):
     # 需要明确的用户身份，才能保证空间号仅在用户范围内唯一
     if not request.user_id:
         raise HTTPException(status_code=400, detail="缺少用户ID")
+    verify_request_user(req, request.user_id)
 
     # 验证空间号格式
     if not request.space_code.isdigit() or len(request.space_code) != 6:
@@ -146,7 +149,8 @@ async def enter_space(
     )
 
 @router.post("/share")
-async def share_space(payload: ShareRequest, db: AsyncSession = Depends(get_db)):
+async def share_space(payload: ShareRequest, request: Request, db: AsyncSession = Depends(get_db)):
+    verify_request_user(request, payload.operator_user_id)
     # 校验空间存在
     result = await db.execute(select(Space).where(Space.id == payload.space_id, Space.deleted_at.is_(None)))
     space = result.scalar_one_or_none()
@@ -172,7 +176,8 @@ async def share_space(payload: ShareRequest, db: AsyncSession = Depends(get_db))
     return {"share_code": code, "expires_in": 300}
 
 @router.post("/join-by-share")
-async def join_by_share(payload: JoinByShareRequest, db: AsyncSession = Depends(get_db)):
+async def join_by_share(payload: JoinByShareRequest, request: Request, db: AsyncSession = Depends(get_db)):
+    verify_request_user(request, payload.user_id)
     # 校验新空间号
     if not payload.new_code.isdigit() or len(payload.new_code) != 6:
         raise HTTPException(status_code=400, detail="新空间号必须是6位数字")
@@ -217,6 +222,11 @@ async def join_by_share(payload: JoinByShareRequest, db: AsyncSession = Depends(
     alias = SpaceCode(space_id=share.space_id, code=payload.new_code)
     db.add(alias)
     db.add(SpaceMapping(space_id=share.space_id, user_id=payload.user_id, space_code=payload.new_code))
+    member_row = await db.execute(
+        select(SpaceMember).where(SpaceMember.space_id == share.space_id, SpaceMember.user_id == payload.user_id)
+    )
+    if not member_row.scalar_one_or_none():
+        db.add(SpaceMember(space_id=share.space_id, user_id=payload.user_id))
     share.used = True
     await db.commit()
     alias_row = await db.execute(
@@ -229,7 +239,7 @@ async def join_by_share(payload: JoinByShareRequest, db: AsyncSession = Depends(
     return {"success": True, "space_id": share.space_id, "theme_preference": theme_preference}
 
 @router.post("/modify-code")
-async def modify_space_code(payload: ModifyCodeRequest, db: AsyncSession = Depends(get_db)):
+async def modify_space_code(payload: ModifyCodeRequest, request: Request, db: AsyncSession = Depends(get_db)):
     if not payload.new_code.isdigit() or len(payload.new_code) != 6:
         raise HTTPException(status_code=400, detail="空间号必须是6位数字")
     # 校验新空间号未被分享别名占用
@@ -244,12 +254,16 @@ async def modify_space_code(payload: ModifyCodeRequest, db: AsyncSession = Depen
     space = res.scalar_one_or_none()
     if not space:
         raise HTTPException(status_code=404, detail="空间不存在")
+    actor_user_id = verify_request_user(request)
+    if space.owner_user_id != actor_user_id:
+        raise HTTPException(status_code=403, detail="无权限")
     space.code = payload.new_code
     await db.commit()
     return {"success": True, "message": "空间号修改成功"}
 
 @router.post("/delete")
 async def delete_space(payload: DeleteRequest, request: Request, db: AsyncSession = Depends(get_db)):
+    verify_request_user(request, payload.operator_user_id)
     # 级联删除相关数据
     # 权限：仅房主可删除
     sp = (await db.execute(select(Space).where(Space.id == payload.space_id, Space.deleted_at.is_(None)))).scalar_one_or_none()
@@ -280,17 +294,15 @@ async def delete_space(payload: DeleteRequest, request: Request, db: AsyncSessio
     return {"success": True, "message": "空间删除成功"}
 
 @router.get("/info", response_model=SpaceInfoResponse)
-async def space_info(space_id: int, db: AsyncSession = Depends(get_db)):
-    space = (await db.execute(select(Space).where(Space.id == space_id, Space.deleted_at.is_(None)))).scalar_one_or_none()
-    if not space:
-        raise HTTPException(status_code=404, detail="空间不存在")
+async def space_info(space_id: int, request: Request, db: AsyncSession = Depends(get_db)):
+    actor_user_id = verify_request_user(request)
+    space = await require_space_member(db, space_id, actor_user_id)
     return SpaceInfoResponse(space_id=space.id, code=space.code, owner_user_id=space.owner_user_id)
 
 @router.get("/members", response_model=MembersListResponse)
-async def get_members(space_id: int, db: AsyncSession = Depends(get_db)):
-    space = (await db.execute(select(Space).where(Space.id == space_id, Space.deleted_at.is_(None)))).scalar_one_or_none()
-    if not space:
-        raise HTTPException(status_code=404, detail="空间不存在")
+async def get_members(space_id: int, request: Request, db: AsyncSession = Depends(get_db)):
+    actor_user_id = verify_request_user(request)
+    await require_space_member(db, space_id, actor_user_id)
     mem_rows = await db.execute(select(SpaceMember).where(SpaceMember.space_id == space_id))
     members = mem_rows.scalars().all()
     alias_rows = await db.execute(select(UserAlias).where(UserAlias.space_id == space_id))
@@ -307,6 +319,7 @@ async def get_members(space_id: int, db: AsyncSession = Depends(get_db)):
 
 @router.post("/remove-member")
 async def remove_member(payload: RemoveMemberRequest, request: Request, db: AsyncSession = Depends(get_db)):
+    verify_request_user(request, payload.operator_user_id)
     # 只有房主可操作
     space = (await db.execute(select(Space).where(Space.id == payload.space_id, Space.deleted_at.is_(None)))).scalar_one_or_none()
     if not space:
@@ -338,10 +351,9 @@ async def remove_member(payload: RemoveMemberRequest, request: Request, db: Asyn
     return {"success": True}
 
 @router.get("/blocks", response_model=BlocksListResponse)
-async def list_blocks(space_id: int, db: AsyncSession = Depends(get_db)):
-    space = (await db.execute(select(Space).where(Space.id == space_id, Space.deleted_at.is_(None)))).scalar_one_or_none()
-    if not space:
-        raise HTTPException(status_code=404, detail="空间不存在")
+async def list_blocks(space_id: int, request: Request, db: AsyncSession = Depends(get_db)):
+    actor_user_id = verify_request_user(request)
+    space = await require_space_member(db, space_id, actor_user_id)
     rows = await db.execute(select(SpaceBlock).where(SpaceBlock.space_id == space_id))
     blocks = rows.scalars().all()
     alias_rows = await db.execute(select(UserAlias).where(UserAlias.space_id == space_id))
@@ -358,6 +370,7 @@ async def list_blocks(space_id: int, db: AsyncSession = Depends(get_db)):
 
 @router.post("/block-member")
 async def block_member(payload: BlockMemberRequest, request: Request, db: AsyncSession = Depends(get_db)):
+    verify_request_user(request, payload.operator_user_id)
     space = (await db.execute(select(Space).where(Space.id == payload.space_id, Space.deleted_at.is_(None)))).scalar_one_or_none()
     if not space:
         raise HTTPException(status_code=404, detail="空间不存在")
@@ -390,6 +403,7 @@ async def block_member(payload: BlockMemberRequest, request: Request, db: AsyncS
 
 @router.post("/unblock-member")
 async def unblock_member(payload: UnblockMemberRequest, request: Request, db: AsyncSession = Depends(get_db)):
+    verify_request_user(request, payload.operator_user_id)
     space = (await db.execute(select(Space).where(Space.id == payload.space_id, Space.deleted_at.is_(None)))).scalar_one_or_none()
     if not space:
         raise HTTPException(status_code=404, detail="空间不存在")

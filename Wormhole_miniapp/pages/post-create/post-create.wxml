@@ -20,6 +20,13 @@
       <image wx:for="{{mediaUrls}}" wx:key="*this" class="image" src="{{item}}" mode="aspectFill" />
     </view>
     <video wx:if="{{mediaType==='video'}}" class="video" src="{{mediaUrls[0]}}" controls />
+    <view wx:if="{{mediaType==='live' && mediaUrls.length}}" class="live-preview">
+      <image class="live-cover" src="{{mediaUrls[0].cover_url}}" mode="aspectFill" />
+      <view class="live-mask">
+        <view class="live-play"></view>
+      </view>
+      <view class="live-tag">Live</view>
+    </view>
 
     <view class="toolbar">
       <button class="tool-btn" bindtap="chooseImage">
@@ -30,7 +37,11 @@
         <text class="tool-icon">🎬</text>
         <text>视频</text>
       </button>
-      <text class="tool-tip">最多 9 张 / 1 个视频</text>
+      <button class="tool-btn" bindtap="chooseLive">
+        <text class="tool-icon">📸</text>
+        <text>Live</text>
+      </button>
+      <text class="tool-tip">最多 9 张 / 1 个视频 / 1 个 Live</text>
     </view>
   </view>
 

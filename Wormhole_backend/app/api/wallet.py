@@ -1,9 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.database import get_db
+from app.security import verify_request_user, require_space_member
 from models.wallet import Wallet, Transaction
-from models.space import Space
 from models.user import UserAlias
 from schemas.wallet import WalletInfo, WalletResponse, TransactionResponse
 from pydantic import BaseModel
@@ -16,11 +16,11 @@ router = APIRouter()
 @router.get("/info", response_model=WalletInfo)
 async def get_wallet_info(
     space_id: int,
+    request: Request,
     db: AsyncSession = Depends(get_db)
 ):
-    space = (await db.execute(select(Space).where(Space.id == space_id, Space.deleted_at.is_(None)))).scalar_one_or_none()
-    if not space:
-        raise HTTPException(status_code=404, detail="空间不存在")
+    actor_user_id = verify_request_user(request)
+    await require_space_member(db, space_id, actor_user_id)
     query = select(Wallet).where(Wallet.space_id == space_id)
     result = await db.execute(query)
     wallet = result.scalar_one_or_none()
@@ -43,11 +43,11 @@ async def get_wallet_info(
 @router.get("/transactions", response_model=WalletResponse)
 async def get_transactions(
     space_id: int,
+    request: Request,
     db: AsyncSession = Depends(get_db)
 ):
-    space = (await db.execute(select(Space).where(Space.id == space_id, Space.deleted_at.is_(None)))).scalar_one_or_none()
-    if not space:
-        raise HTTPException(status_code=404, detail="空间不存在")
+    actor_user_id = verify_request_user(request)
+    await require_space_member(db, space_id, actor_user_id)
     wallet_query = select(Wallet).where(Wallet.space_id == space_id)
     wallet_result = await db.execute(wallet_query)
     wallet = wallet_result.scalar_one_or_none()
@@ -82,10 +82,10 @@ class AmountRequest(BaseModel):
     user_id: str | None = None
 
 @router.post("/recharge")
-async def recharge(payload: AmountRequest, db: AsyncSession = Depends(get_db)):
-    space = (await db.execute(select(Space).where(Space.id == payload.space_id, Space.deleted_at.is_(None)))).scalar_one_or_none()
-    if not space:
-        raise HTTPException(status_code=404, detail="空间不存在")
+async def recharge(payload: AmountRequest, request: Request, db: AsyncSession = Depends(get_db)):
+    actor_user_id = verify_request_user(request, payload.user_id, required=True)
+    await require_space_member(db, payload.space_id, actor_user_id)
+    payload.user_id = actor_user_id
     wallet_res = await db.execute(select(Wallet).where(Wallet.space_id == payload.space_id))
     wallet = wallet_res.scalar_one_or_none()
     if not wallet:
@@ -106,10 +106,10 @@ async def recharge(payload: AmountRequest, db: AsyncSession = Depends(get_db)):
     return {"success": True, "balance": str(wallet.balance)}
 
 @router.post("/pay")
-async def pay(payload: AmountRequest, db: AsyncSession = Depends(get_db)):
-    space = (await db.execute(select(Space).where(Space.id == payload.space_id, Space.deleted_at.is_(None)))).scalar_one_or_none()
-    if not space:
-        raise HTTPException(status_code=404, detail="空间不存在")
+async def pay(payload: AmountRequest, request: Request, db: AsyncSession = Depends(get_db)):
+    actor_user_id = verify_request_user(request, payload.user_id, required=True)
+    await require_space_member(db, payload.space_id, actor_user_id)
+    payload.user_id = actor_user_id
     wallet_res = await db.execute(select(Wallet).where(Wallet.space_id == payload.space_id))
     wallet = wallet_res.scalar_one_or_none()
     if not wallet:

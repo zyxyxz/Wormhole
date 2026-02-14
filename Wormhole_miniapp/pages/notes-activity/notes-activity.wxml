@@ -18,7 +18,7 @@
           <view class="post-preview">
             <text class="post-text">{{item.postSnippet}}</text>
             <image wx:if="{{item.previewImage}}" class="preview-image" src="{{item.previewImage}}" mode="aspectFill"></image>
-            <view wx:if="{{item.previewVideo}}" class="preview-video">视频</view>
+            <view wx:if="{{item.previewVideo}}" class="preview-video">{{item.previewTag}}</view>
           </view>
         </view>
       </view>

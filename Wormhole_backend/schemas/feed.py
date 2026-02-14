@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import Any, List, Optional
 from datetime import datetime
 
 
@@ -7,8 +7,8 @@ class PostCreate(BaseModel):
     space_id: int
     user_id: str
     content: str = ""
-    media_type: str = "none"  # none|image|video
-    media_urls: List[str] = []
+    media_type: str = "none"  # none|image|video|live
+    media_urls: List[Any] = Field(default_factory=list)
 
 
 class CommentResponse(BaseModel):
@@ -62,7 +62,7 @@ class PostResponse(BaseModel):
     avatar_url: Optional[str] = None
     content: str
     media_type: str
-    media_urls: List[str]
+    media_urls: List[Any]
     created_at: datetime
     created_at_ts: Optional[int] = None
     comments: List[CommentResponse] = Field(default_factory=list)
@@ -81,7 +81,7 @@ class ActivityEntry(BaseModel):
     post_id: int
     post_content: str = ""
     post_media_type: str = "none"
-    post_media_urls: List[str] = Field(default_factory=list)
+    post_media_urls: List[Any] = Field(default_factory=list)
     comment_id: Optional[int] = None
     comment_content: Optional[str] = None
     user_id: str

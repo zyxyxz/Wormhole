@@ -22,7 +22,9 @@
             data-nickname="{{item.nickname}}"
             data-content="{{item.content}}"
             data-message-type="{{item.messageType}}"
-            data-media-url="{{item.mediaUrl}}">
+            data-media-url="{{item.mediaUrl}}"
+            data-live-cover-url="{{item.liveCoverUrl}}"
+            data-live-video-url="{{item.liveVideoUrl}}">
       <view class="avatar">
         <image wx:if="{{item.avatar}}" src="{{item.avatar}}" mode="aspectFill"></image>
         <text wx:else>{{item.initial}}</text>
@@ -43,6 +45,15 @@
         </block>
         <block wx:elif="{{item.messageType === 'video'}}">
           <video class="message-video" src="{{item.mediaUrl}}" controls="true" show-mute-btn="true" object-fit="cover"></video>
+        </block>
+        <block wx:elif="{{item.messageType === 'live'}}">
+          <view class="live-message" bindtap="previewLiveMessage" data-cover="{{item.liveCoverUrl || item.mediaUrl}}" data-video="{{item.liveVideoUrl}}">
+            <image class="live-cover" src="{{item.liveCoverUrl || item.mediaUrl}}" mode="aspectFill"></image>
+            <view class="live-mask">
+              <view class="live-play"></view>
+            </view>
+            <view class="live-badge">Live</view>
+          </view>
         </block>
         <block wx:elif="{{item.messageType === 'audio'}}">
           <view class="audio-bubble" data-url="{{item.mediaUrl}}" data-id="{{item.id}}" bindtap="playAudio">

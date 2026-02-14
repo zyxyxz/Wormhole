@@ -15,7 +15,7 @@ function setSystemPickerFlag(active) {
 Page({
   data: {
     content: '',
-    mediaType: 'none', // none|image|video
+    mediaType: 'none', // none|image|video|live
     mediaUrls: [],
     uploading: false,
   },
@@ -42,8 +42,62 @@ Page({
     });
   },
 
+  chooseLive() {
+    setSystemPickerFlag(true);
+    wx.chooseMedia({
+      count: 2,
+      mediaType: ['image', 'video'],
+      sourceType: ['album'],
+      maxDuration: 10,
+      success: (res) => {
+        const files = Array.isArray(res.tempFiles) ? res.tempFiles : [];
+        const imageFile = files.find(item => (item.fileType || item.type) === 'image');
+        const videoFile = files.find(item => (item.fileType || item.type) === 'video');
+        if (!videoFile) {
+          wx.showToast({ title: '请选择包含实况视频的媒体', icon: 'none' });
+          return;
+        }
+        const coverPath = (imageFile && imageFile.tempFilePath) || videoFile.thumbTempFilePath || '';
+        const videoPath = videoFile.tempFilePath || '';
+        if (!coverPath || !videoPath) {
+          wx.showToast({ title: '实况文件不完整', icon: 'none' });
+          return;
+        }
+        this.setData({ uploading: true });
+        Promise.all([
+          this.uploadSingleFile(coverPath, 'image'),
+          this.uploadSingleFile(videoPath, 'video')
+        ]).then(([coverUrl, videoUrl]) => {
+          if (!coverUrl || !videoUrl) {
+            wx.showToast({ title: '上传失败', icon: 'none' });
+            return;
+          }
+          this.setData({
+            mediaType: 'live',
+            mediaUrls: [{ cover_url: coverUrl, video_url: videoUrl }]
+          });
+        }).finally(() => {
+          this.setData({ uploading: false });
+        });
+      },
+      complete: () => { setSystemPickerFlag(false); }
+    });
+  },
+
   uploadFiles(paths, type) {
     if (!paths || !paths.length) return;
+    this.setData({ uploading: true });
+    Promise.all(paths.map(p => this.uploadSingleFile(p, type))).then(urls => {
+      const filtered = urls.filter(Boolean);
+      if (filtered.length) {
+        this.setData({ mediaType: type, mediaUrls: filtered });
+      }
+    }).finally(() => {
+      this.setData({ uploading: false });
+    });
+  },
+
+  uploadSingleFile(filePath, type) {
     const spaceId = wx.getStorageSync('currentSpaceId');
     const formData = {
       category: 'notes',
@@ -52,11 +106,10 @@ Page({
     if (spaceId) {
       formData.space_id = spaceId;
     }
-    this.setData({ uploading: true });
-    const uploads = paths.map(p => new Promise((resolve) => {
+    return new Promise((resolve) => {
       wx.uploadFile({
         url: `${BASE_URL}/api/upload`,
-        filePath: p,
+        filePath,
         name: 'file',
         formData,
         success: (resp) => {
@@ -69,13 +122,6 @@ Page({
         },
         fail: () => resolve(null)
       });
-    }));
-    Promise.all(uploads).then(urls => {
-      const filtered = urls.filter(Boolean);
-      if (filtered.length) {
-        this.setData({ mediaType: type, mediaUrls: filtered });
-      }
-      this.setData({ uploading: false });
     });
   },
 
