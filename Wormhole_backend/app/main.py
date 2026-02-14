@@ -69,7 +69,7 @@ async def root():
 
 @app.websocket("/ws/chat/{space_id}")
 async def websocket_endpoint(websocket: WebSocket, space_id: int):
-    ws_user_id = websocket.query_params.get("user_id") or get_header_user_id(websocket)
+    ws_user_id = get_header_user_id(websocket)
     if not ws_user_id:
         await websocket.close(code=4401)
         return
@@ -269,7 +269,7 @@ async def websocket_endpoint(websocket: WebSocket, space_id: int):
 
 @app.websocket("/ws/space/{space_id}")
 async def websocket_space_events(websocket: WebSocket, space_id: int):
-    ws_user_id = websocket.query_params.get("user_id") or get_header_user_id(websocket)
+    ws_user_id = get_header_user_id(websocket)
     if not ws_user_id:
         await websocket.close(code=4401)
         return

@@ -27,6 +27,11 @@ class Settings(BaseSettings):
     WECHAT_APP_SECRET: str = "c4b2a446a0fc75c7f679ece1217be76b"
     SUPER_ADMIN_OPENIDS: str = "oeGzH5XJLcl-i9K5XvkBS0g-mbec"
     SUPER_ADMIN_ROOM_CODE: str = "201432"
+    AUTH_USER_HEADERS: str = "x-user-id,x-openid,x-userid"
+    AUTH_TOKEN_HEADERS: str = "authorization,x-auth-token"
+    AUTH_JWT_SECRET: str = ""
+    AUTH_JWT_ALGORITHM: str = "HS256"
+    AUTH_TOKEN_EXPIRE_DAYS: int = 30
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 

@@ -224,14 +224,20 @@ App({
   getAuthHeaders(extra = {}, requestOptions = null) {
     const headers = Object.assign({}, extra || {});
     let openid = '';
+    let accessToken = '';
     try {
       openid = wx.getStorageSync('openid') || '';
+      accessToken = wx.getStorageSync('accessToken') || '';
     } catch (e) {}
     if (!openid && requestOptions) {
       openid = this.pickUserIdFromPayload(requestOptions.data)
         || this.pickUserIdFromPayload(requestOptions.formData)
         || this.parseUserIdFromUrl(requestOptions.url)
         || '';
+    }
+    if (accessToken) {
+      headers.Authorization = `Bearer ${accessToken}`;
+      headers['X-Auth-Token'] = accessToken;
     }
     if (openid) {
       headers['X-User-Id'] = openid;
@@ -264,10 +270,10 @@ App({
     const originalConnectSocket = wx.connectSocket;
     wx.connectSocket = function (options = {}) {
       let nextUrl = options.url || '';
-      let openid = '';
-      try { openid = wx.getStorageSync('openid') || ''; } catch (e) {}
-      if (openid && nextUrl && !/[?&]user_id=/.test(nextUrl)) {
-        nextUrl = `${nextUrl}${nextUrl.includes('?') ? '&' : '?'}user_id=${encodeURIComponent(openid)}`;
+      let accessToken = '';
+      try { accessToken = wx.getStorageSync('accessToken') || ''; } catch (e) {}
+      if (accessToken && nextUrl && !/[?&](token|access_token)=/.test(nextUrl)) {
+        nextUrl = `${nextUrl}${nextUrl.includes('?') ? '&' : '?'}token=${encodeURIComponent(accessToken)}`;
       }
       const nextOptions = Object.assign({}, options, {
         url: nextUrl,
@@ -768,10 +774,12 @@ App({
 
   ensureOpenId(forceRefresh = false) {
     let existing = '';
+    let existingToken = '';
     try {
       existing = wx.getStorageSync('openid') || '';
+      existingToken = wx.getStorageSync('accessToken') || '';
     } catch (e) {}
-    if (existing && !forceRefresh) {
+    if (existing && existingToken && !forceRefresh) {
       return Promise.resolve(existing);
     }
     if (this._openidPromise && !forceRefresh) {
@@ -791,8 +799,12 @@ App({
             data: { code },
             success: (resp) => {
               const openid = resp.data?.openid || resp.data?.data?.openid || '';
+              const accessToken = resp.data?.access_token || resp.data?.data?.access_token || '';
               if (openid) {
                 try { wx.setStorageSync('openid', openid); } catch (e) {}
+              }
+              if (accessToken) {
+                try { wx.setStorageSync('accessToken', accessToken); } catch (e) {}
               }
               resolve(openid || '');
             },
