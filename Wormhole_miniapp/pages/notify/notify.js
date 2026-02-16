@@ -19,6 +19,7 @@ const COOLDOWN_OPTIONS = [1, 3, 5, 10, 30, 60];
 Page({
   data: {
     spaceId: '',
+    userId: '',
     channels: [],
     loading: false,
     showEditor: false,
@@ -52,20 +53,54 @@ Page({
   onLoad() {
     if (ensureDiaryMode('pages/notify/notify')) return;
     const spaceId = wx.getStorageSync('currentSpaceId') || '';
+    if (!spaceId) {
+      wx.reLaunch({ url: '/pages/index/index' });
+      return;
+    }
     this.setData({ spaceId });
-    this.fetchChannels();
+    this.ensureIdentity().then(() => this.fetchChannels());
   },
 
   onShow() {
-    this.fetchChannels();
+    this.ensureIdentity().then(() => this.fetchChannels());
+  },
+
+  ensureIdentity() {
+    const exists = this.data.userId || wx.getStorageSync('openid') || '';
+    if (exists) {
+      if (exists !== this.data.userId) {
+        this.setData({ userId: exists });
+      }
+      return Promise.resolve(exists);
+    }
+    const app = typeof getApp === 'function' ? getApp() : null;
+    const ensure = app && typeof app.ensureOpenId === 'function'
+      ? app.ensureOpenId()
+      : Promise.resolve('');
+    return ensure.then((uid) => {
+      const userId = uid || wx.getStorageSync('openid') || '';
+      if (userId) {
+        this.setData({ userId });
+      }
+      return userId;
+    });
+  },
+
+  withUserId(url) {
+    const userId = this.data.userId || wx.getStorageSync('openid') || '';
+    if (!userId) return url;
+    const sep = url.includes('?') ? '&' : '?';
+    return `${url}${sep}user_id=${encodeURIComponent(userId)}`;
   },
 
   fetchChannels() {
     if (!this.data.spaceId || this.data.loading) return;
+    const userId = this.data.userId || wx.getStorageSync('openid') || '';
+    if (!userId) return;
     this.setData({ loading: true });
     wx.request({
-      url: `${BASE_URL}/api/notify/channels`,
-      data: { space_id: this.data.spaceId },
+      url: this.withUserId(`${BASE_URL}/api/notify/channels`),
+      data: { space_id: this.data.spaceId, user_id: userId },
       success: (res) => {
         if (res.statusCode >= 400) {
           wx.showToast({ title: res.data?.detail || '加载失败', icon: 'none' });
@@ -244,8 +279,8 @@ Page({
     const id = this.data.editingId;
     const method = id ? 'PUT' : 'POST';
     const url = id
-      ? `${BASE_URL}/api/notify/channels/${id}`
-      : `${BASE_URL}/api/notify/channels`;
+      ? this.withUserId(`${BASE_URL}/api/notify/channels/${id}`)
+      : this.withUserId(`${BASE_URL}/api/notify/channels`);
     const data = id
       ? payload
       : { ...payload, space_id: Number(this.data.spaceId) };
@@ -274,7 +309,7 @@ Page({
     if (!id) return;
     wx.showLoading({ title: '发送中', mask: true });
     wx.request({
-      url: `${BASE_URL}/api/notify/channels/${id}/test`,
+      url: this.withUserId(`${BASE_URL}/api/notify/channels/${id}/test`),
       method: 'POST',
       success: (res) => {
         if (res.statusCode >= 400) {
@@ -300,7 +335,7 @@ Page({
       success: (res) => {
         if (!res.confirm) return;
         wx.request({
-          url: `${BASE_URL}/api/notify/channels/${id}`,
+          url: this.withUserId(`${BASE_URL}/api/notify/channels/${id}`),
           method: 'DELETE',
           success: (resp) => {
             if (resp.statusCode >= 400) {
@@ -336,7 +371,7 @@ Page({
       skip_when_online: !!channel.skip_when_online
     };
     wx.request({
-      url: `${BASE_URL}/api/notify/channels/${id}`,
+      url: this.withUserId(`${BASE_URL}/api/notify/channels/${id}`),
       method: 'PUT',
       data: payload,
       success: (res) => {

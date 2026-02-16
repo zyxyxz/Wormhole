@@ -7,7 +7,8 @@ Page({
     transactions: [],
     showPayCode: false,
     payCodeUrl: '',
-    spaceId: ''
+    spaceId: '',
+    userId: ''
   },
   onBack() {
     wx.reLaunch({ url: '/pages/index/index' });
@@ -19,15 +20,44 @@ Page({
   onLoad() {
     if (ensureDiaryMode('pages/wallet/wallet')) return;
     const spaceId = wx.getStorageSync('currentSpaceId');
+    if (!spaceId) {
+      wx.reLaunch({ url: '/pages/index/index' });
+      return;
+    }
     this.setData({ spaceId });
     this.loadCachedWallet();
-    this.getWalletInfo();
-    this.getTransactions();
+    this.ensureIdentity().then(() => {
+      this.getWalletInfo();
+      this.getTransactions();
+    });
   },
   onShow() {
-    // 返回本页时刷新余额与交易
-    this.getWalletInfo();
-    this.getTransactions();
+    this.ensureIdentity().then(() => {
+      // 返回本页时刷新余额与交易
+      this.getWalletInfo();
+      this.getTransactions();
+    });
+  },
+
+  ensureIdentity() {
+    const exists = this.data.userId || wx.getStorageSync('openid') || '';
+    if (exists) {
+      if (exists !== this.data.userId) {
+        this.setData({ userId: exists });
+      }
+      return Promise.resolve(exists);
+    }
+    const app = typeof getApp === 'function' ? getApp() : null;
+    const ensure = app && typeof app.ensureOpenId === 'function'
+      ? app.ensureOpenId()
+      : Promise.resolve('');
+    return ensure.then((uid) => {
+      const userId = uid || wx.getStorageSync('openid') || '';
+      if (userId) {
+        this.setData({ userId });
+      }
+      return userId;
+    });
   },
 
   getCacheKey() {
@@ -82,10 +112,17 @@ Page({
   },
 
   getWalletInfo() {
+    if (!this.data.spaceId) return;
+    const userId = this.data.userId || wx.getStorageSync('openid') || '';
+    if (!userId) return;
     wx.request({
       url: `${BASE_URL}/api/wallet/info`,
-      data: { space_id: this.data.spaceId },
+      data: { space_id: this.data.spaceId, user_id: userId },
       success: (res) => {
+        if (res.statusCode !== 200) {
+          wx.showToast({ title: res.data?.detail || '加载失败', icon: 'none' });
+          return;
+        }
         const nextBalance = res.data.balance;
         const nextPayCodeUrl = res.data.pay_code_url;
         const nextTransactions = this.data.transactions || [];
@@ -103,10 +140,17 @@ Page({
   },
 
   getTransactions() {
+    if (!this.data.spaceId) return;
+    const userId = this.data.userId || wx.getStorageSync('openid') || '';
+    if (!userId) return;
     wx.request({
       url: `${BASE_URL}/api/wallet/transactions`,
-      data: { space_id: this.data.spaceId },
+      data: { space_id: this.data.spaceId, user_id: userId },
       success: (res) => {
+        if (res.statusCode !== 200) {
+          wx.showToast({ title: res.data?.detail || '加载失败', icon: 'none' });
+          return;
+        }
         const nextTransactions = res.data.transactions || [];
         const nextSig = this.buildWalletSignature(this.data.balance, this.data.payCodeUrl, nextTransactions);
         if (nextSig !== this._walletSig) {

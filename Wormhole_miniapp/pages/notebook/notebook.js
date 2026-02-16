@@ -51,8 +51,14 @@ Page({
       return;
     }
     this.setData({ spaceId, myUserId });
+    this.loadCachedNotes();
     this.fetchSpaceInfo();
-    this.getNotes();
+    const refreshFlagKey = `notebook_need_refresh_${spaceId}`;
+    const shouldForce = !!wx.getStorageSync(refreshFlagKey);
+    if (shouldForce) {
+      try { wx.removeStorageSync(refreshFlagKey); } catch (e) {}
+    }
+    this.getNotes({ force: shouldForce });
   },
 
   onPullDownRefresh() {
@@ -92,10 +98,12 @@ Page({
 
   fetchSpaceInfo() {
     if (!this.data.spaceId) return;
+    const userId = this.data.myUserId || wx.getStorageSync('openid') || '';
     wx.request({
       url: `${BASE_URL}/api/space/info`,
-      data: { space_id: this.data.spaceId },
+      data: { space_id: this.data.spaceId, user_id: userId },
       success: (res) => {
+        if (res.statusCode !== 200) return;
         const ownerUserId = res.data?.owner_user_id || '';
         this.setData({ ownerUserId });
       }
@@ -127,10 +135,15 @@ Page({
     if (!this.data.notes.length) {
       this.setData({ loading: true });
     }
+    const userId = this.data.myUserId || wx.getStorageSync('openid') || '';
     wx.request({
       url: `${BASE_URL}/api/notes`,
-      data: { space_id: this.data.spaceId },
+      data: { space_id: this.data.spaceId, user_id: userId },
       success: (res) => {
+        if (res.statusCode !== 200) {
+          wx.showToast({ title: res.data?.detail || '加载失败', icon: 'none' });
+          return;
+        }
         const rawNotes = Array.isArray(res.data?.notes) ? res.data.notes : [];
         const incomingSig = this.buildSignature(rawNotes);
         const currentSig = this.buildSignature(this._rawNotes || []);

@@ -49,9 +49,11 @@ Page({
 
   fetchDetail(id) {
     this.setData({ loading: true });
+    const userId = this.data.myUserId || wx.getStorageSync('openid') || '';
     wx.request({
       url: `${BASE_URL}/api/notes/${id}`,
       method: 'GET',
+      data: { user_id: userId },
       success: (res) => {
         if (res.statusCode !== 200) {
           wx.showToast({ title: res.data?.detail || '加载失败', icon: 'none' });
@@ -169,11 +171,38 @@ Page({
           wx.showToast({ title: res.data?.detail || '保存失败', icon: 'none' });
           return;
         }
+        this.patchNotebookCache(res.data);
         wx.showToast({ title: isUpdate ? '已保存' : '已创建' });
-        setTimeout(() => wx.navigateBack(), 280);
+        setTimeout(() => {
+          const refreshFlagKey = `notebook_need_refresh_${this.data.spaceId}`;
+          try { wx.setStorageSync(refreshFlagKey, Date.now()); } catch (e) {}
+          wx.navigateBack();
+        }, 280);
       },
       fail: () => wx.showToast({ title: '保存失败', icon: 'none' }),
       complete: () => this.setData({ saving: false })
     });
+  },
+
+  patchNotebookCache(savedNote) {
+    if (!this.data.spaceId || !savedNote || !savedNote.id) return;
+    const key = `notebook_cache_${this.data.spaceId}`;
+    let rawNotes = [];
+    try {
+      const cache = wx.getStorageSync(key);
+      rawNotes = Array.isArray(cache?.notes) ? cache.notes : [];
+    } catch (e) {}
+    const idx = rawNotes.findIndex((item) => Number(item.id) === Number(savedNote.id));
+    if (idx >= 0) {
+      rawNotes[idx] = savedNote;
+    } else {
+      rawNotes.unshift(savedNote);
+    }
+    try {
+      wx.setStorageSync(key, {
+        notes: rawNotes,
+        cached_at: Date.now()
+      });
+    } catch (e) {}
   }
 });
