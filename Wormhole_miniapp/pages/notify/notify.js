@@ -3,6 +3,7 @@ const { ensureDiaryMode } = require('../../utils/review.js');
 
 const PROVIDER_OPTIONS = [
   { label: '飞书机器人', value: 'feishu', placeholder: '请输入飞书机器人 Webhook URL' },
+  { label: 'PushDeer', value: 'pushdeer', placeholder: '请输入 PushDeer pushkey（不是完整链接）' },
   { label: 'PushBear', value: 'pushbear', placeholder: '请输入 PushBear SendKey 或完整推送 URL' },
   { label: '通用 Webhook', value: 'webhook', placeholder: '请输入自定义 Webhook URL' }
 ];

@@ -10,8 +10,8 @@ class NotifyChannel(Base):
     id = Column(Integer, primary_key=True, index=True)
     space_id = Column(Integer, ForeignKey("spaces.id"), index=True, nullable=False)
     user_id = Column(String, index=True, nullable=False)
-    provider = Column(String, nullable=False, default="feishu")  # feishu|pushbear|webhook
-    target = Column(Text, nullable=False)  # webhook url or pushbear sendkey
+    provider = Column(String, nullable=False, default="feishu")  # feishu|pushbear|pushdeer|webhook
+    target = Column(Text, nullable=False)  # webhook url / sendkey / pushdeer pushkey
     remark = Column(String, nullable=True)
     enabled = Column(Boolean, nullable=False, default=True)
     notify_chat = Column(Boolean, nullable=False, default=True)

@@ -1,4 +1,5 @@
 import asyncio
+from urllib.parse import parse_qs, urlparse
 from datetime import datetime
 from typing import Tuple
 
@@ -11,7 +12,7 @@ from app.ws import chat_manager
 from models.notify import NotifyChannel
 
 
-PROVIDERS = {"feishu", "pushbear", "webhook"}
+PROVIDERS = {"feishu", "pushbear", "pushdeer", "webhook"}
 DISGUISE_TYPES = {"market", "ops", "security", "custom"}
 EVENT_TYPES = {"chat", "feed"}
 
@@ -20,6 +21,18 @@ _DISGUISE_PRESETS = {
     "ops": ("系统巡检提醒", "检测到新的巡检事件，请及时处理。"),
     "security": ("安全策略告警", "检测到异常访问行为，请及时确认。"),
 }
+
+
+def _extract_pushdeer_key(target: str) -> str:
+    value = (target or "").strip()
+    if not value:
+        return ""
+    if value.startswith("http://") or value.startswith("https://"):
+        parsed = urlparse(value)
+        query = parse_qs(parsed.query or "")
+        key = (query.get("pushkey") or [""])[0]
+        return (key or "").strip()
+    return value
 
 
 def normalize_provider(value: str | None) -> str:
@@ -77,6 +90,27 @@ async def send_channel_message(channel: NotifyChannel, title: str, body: str, *,
                     params={"sendkey": target, "text": title, "desp": body},
                 )
                 return resp.status_code < 400
+            if provider == "pushdeer":
+                pushkey = _extract_pushdeer_key(target)
+                if not pushkey:
+                    return False
+                resp = await client.get(
+                    "https://api2.pushdeer.com/message/push",
+                    params={
+                        "pushkey": pushkey,
+                        "type": "markdown",
+                        "text": title,
+                        "desp": body,
+                    },
+                )
+                if resp.status_code >= 400:
+                    return False
+                try:
+                    payload = resp.json()
+                    code = payload.get("code")
+                    return code in (0, "0", None)
+                except Exception:
+                    return True
             payload = {
                 "title": title,
                 "content": body,

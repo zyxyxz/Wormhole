@@ -4,7 +4,8 @@
   <scroll-view class="notify-scroll" scroll-y="true">
     <view class="hint-card">
       <view class="hint-title">离线提醒策略</view>
-      <view class="hint-text">支持飞书机器人、PushBear、Webhook。</view>
+      <view class="hint-text">支持飞书机器人、PushDeer、PushBear、Webhook。</view>
+      <view class="hint-text">PushDeer 仅需填写 pushkey，保存后可直接点“测试”。</view>
       <view class="hint-text">当你在线时可跳过提醒，避免重复打扰。</view>
       <view class="hint-text">可配置伪装文案，如价格波动监控、系统巡检提醒。</view>
     </view>
