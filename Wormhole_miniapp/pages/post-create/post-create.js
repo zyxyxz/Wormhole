@@ -18,10 +18,36 @@ Page({
     mediaType: 'none', // none|image|video|live
     mediaUrls: [],
     uploading: false,
+    userId: '',
   },
 
   onBack() { wx.navigateBack(); },
   onContentInput(e) { this.setData({ content: e.detail.value }); },
+
+  onLoad() {
+    this.ensureIdentity();
+  },
+
+  ensureIdentity() {
+    const exists = this.data.userId || wx.getStorageSync('openid') || '';
+    if (exists) {
+      if (exists !== this.data.userId) {
+        this.setData({ userId: exists });
+      }
+      return Promise.resolve(exists);
+    }
+    const app = typeof getApp === 'function' ? getApp() : null;
+    const ensure = app && typeof app.ensureOpenId === 'function'
+      ? app.ensureOpenId()
+      : Promise.resolve('');
+    return ensure.then((uid) => {
+      const userId = uid || wx.getStorageSync('openid') || '';
+      if (userId) {
+        this.setData({ userId });
+      }
+      return userId;
+    });
+  },
 
   chooseImage() {
     setSystemPickerFlag(true);
@@ -99,9 +125,17 @@ Page({
 
   uploadSingleFile(filePath, type) {
     const spaceId = wx.getStorageSync('currentSpaceId');
+    const userId = this.data.userId || wx.getStorageSync('openid') || '';
+    if (!userId) {
+      return this.ensureIdentity().then((uid) => {
+        if (!uid) return null;
+        return this.uploadSingleFile(filePath, type);
+      });
+    }
     const formData = {
       category: 'notes',
-      media_type: type
+      media_type: type,
+      user_id: userId
     };
     if (spaceId) {
       formData.space_id = spaceId;
@@ -113,6 +147,16 @@ Page({
         name: 'file',
         formData,
         success: (resp) => {
+          if (resp.statusCode !== 200) {
+            try {
+              const err = JSON.parse(resp.data || '{}');
+              wx.showToast({ title: err.detail || '上传失败', icon: 'none' });
+            } catch (e) {
+              wx.showToast({ title: '上传失败', icon: 'none' });
+            }
+            resolve(null);
+            return;
+          }
           try {
             const data = JSON.parse(resp.data);
             const u = data.url || '';
@@ -127,8 +171,18 @@ Page({
 
   submit() {
     const spaceId = wx.getStorageSync('currentSpaceId');
-    const userId = wx.getStorageSync('openid') || '';
+    const userId = this.data.userId || wx.getStorageSync('openid') || '';
     const { content, mediaType, mediaUrls } = this.data;
+    if (!userId) {
+      this.ensureIdentity().then((uid) => {
+        if (!uid) {
+          wx.showToast({ title: '未登录', icon: 'none' });
+          return;
+        }
+        this.submit();
+      });
+      return;
+    }
     if (!content.trim() && !mediaUrls.length) {
       wx.showToast({ title: '说点什么或选择媒体', icon: 'none' });
       return;
@@ -137,9 +191,16 @@ Page({
       url: `${BASE_URL}/api/feed/create`,
       method: 'POST',
       data: { space_id: spaceId, user_id: userId, content, media_type: mediaType, media_urls: mediaUrls },
-      success: () => {
+      success: (res) => {
+        if (res.statusCode !== 200) {
+          wx.showToast({ title: res.data?.detail || '发布失败', icon: 'none' });
+          return;
+        }
         wx.showToast({ title: '已发布' });
         setTimeout(() => wx.navigateBack(), 300);
+      },
+      fail: () => {
+        wx.showToast({ title: '发布失败', icon: 'none' });
       }
     })
   }

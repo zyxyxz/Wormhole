@@ -93,6 +93,25 @@ Page({
     wx.reLaunch({ url: '/pages/index/index' });
   },
 
+  ensureIdentity() {
+    const exists = this._currentUserId || wx.getStorageSync('openid') || '';
+    if (exists) {
+      this._currentUserId = exists;
+      return Promise.resolve(exists);
+    }
+    const app = typeof getApp === 'function' ? getApp() : null;
+    if (!app || typeof app.ensureOpenId !== 'function') {
+      return Promise.resolve('');
+    }
+    return app.ensureOpenId().then((uid) => {
+      const userId = uid || wx.getStorageSync('openid') || '';
+      if (userId) {
+        this._currentUserId = userId;
+      }
+      return userId;
+    });
+  },
+
   onLoad() {
     if (ensureDiaryMode('pages/chat/chat')) return;
     // 获取空间ID
@@ -1137,9 +1156,17 @@ Page({
 
   uploadMediaFile(filePath, messageType) {
     if (!filePath) return Promise.resolve('');
+    const userId = this._currentUserId || wx.getStorageSync('openid') || '';
+    if (!userId) {
+      return this.ensureIdentity().then((uid) => {
+        if (!uid) return '';
+        return this.uploadMediaFile(filePath, messageType);
+      });
+    }
     const formData = {
       category: 'messages',
-      message_type: messageType
+      message_type: messageType,
+      user_id: userId
     };
     if (this.data.spaceId) {
       formData.space_id = this.data.spaceId;
@@ -1151,6 +1178,16 @@ Page({
         name: 'file',
         formData,
         success: (resp) => {
+          if (resp.statusCode !== 200) {
+            try {
+              const err = JSON.parse(resp.data || '{}');
+              wx.showToast({ title: err.detail || '上传失败', icon: 'none' });
+            } catch (e) {
+              wx.showToast({ title: '上传失败', icon: 'none' });
+            }
+            resolve('');
+            return;
+          }
           try {
             const data = JSON.parse(resp.data || '{}');
             let url = data.url || '';
@@ -1196,10 +1233,21 @@ Page({
   },
 
   sendPayload(payload) {
+    const currentUserId = this._currentUserId || wx.getStorageSync('openid') || '';
+    if (!currentUserId) {
+      this.ensureIdentity().then((uid) => {
+        if (!uid) {
+          wx.showToast({ title: '未登录', icon: 'none' });
+          return;
+        }
+        this.sendPayload(payload);
+      });
+      return;
+    }
     const reply = this.data.replyingTo;
     const message = {
       space_id: this.data.spaceId,
-      user_id: wx.getStorageSync('openid') || '',
+      user_id: currentUserId,
       content: payload.content || '',
       message_type: payload.message_type || 'text',
       media_url: payload.media_url || null,
@@ -1259,7 +1307,14 @@ Page({
       url: `${BASE_URL}/api/chat/send`,
       method: 'POST',
       data: message,
-      success: () => {
+      success: (res) => {
+        if (res.statusCode !== 200 || res.data?.success === false) {
+          if (clientId) {
+            this.removePendingByClientId(clientId);
+          }
+          wx.showToast({ title: res.data?.detail || '发送失败', icon: 'none' });
+          return;
+        }
         if (message.message_type === 'text') {
           this.setData({ inputMessage: '' });
         }
@@ -1278,6 +1333,12 @@ Page({
         if (clientId) {
           this.confirmPendingSent(clientId);
         }
+      },
+      fail: () => {
+        if (clientId) {
+          this.removePendingByClientId(clientId);
+        }
+        wx.showToast({ title: '发送失败', icon: 'none' });
       }
     });
   },
@@ -1323,6 +1384,12 @@ Page({
     const idx = messages.findIndex(m => m.client_id === clientId);
     if (idx === -1) return;
     messages[idx] = { ...messages[idx], sending: false, pending: false };
+    this.setData({ messages: this.applyDecorations(messages) });
+  },
+
+  removePendingByClientId(clientId) {
+    if (!clientId) return;
+    const messages = (this.data.messages || []).filter(m => m.client_id !== clientId);
     this.setData({ messages: this.applyDecorations(messages) });
   },
 

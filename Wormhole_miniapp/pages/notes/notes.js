@@ -38,7 +38,9 @@ Page({
     this.loadCachedPosts();
     this.refreshMyProfileCache(spaceId);
     this.syncTabBar();
-    this.fetchSpaceInfo();
+    this.ensureIdentity().then(() => {
+      this.fetchSpaceInfo();
+    });
   },
 
   onShow() {
@@ -53,7 +55,31 @@ Page({
     this.refreshMyProfileCache(this.data.spaceId);
     this.setData({ reviewMode: !!wx.getStorageSync('reviewMode') });
     this.syncTabBar();
-    this.getPosts();
+    this.ensureIdentity().then(() => {
+      this.fetchSpaceInfo();
+      this.getPosts();
+    });
+  },
+
+  ensureIdentity() {
+    const exists = this.data.myUserId || wx.getStorageSync('openid') || '';
+    if (exists) {
+      if (exists !== this.data.myUserId) {
+        this.setData({ myUserId: exists });
+      }
+      return Promise.resolve(exists);
+    }
+    const app = typeof getApp === 'function' ? getApp() : null;
+    const ensure = app && typeof app.ensureOpenId === 'function'
+      ? app.ensureOpenId()
+      : Promise.resolve('');
+    return ensure.then((uid) => {
+      const userId = uid || wx.getStorageSync('openid') || '';
+      if (userId) {
+        this.setData({ myUserId: userId });
+      }
+      return userId;
+    });
   },
 
   refreshMyProfileCache(spaceId) {
@@ -85,10 +111,12 @@ Page({
 
   fetchSpaceInfo() {
     if (!this.data.spaceId) return;
+    const userId = this.data.myUserId || wx.getStorageSync('openid') || '';
     wx.request({
       url: `${BASE_URL}/api/space/info`,
-      data: { space_id: this.data.spaceId },
+      data: { space_id: this.data.spaceId, user_id: userId },
       success: (res) => {
+        if (res.statusCode !== 200) return;
         const info = res.data || {};
         const myUserId = this.data.myUserId;
         this.setData({
@@ -137,6 +165,12 @@ Page({
   },
 
   getPosts({ stopPullDown = false } = {}) {
+    if (!this.data.myUserId) {
+      this.ensureIdentity().then((uid) => {
+        if (uid) this.getPosts({ stopPullDown });
+      });
+      return;
+    }
     const shouldShowLoading = (this.data.posts || []).length === 0;
     if (shouldShowLoading) {
       this.setData({ loading: true });
@@ -145,6 +179,10 @@ Page({
       url: `${BASE_URL}/api/feed/list`,
       data: { space_id: this.data.spaceId, user_id: this.data.myUserId },
       success: (res) => {
+        if (res.statusCode !== 200) {
+          wx.showToast({ title: res.data?.detail || '加载失败', icon: 'none' });
+          return;
+        }
         const rawPosts = res.data.posts || [];
         this._rawPosts = rawPosts;
         this.saveCachedPosts(rawPosts);
@@ -295,7 +333,11 @@ Page({
     const id = e.currentTarget.dataset.id;
     const content = this.data.commentInputs[id] || '';
     if (!content.trim()) return;
-    const userId = wx.getStorageSync('openid') || '';
+    const userId = this.data.myUserId || wx.getStorageSync('openid') || '';
+    if (!userId) {
+      wx.showToast({ title: '未登录', icon: 'none' });
+      return;
+    }
     const reply = this.data.replyTargets[id];
     let payloadContent = content.trim();
     if (reply && reply.userId && reply.userId !== this.data.myUserId) {
@@ -306,6 +348,10 @@ Page({
       method: 'POST',
       data: { post_id: id, user_id: userId, content: payloadContent },
       success: (res) => {
+        if (res.statusCode !== 200) {
+          wx.showToast({ title: res.data?.detail || '评论失败', icon: 'none' });
+          return;
+        }
         this.setData({
           [`commentInputs.${id}`]: '',
           [`commentPlaceholders.${id}`]: '',
@@ -410,7 +456,11 @@ Page({
           url: `${BASE_URL}/api/feed/delete`,
           method: 'POST',
           data: { post_id: postId, operator_user_id: operator },
-          success: () => {
+          success: (resp) => {
+            if (resp.statusCode !== 200) {
+              wx.showToast({ title: resp.data?.detail || '删除失败', icon: 'none' });
+              return;
+            }
             wx.showToast({ title: '已删除', icon: 'none' });
             const posts = (this.data.posts || []).filter(p => p.id !== postId);
             this.setData({ posts });
@@ -439,7 +489,11 @@ Page({
           url: `${BASE_URL}/api/feed/comment/delete`,
           method: 'POST',
           data: { comment_id: commentId, operator_user_id: operator },
-          success: () => {
+          success: (resp) => {
+            if (resp.statusCode !== 200) {
+              wx.showToast({ title: resp.data?.detail || '删除失败', icon: 'none' });
+              return;
+            }
             wx.showToast({ title: '已删除', icon: 'none' });
             const posts = [...this.data.posts];
             posts.forEach((post) => {
@@ -476,6 +530,16 @@ Page({
       method: 'POST',
       data: { post_id: postId, user_id: this.data.myUserId, like: nextState },
       success: (res) => {
+        if (res.statusCode !== 200) {
+          const rollback = [...this.data.posts];
+          if (rollback[index]) {
+            rollback[index].likedByMe = prevState;
+            rollback[index].likeCount = prevCount;
+            this.setData({ posts: rollback });
+          }
+          wx.showToast({ title: res.data?.detail || '操作失败', icon: 'none' });
+          return;
+        }
         if (res.data && typeof res.data.like_count === 'number') {
           const updated = [...this.data.posts];
           if (updated[index]) {

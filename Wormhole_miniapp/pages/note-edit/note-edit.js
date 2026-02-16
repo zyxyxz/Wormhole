@@ -36,11 +36,34 @@ Page({
     }
     const id = Number(query?.id || 0);
     this.setData({ spaceId, myUserId, id });
-    if (id) {
-      this.fetchDetail(id);
-    } else {
-      this.updatePreview('');
+    this.ensureIdentity().then(() => {
+      if (id) {
+        this.fetchDetail(id);
+      } else {
+        this.updatePreview('');
+      }
+    });
+  },
+
+  ensureIdentity() {
+    const exists = this.data.myUserId || wx.getStorageSync('openid') || '';
+    if (exists) {
+      if (exists !== this.data.myUserId) {
+        this.setData({ myUserId: exists });
+      }
+      return Promise.resolve(exists);
     }
+    const app = typeof getApp === 'function' ? getApp() : null;
+    const ensure = app && typeof app.ensureOpenId === 'function'
+      ? app.ensureOpenId()
+      : Promise.resolve('');
+    return ensure.then((uid) => {
+      const userId = uid || wx.getStorageSync('openid') || '';
+      if (userId) {
+        this.setData({ myUserId: userId });
+      }
+      return userId;
+    });
   },
 
   getPageTitle() {

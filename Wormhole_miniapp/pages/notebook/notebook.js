@@ -39,8 +39,10 @@ Page({
       return;
     }
     this.loadCachedNotes();
-    this.fetchSpaceInfo();
-    this.getNotes();
+    this.ensureIdentity().then(() => {
+      this.fetchSpaceInfo();
+      this.getNotes();
+    });
   },
 
   onShow() {
@@ -52,13 +54,36 @@ Page({
     }
     this.setData({ spaceId, myUserId });
     this.loadCachedNotes();
-    this.fetchSpaceInfo();
-    const refreshFlagKey = `notebook_need_refresh_${spaceId}`;
-    const shouldForce = !!wx.getStorageSync(refreshFlagKey);
-    if (shouldForce) {
-      try { wx.removeStorageSync(refreshFlagKey); } catch (e) {}
+    this.ensureIdentity().then(() => {
+      this.fetchSpaceInfo();
+      const refreshFlagKey = `notebook_need_refresh_${spaceId}`;
+      const shouldForce = !!wx.getStorageSync(refreshFlagKey);
+      if (shouldForce) {
+        try { wx.removeStorageSync(refreshFlagKey); } catch (e) {}
+      }
+      this.getNotes({ force: shouldForce });
+    });
+  },
+
+  ensureIdentity() {
+    const exists = this.data.myUserId || wx.getStorageSync('openid') || '';
+    if (exists) {
+      if (exists !== this.data.myUserId) {
+        this.setData({ myUserId: exists });
+      }
+      return Promise.resolve(exists);
     }
-    this.getNotes({ force: shouldForce });
+    const app = typeof getApp === 'function' ? getApp() : null;
+    const ensure = app && typeof app.ensureOpenId === 'function'
+      ? app.ensureOpenId()
+      : Promise.resolve('');
+    return ensure.then((uid) => {
+      const userId = uid || wx.getStorageSync('openid') || '';
+      if (userId) {
+        this.setData({ myUserId: userId });
+      }
+      return userId;
+    });
   },
 
   onPullDownRefresh() {
