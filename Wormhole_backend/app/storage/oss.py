@@ -3,7 +3,7 @@ import os
 import re
 import uuid
 from datetime import datetime
-from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+from urllib.parse import parse_qsl, unquote, urlencode, urlsplit, urlunsplit
 
 from app.config import settings
 
@@ -17,6 +17,23 @@ _SIGN_QUERY_KEYS = {
     "security-token",
     "x-oss-security-token",
 }
+
+
+def _decode_once_or_twice(value: str) -> str:
+    text = value or ""
+    for _ in range(2):
+        decoded = unquote(text)
+        if decoded == text:
+            break
+        text = decoded
+    return text
+
+
+def _strip_embedded_query(path_or_key: str) -> str:
+    value = _decode_once_or_twice(path_or_key or "")
+    if "?" in value:
+        value = value.split("?", 1)[0]
+    return value
 
 
 def is_configured() -> bool:
@@ -76,18 +93,21 @@ def get_public_url(object_key: str) -> str:
 def extract_object_key(url_or_key: str | None) -> str:
     if not url_or_key:
         return ""
-    candidate = (url_or_key or "").strip()
+    candidate = _decode_once_or_twice((url_or_key or "").strip())
     if not candidate:
         return ""
     if candidate.startswith("/"):
-        return candidate.lstrip("/")
+        return _strip_embedded_query(candidate).lstrip("/")
     base = get_base_url()
     if base and candidate.startswith(base):
-        return candidate[len(base):].lstrip("/")
+        return _strip_embedded_query(candidate[len(base):]).lstrip("/")
     parts = urlsplit(candidate)
     if parts.scheme and parts.netloc:
-        return parts.path.lstrip("/")
-    return candidate.lstrip("/")
+        normalized_path = _strip_embedded_query(parts.path).lstrip("/")
+        if normalized_path.startswith("http://") or normalized_path.startswith("https://"):
+            return extract_object_key(normalized_path)
+        return normalized_path
+    return _strip_embedded_query(candidate).lstrip("/")
 
 
 def get_signed_url(object_key: str, *, process: str | None = None, expire_seconds: int | None = None) -> str:
@@ -167,14 +187,21 @@ def guess_content_type(filename: str | None, provided: str | None = None) -> str
 def strip_oss_process(url: str | None) -> str | None:
     if not url:
         return url
+    if is_oss_url(url):
+        key = extract_object_key(url)
+        if key:
+            cleaned = get_public_url(key)
+            if cleaned:
+                return cleaned
     parts = urlsplit(url)
+    cleaned_path = _strip_embedded_query(parts.path)
     query_pairs = parse_qsl(parts.query, keep_blank_values=True)
     query_pairs = [
         (k, v) for k, v in query_pairs
         if k != "x-oss-process" and k not in _SIGN_QUERY_KEYS
     ]
     new_query = urlencode(query_pairs, doseq=True)
-    return urlunsplit((parts.scheme, parts.netloc, parts.path, new_query, parts.fragment))
+    return urlunsplit((parts.scheme, parts.netloc, cleaned_path, new_query, parts.fragment))
 
 
 def is_oss_url(url: str | None) -> bool:
@@ -202,11 +229,6 @@ def append_oss_process(url: str | None, process: str, *, force_image: bool = Fal
         return url
     if not is_image_url(url, force=force_image):
         return url
-    if settings.OSS_PRIVATE_ENABLED:
-        signed = get_signed_url(url, process=process)
-        if signed:
-            return signed
-        return url
     if not process:
         return strip_oss_process(url)
     if "x-oss-process" in url:
@@ -227,12 +249,6 @@ def get_access_url(url_or_key: str | None, *, process: str | None = None, force_
     base_url = get_public_url(key)
     if not base_url:
         return url_or_key
-    if settings.OSS_PRIVATE_ENABLED:
-        if process and is_image_url(base_url, force=force_image):
-            signed = get_signed_url(key, process=process)
-            return signed or base_url
-        signed = get_signed_url(key)
-        return signed or base_url
     if process:
         return append_oss_process(base_url, process, force_image=force_image)
     return strip_oss_process(base_url)

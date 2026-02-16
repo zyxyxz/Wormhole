@@ -297,8 +297,7 @@ App({
 
     const originalRequest = wx.request;
     wx.request = function (options = {}) {
-      const token = app.getCachedAccessToken();
-      let nextUrl = app.appendAuthTokenToUrl(options.url || '', token);
+      let nextUrl = options.url || '';
       const userId = app.getRequestUserId({ ...options, url: nextUrl });
       nextUrl = app.appendUserIdToUrl(nextUrl, userId);
       const nextOptions = Object.assign({}, options, {
@@ -310,8 +309,7 @@ App({
 
     const originalUploadFile = wx.uploadFile;
     wx.uploadFile = function (options = {}) {
-      const token = app.getCachedAccessToken();
-      let nextUrl = app.appendAuthTokenToUrl(options.url || '', token);
+      let nextUrl = options.url || '';
       const userId = app.getRequestUserId({ ...options, url: nextUrl });
       nextUrl = app.appendUserIdToUrl(nextUrl, userId);
       const nextOptions = Object.assign({}, options, {
@@ -324,8 +322,6 @@ App({
     const originalConnectSocket = wx.connectSocket;
     wx.connectSocket = function (options = {}) {
       let nextUrl = options.url || '';
-      const accessToken = app.getCachedAccessToken();
-      nextUrl = app.appendAuthTokenToUrl(nextUrl, accessToken);
       const userId = app.getRequestUserId({ ...options, url: nextUrl });
       nextUrl = app.appendUserIdToUrl(nextUrl, userId);
       const nextOptions = Object.assign({}, options, {
