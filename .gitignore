@@ -25,4 +25,5 @@ Wormhole_backend/schemas/__pycache__/
 # WeChat build artifacts (if any)
 Wormhole_miniapp/.idea/
 Wormhole_miniapp/.vscode/
-
+Wormhole_miniapp/preview-qrcode.jpg
+private.*.key

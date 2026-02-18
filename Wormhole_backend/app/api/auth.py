@@ -1,6 +1,7 @@
+import logging
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from jose import jwt
 from pydantic import BaseModel
 from app.config import settings
@@ -10,6 +11,7 @@ from app.database import get_db
 from models.logs import OperationLog
 
 router = APIRouter()
+logger = logging.getLogger("wormhole.auth")
 
 class LoginRequest(BaseModel):
     code: str
@@ -42,16 +44,19 @@ async def login(payload: LoginRequest, request: Request, db: AsyncSession = Depe
     appid = settings.WECHAT_APP_ID
     secret = settings.WECHAT_APP_SECRET
     if not appid or not secret:
-        # 开发模式：没有配置则返回伪openId，便于本地联调
-        openid = f"dev_{payload.code}"
-        db.add(OperationLog(
-            user_id=openid,
-            action="login",
-            detail="dev",
-            ip=(request.client.host if request.client else None),
-            user_agent=request.headers.get("user-agent")
-        ))
-        return build_login_response(openid)
+        if settings.AUTH_ALLOW_DEV_LOGIN_FALLBACK:
+            # 仅在显式允许时使用开发兜底 openid，避免线上误配置导致身份漂移。
+            openid = f"dev_{payload.code}"
+            db.add(OperationLog(
+                user_id=openid,
+                action="login",
+                detail="dev",
+                ip=(request.client.host if request.client else None),
+                user_agent=request.headers.get("user-agent")
+            ))
+            return build_login_response(openid)
+        logger.error("auth login denied: missing wechat appid/secret")
+        raise HTTPException(status_code=500, detail="服务端未配置微信登录")
 
     url = "https://api.weixin.qq.com/sns/jscode2session"
     params = {
@@ -73,4 +78,7 @@ async def login(payload: LoginRequest, request: Request, db: AsyncSession = Depe
             user_agent=request.headers.get("user-agent")
         ))
         return build_login_response(openid)
-    return {"error": data}
+    err_code = data.get("errcode")
+    err_msg = data.get("errmsg")
+    logger.warning("wechat login failed errcode=%s errmsg=%s", err_code, err_msg)
+    raise HTTPException(status_code=401, detail=f"微信登录失败: {err_code or 'unknown'}")

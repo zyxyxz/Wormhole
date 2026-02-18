@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     AUTH_JWT_SECRET: str = ""
     AUTH_JWT_ALGORITHM: str = "HS256"
     AUTH_TOKEN_EXPIRE_DAYS: int = 30
+    AUTH_ALLOW_DEV_LOGIN_FALLBACK: bool = False
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
