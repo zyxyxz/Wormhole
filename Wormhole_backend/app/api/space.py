@@ -81,15 +81,22 @@ async def enter_space(
     result = await db.execute(query)
     space = result.scalar_one_or_none()
 
-    # 再查别名空间码（被分享的空间）
+    # 再查当前用户自己的空间映射（通过分享加入后绑定的专属空间号）。
+    # 注意：这里不能仅按 SpaceCode 全局命中，否则会导致其他用户仅凭空间号误入他人空间。
     if not space:
-        alias_q = select(SpaceCode).where(SpaceCode.code == request.space_code)
-        alias_res = await db.execute(alias_q)
-        alias = alias_res.scalar_one_or_none()
-        if alias:
-            space_q = select(Space).where(Space.id == alias.space_id, Space.deleted_at.is_(None))
+        mapping_q = select(SpaceMapping).where(
+            SpaceMapping.user_id == request.user_id,
+            SpaceMapping.space_code == request.space_code
+        )
+        mapping_res = await db.execute(mapping_q)
+        mapping = mapping_res.scalar_one_or_none()
+        if mapping:
+            space_q = select(Space).where(Space.id == mapping.space_id, Space.deleted_at.is_(None))
             space_res = await db.execute(space_q)
             space = space_res.scalar_one_or_none()
+            if not space:
+                await db.execute(delete(SpaceMapping).where(SpaceMapping.id == mapping.id))
+                await db.commit()
     
     if not space:
         if not request.create_if_missing:
