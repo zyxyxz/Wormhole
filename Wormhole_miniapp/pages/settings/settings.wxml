@@ -91,6 +91,13 @@
         <text class="danger-text">删除空间</text>
       </view>
     </view>
+
+    <view class="danger-section" wx:if="{{!isOwner}}">
+      <view class="danger-title">房间操作</view>
+      <view class="danger-item" bindtap="leaveSpace">
+        <text class="danger-text">退出房间</text>
+      </view>
+    </view>
   </scroll-view>
 </view>
 

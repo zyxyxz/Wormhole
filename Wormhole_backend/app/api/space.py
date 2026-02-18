@@ -37,6 +37,11 @@ class DeleteRequest(BaseModel):
     space_id: int
     operator_user_id: str
 
+
+class LeaveRequest(BaseModel):
+    space_id: int
+    operator_user_id: str
+
 class JoinByShareRequest(BaseModel):
     share_code: str
     new_code: str
@@ -300,6 +305,57 @@ async def delete_space(payload: DeleteRequest, request: Request, db: AsyncSessio
     )
     await db.commit()
     return {"success": True, "message": "空间删除成功"}
+
+
+@router.post("/leave")
+async def leave_space(payload: LeaveRequest, request: Request, db: AsyncSession = Depends(get_db)):
+    if not payload.operator_user_id:
+        raise HTTPException(status_code=400, detail="缺少用户ID")
+    verify_request_user(request, payload.operator_user_id)
+    space = (await db.execute(select(Space).where(Space.id == payload.space_id, Space.deleted_at.is_(None)))).scalar_one_or_none()
+    if not space:
+        raise HTTPException(status_code=404, detail="空间不存在")
+    if space.owner_user_id == payload.operator_user_id:
+        raise HTTPException(status_code=400, detail="房主不能退出房间，请使用删除空间")
+    await require_space_member(db, payload.space_id, payload.operator_user_id)
+    mapping_rows = await db.execute(
+        select(SpaceMapping).where(
+            SpaceMapping.space_id == payload.space_id,
+            SpaceMapping.user_id == payload.operator_user_id
+        )
+    )
+    mappings = mapping_rows.scalars().all()
+    codes = [m.space_code for m in mappings if m.space_code]
+    await db.execute(
+        delete(SpaceMember).where(
+            SpaceMember.space_id == payload.space_id,
+            SpaceMember.user_id == payload.operator_user_id
+        )
+    )
+    await db.execute(
+        delete(SpaceMapping).where(
+            SpaceMapping.space_id == payload.space_id,
+            SpaceMapping.user_id == payload.operator_user_id
+        )
+    )
+    if codes:
+        await db.execute(
+            delete(SpaceCode).where(
+                SpaceCode.space_id == payload.space_id,
+                SpaceCode.code.in_(codes)
+            )
+        )
+    add_operation_log(
+        db,
+        user_id=payload.operator_user_id,
+        action="space_leave",
+        space_id=payload.space_id,
+        detail={"space_id": payload.space_id},
+        ip=(request.client.host if request.client else None),
+        user_agent=request.headers.get("user-agent")
+    )
+    await db.commit()
+    return {"success": True}
 
 @router.get("/info", response_model=SpaceInfoResponse)
 async def space_info(space_id: int, request: Request, db: AsyncSession = Depends(get_db)):

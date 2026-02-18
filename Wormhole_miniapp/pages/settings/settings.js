@@ -598,6 +598,64 @@ Page({
       }
     });
   },
+
+  clearCurrentSpaceCache() {
+    const sid = this.data.spaceId;
+    const keys = [
+      'currentSpaceId',
+      'currentSpaceCode',
+      sid ? `settings_cache_${sid}` : '',
+      sid ? `notes_cache_${sid}` : '',
+      sid ? `notebook_cache_${sid}` : '',
+      sid ? `wallet_cache_${sid}` : '',
+      sid ? `chat_cache_${sid}` : '',
+      sid ? `chat_last_read_${sid}` : '',
+      sid ? `chat_badge_${sid}` : '',
+      sid ? `notes_last_seen_${sid}` : '',
+      sid ? `myAlias_${sid}` : '',
+      sid ? `myAvatar_${sid}` : '',
+      sid ? `space_theme_${sid}` : ''
+    ].filter(Boolean);
+    keys.forEach((key) => {
+      try { wx.removeStorageSync(key); } catch (e) {}
+    });
+  },
+
+  leaveSpace() {
+    if (this.data.isOwner) {
+      wx.showToast({ title: '房主请删除空间', icon: 'none' });
+      return;
+    }
+    const operator = wx.getStorageSync('openid') || '';
+    if (!operator) {
+      wx.showToast({ title: '未登录', icon: 'none' });
+      return;
+    }
+    wx.showModal({
+      title: '退出房间',
+      content: `确认退出空间 ${this.data.spaceCode || ''}？退出后将无法继续查看该房间内容。`,
+      confirmText: '确认退出',
+      success: (res) => {
+        if (!res.confirm) return;
+        wx.request({
+          url: `${BASE_URL}/api/space/leave`,
+          method: 'POST',
+          data: { space_id: this.data.spaceId, operator_user_id: operator },
+          success: (resp) => {
+            if (resp.statusCode === 200 && resp.data?.success) {
+              this.clearCurrentSpaceCache();
+              wx.reLaunch({ url: '/pages/index/index' });
+            } else {
+              wx.showToast({ title: resp.data?.detail || '退出失败', icon: 'none' });
+            }
+          },
+          fail: () => {
+            wx.showToast({ title: '退出失败', icon: 'none' });
+          }
+        });
+      }
+    });
+  },
   blockMember(e) {
     const memberUserId = e.currentTarget.dataset.userid;
     wx.showModal({
