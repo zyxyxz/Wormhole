@@ -15,6 +15,7 @@ from app.config import settings
 from app.utils.media import process_avatar_url
 from app.utils.operation_log import add_operation_log
 from app.security import verify_request_user, require_space_member
+from models.notify import NotifyChannel
 
 router = APIRouter()
 
@@ -51,6 +52,42 @@ class SpaceInfoResponse(BaseModel):
     space_id: int
     code: str
     owner_user_id: str | None = None
+
+
+async def cleanup_member_artifacts(db: AsyncSession, space_id: int, user_id: str) -> None:
+    mapping_rows = await db.execute(
+        select(SpaceMapping).where(
+            SpaceMapping.space_id == space_id,
+            SpaceMapping.user_id == user_id
+        )
+    )
+    mappings = mapping_rows.scalars().all()
+    codes = [m.space_code for m in mappings if m.space_code]
+    await db.execute(
+        delete(SpaceMember).where(
+            SpaceMember.space_id == space_id,
+            SpaceMember.user_id == user_id
+        )
+    )
+    await db.execute(
+        delete(SpaceMapping).where(
+            SpaceMapping.space_id == space_id,
+            SpaceMapping.user_id == user_id
+        )
+    )
+    if codes:
+        await db.execute(
+            delete(SpaceCode).where(
+                SpaceCode.space_id == space_id,
+                SpaceCode.code.in_(codes)
+            )
+        )
+    await db.execute(
+        delete(NotifyChannel).where(
+            NotifyChannel.space_id == space_id,
+            NotifyChannel.user_id == user_id
+        )
+    )
 
 @router.post("/enter", response_model=SpaceEnterResponse)
 async def enter_space(
@@ -318,33 +355,7 @@ async def leave_space(payload: LeaveRequest, request: Request, db: AsyncSession 
     if space.owner_user_id == payload.operator_user_id:
         raise HTTPException(status_code=400, detail="房主不能退出房间，请使用删除空间")
     await require_space_member(db, payload.space_id, payload.operator_user_id)
-    mapping_rows = await db.execute(
-        select(SpaceMapping).where(
-            SpaceMapping.space_id == payload.space_id,
-            SpaceMapping.user_id == payload.operator_user_id
-        )
-    )
-    mappings = mapping_rows.scalars().all()
-    codes = [m.space_code for m in mappings if m.space_code]
-    await db.execute(
-        delete(SpaceMember).where(
-            SpaceMember.space_id == payload.space_id,
-            SpaceMember.user_id == payload.operator_user_id
-        )
-    )
-    await db.execute(
-        delete(SpaceMapping).where(
-            SpaceMapping.space_id == payload.space_id,
-            SpaceMapping.user_id == payload.operator_user_id
-        )
-    )
-    if codes:
-        await db.execute(
-            delete(SpaceCode).where(
-                SpaceCode.space_id == payload.space_id,
-                SpaceCode.code.in_(codes)
-            )
-        )
+    await cleanup_member_artifacts(db, payload.space_id, payload.operator_user_id)
     add_operation_log(
         db,
         user_id=payload.operator_user_id,
@@ -393,15 +404,7 @@ async def remove_member(payload: RemoveMemberRequest, request: Request, db: Asyn
     # 房主不可移除自己
     if payload.member_user_id == space.owner_user_id:
         raise HTTPException(status_code=400, detail="房主不可移除自己")
-    await db.execute(delete(SpaceMember).where(SpaceMember.space_id == payload.space_id, SpaceMember.user_id == payload.member_user_id))
-    # 清理成员关联的分享空间号
-    mapping_rows = await db.execute(select(SpaceMapping).where(SpaceMapping.space_id == payload.space_id, SpaceMapping.user_id == payload.member_user_id))
-    mappings = mapping_rows.scalars().all()
-    if mappings:
-        codes = [m.space_code for m in mappings if m.space_code]
-        await db.execute(delete(SpaceMapping).where(SpaceMapping.space_id == payload.space_id, SpaceMapping.user_id == payload.member_user_id))
-        if codes:
-            await db.execute(delete(SpaceCode).where(SpaceCode.space_id == payload.space_id, SpaceCode.code.in_(codes)))
+    await cleanup_member_artifacts(db, payload.space_id, payload.member_user_id)
     add_operation_log(
         db,
         user_id=payload.operator_user_id,
@@ -440,15 +443,8 @@ async def block_member(payload: BlockMemberRequest, request: Request, db: AsyncS
         raise HTTPException(status_code=404, detail="空间不存在")
     if space.owner_user_id != payload.operator_user_id:
         raise HTTPException(status_code=403, detail="无权限")
-    # 先从成员列表移除并清理空间号映射
-    await db.execute(delete(SpaceMember).where(SpaceMember.space_id == payload.space_id, SpaceMember.user_id == payload.member_user_id))
-    mapping_rows = await db.execute(select(SpaceMapping).where(SpaceMapping.space_id == payload.space_id, SpaceMapping.user_id == payload.member_user_id))
-    mappings = mapping_rows.scalars().all()
-    if mappings:
-        codes = [m.space_code for m in mappings if m.space_code]
-        await db.execute(delete(SpaceMapping).where(SpaceMapping.space_id == payload.space_id, SpaceMapping.user_id == payload.member_user_id))
-        if codes:
-            await db.execute(delete(SpaceCode).where(SpaceCode.space_id == payload.space_id, SpaceCode.code.in_(codes)))
+    # 先从成员列表移除并清理关联空间号与通知渠道
+    await cleanup_member_artifacts(db, payload.space_id, payload.member_user_id)
     # 加入黑名单
     exist = (await db.execute(select(SpaceBlock).where(SpaceBlock.space_id == payload.space_id, SpaceBlock.user_id == payload.member_user_id))).scalar_one_or_none()
     if not exist:

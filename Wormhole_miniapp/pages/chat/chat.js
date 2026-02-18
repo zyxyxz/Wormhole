@@ -3,10 +3,15 @@ const { ensureDiaryMode } = require('../../utils/review.js');
 const { EMOJI_DISPLAY_LIST } = require('../../utils/wechat-emoji.js');
 
 const CHAT_CACHE_LIMIT = 50;
+const MISS_YOU_SUFFIX = '在想你';
+const MUTUAL_MISSYOU_WINDOW_MS = 90000;
+const HEART_BURST_COOLDOWN_MS = 6000;
+const HEART_BURST_COUNT = 42;
 const PLUS_ACTIONS = [
   { id: 'album', label: '照片/视频', icon: '🖼️' },
-  { id: 'live', label: '实况照片', icon: '📸' },
   { id: 'camera', label: '拍照', icon: '📷' },
+  { id: 'missyou', label: '想你', icon: '💌' },
+  { id: 'live', label: '实况照片', icon: '📸' },
   { id: 'location', label: '位置', icon: '📍' },
   { id: 'file', label: '文件', icon: '📄' },
   { id: 'contact', label: '名片', icon: '👤' },
@@ -88,6 +93,8 @@ Page({
     ownerUserId: '',
     isOwner: false,
     activeLiveMessageId: null,
+    heartBurstVisible: false,
+    heartBurstHearts: [],
   },
   goHome() {
     wx.reLaunch({ url: '/pages/index/index' });
@@ -759,6 +766,7 @@ Page({
     if (type === 'video') return '[视频]';
     if (type === 'audio') return '[语音]';
     if (type === 'live') return '[Live]';
+    if (type === 'system') return '[系统提示]';
     const trimmed = (content || '').trim();
     return trimmed ? trimmed.slice(0, 80) : '[消息]';
   },
@@ -891,6 +899,11 @@ Page({
   handlePlusAction(e) {
     const action = e.currentTarget.dataset.action;
     if (!action) return;
+    if (action === 'missyou') {
+      this.sendMissYou();
+      this.closePlusPanel();
+      return;
+    }
     if (action === 'album') {
       this.chooseMedia(['album']);
       return;
@@ -920,6 +933,17 @@ Page({
     }
     wx.showToast({ title: '更多功能开发中', icon: 'none' });
     this.closePlusPanel();
+  },
+
+  sendMissYou() {
+    const userId = this._currentUserId || wx.getStorageSync('openid') || '';
+    const profile = this.getMyProfile();
+    const displayName = (profile.alias || userId || '有人').trim().slice(0, 20);
+    this._lastMissYouByMeAt = Date.now();
+    this.sendPayload({
+      content: `${displayName}${MISS_YOU_SUFFIX}`,
+      message_type: 'system'
+    });
   },
 
   chooseMedia(sourceType) {
@@ -1265,7 +1289,7 @@ Page({
       wx.showToast({ title: '未登录', icon: 'none' });
       return;
     }
-    if (message.message_type === 'text' && !message.content.trim()) {
+    if ((message.message_type === 'text' || message.message_type === 'system') && !message.content.trim()) {
       return;
     }
     const clientId = this.createClientId();
@@ -1466,6 +1490,61 @@ Page({
     if (this.data.isAtBottom) {
       this.markReadLatest();
     }
+    this.maybeTriggerMutualMissYou(message);
+  },
+
+  isMissYouSystemMessage(message) {
+    if (!message || message.messageType !== 'system') return false;
+    const text = String(message.content || '').trim();
+    return !!text && text.endsWith(MISS_YOU_SUFFIX);
+  },
+
+  maybeTriggerMutualMissYou(message) {
+    if (!this.isMissYouSystemMessage(message)) return;
+    const now = Date.now();
+    if (message.isSelf) {
+      this._lastMissYouByMeAt = now;
+      return;
+    }
+    const myMissYouAt = Number(this._lastMissYouByMeAt || 0);
+    if (!myMissYouAt) return;
+    if (now - myMissYouAt > MUTUAL_MISSYOU_WINDOW_MS) return;
+    const lastBurstAt = Number(this._lastHeartBurstAt || 0);
+    if (lastBurstAt && now - lastBurstAt < HEART_BURST_COOLDOWN_MS) return;
+    this._lastHeartBurstAt = now;
+    this._lastMissYouByMeAt = 0;
+    this.launchHeartBurst();
+  },
+
+  buildHeartBurstHearts(count = HEART_BURST_COUNT) {
+    const hearts = [];
+    for (let i = 0; i < count; i += 1) {
+      const left = (Math.random() * 100).toFixed(2);
+      const delay = (Math.random() * 0.45).toFixed(2);
+      const duration = (1.8 + Math.random() * 1.6).toFixed(2);
+      const size = (22 + Math.random() * 26).toFixed(0);
+      const opacity = (0.72 + Math.random() * 0.28).toFixed(2);
+      hearts.push({
+        id: `${Date.now()}_${i}_${Math.random().toString(16).slice(2, 6)}`,
+        style: `left:${left}%;animation-delay:${delay}s;animation-duration:${duration}s;font-size:${size}rpx;opacity:${opacity};`
+      });
+    }
+    return hearts;
+  },
+
+  launchHeartBurst() {
+    if (this._heartBurstTimer) {
+      clearTimeout(this._heartBurstTimer);
+      this._heartBurstTimer = null;
+    }
+    this.setData({
+      heartBurstVisible: true,
+      heartBurstHearts: this.buildHeartBurstHearts()
+    });
+    this._heartBurstTimer = setTimeout(() => {
+      this._heartBurstTimer = null;
+      this.setData({ heartBurstVisible: false, heartBurstHearts: [] });
+    }, 3600);
   },
 
   toggleInputMode() {
@@ -1490,14 +1569,16 @@ Page({
     let reply = null;
     if (message.reply_to_id) {
       const replyNickname = message.reply_to_alias || message.reply_to_user_id || '匿名';
-      const replyContent = message.reply_to_content || (message.reply_to_type === 'image' ? '[图片]' : message.reply_to_type === 'video' ? '[视频]' : message.reply_to_type === 'audio' ? '[语音]' : message.reply_to_type === 'live' ? '[Live]' : '[消息]');
+      const replyType = (message.reply_to_type || 'text').toLowerCase();
+      const replyContent = message.reply_to_content || (replyType === 'image' ? '[图片]' : replyType === 'video' ? '[视频]' : replyType === 'audio' ? '[语音]' : replyType === 'live' ? '[Live]' : '[消息]');
       reply = {
         id: message.reply_to_id,
         userId: message.reply_to_user_id,
         nickname: replyNickname,
         avatar: message.reply_to_avatar_url || '',
         content: replyContent,
-        type: message.reply_to_type || 'text'
+        type: replyType,
+        canPreview: ['image', 'video', 'live'].includes(replyType)
       };
     }
     return {
@@ -1640,6 +1721,10 @@ Page({
     this.sendTyping(false);
     this._wsKeepAlive = false;
     this.cleanupWebSocket({ allowReconnect: false });
+    if (this._heartBurstTimer) {
+      clearTimeout(this._heartBurstTimer);
+      this._heartBurstTimer = null;
+    }
     if (this.audioCtx) {
       this.audioCtx.destroy();
       this.audioCtx = null;
@@ -1694,6 +1779,66 @@ Page({
     });
   },
 
+  previewVideoUrl(videoUrl, coverUrl = '') {
+    const url = (videoUrl || '').trim();
+    if (!url) return false;
+    const poster = (coverUrl || '').trim();
+    const app = typeof getApp === 'function' ? getApp() : null;
+    if (app && typeof app.enterForegroundHold === 'function') {
+      this._previewHoldActive = true;
+      app.enterForegroundHold(60000);
+    }
+    if (wx.previewMedia) {
+      wx.previewMedia({
+        sources: [{
+          url,
+          type: 'video',
+          poster
+        }]
+      });
+      return true;
+    }
+    if (poster) {
+      wx.previewImage({ current: poster, urls: [poster] });
+      return true;
+    }
+    wx.showToast({ title: '当前版本暂不支持预览', icon: 'none' });
+    return false;
+  },
+
+  previewReplyMedia(e) {
+    const dataset = e.currentTarget.dataset || {};
+    const replyType = String(dataset.replyType || '').toLowerCase();
+    if (!['image', 'video', 'live'].includes(replyType)) return;
+    const replyId = Number(dataset.replyId || 0);
+    const messages = this.data.messages || [];
+    const target = replyId ? messages.find(item => Number(item.id) === replyId) : null;
+    if (!target) {
+      wx.showToast({ title: '引用内容暂不可预览', icon: 'none' });
+      return;
+    }
+    if (target.messageType === 'image' && target.mediaUrl) {
+      this.previewChatImage({ currentTarget: { dataset: { url: target.mediaUrl } } });
+      return;
+    }
+    if (target.messageType === 'video' && target.mediaUrl) {
+      this.previewVideoUrl(target.mediaUrl);
+      return;
+    }
+    if (target.messageType === 'live') {
+      this.previewLiveMessage({
+        currentTarget: {
+          dataset: {
+            cover: target.liveCoverUrl || target.mediaUrl || '',
+            video: target.liveVideoUrl || ''
+          }
+        }
+      });
+      return;
+    }
+    wx.showToast({ title: '引用内容暂不可预览', icon: 'none' });
+  },
+
   previewLiveMessage(e) {
     const dataset = e.currentTarget.dataset || {};
     const coverUrl = dataset.cover || '';
@@ -1704,26 +1849,7 @@ Page({
       }
       return;
     }
-    const app = typeof getApp === 'function' ? getApp() : null;
-    if (app && typeof app.enterForegroundHold === 'function') {
-      this._previewHoldActive = true;
-      app.enterForegroundHold(60000);
-    }
-    if (wx.previewMedia) {
-      wx.previewMedia({
-        sources: [{
-          url: videoUrl,
-          type: 'video',
-          poster: coverUrl || ''
-        }]
-      });
-      return;
-    }
-    if (coverUrl) {
-      wx.previewImage({ current: coverUrl, urls: [coverUrl] });
-    } else {
-      wx.showToast({ title: '当前版本暂不支持预览', icon: 'none' });
-    }
+    this.previewVideoUrl(videoUrl, coverUrl);
   },
 
   playAudio(e) {

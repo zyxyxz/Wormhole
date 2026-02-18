@@ -1,0 +1,17 @@
+{
+  "name": "wormhole_miniapp",
+  "version": "1.0.0",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "mp:compile": "miniprogram-ci get-compiled-result --appid wxf352f78176ea0dd2 --pp . --pkp ../private.wxf352f78176ea0dd2.key --pt miniProgram --use-project-config --sp ./.ci-build",
+    "mp:upload": "miniprogram-ci upload --appid wxf352f78176ea0dd2 --pp . --pkp ../private.wxf352f78176ea0dd2.key --pt miniProgram --use-project-config --r 1 --use-cos"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "miniprogram-ci": "^2.1.26"
+  }
+}

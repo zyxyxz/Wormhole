@@ -26,4 +26,7 @@ Wormhole_backend/schemas/__pycache__/
 Wormhole_miniapp/.idea/
 Wormhole_miniapp/.vscode/
 Wormhole_miniapp/preview-qrcode.jpg
+Wormhole_miniapp/node_modules/
+Wormhole_miniapp/.ci-build
+.venv_wormhole/
 private.*.key

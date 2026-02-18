@@ -28,6 +28,7 @@ from app.services.notify_dispatcher import fire_room_notification
 from datetime import datetime
 
 router = APIRouter()
+ALLOWED_MESSAGE_TYPES = {"text", "image", "video", "audio", "live", "system"}
 
 @router.get("/history", response_model=ChatHistoryResponse)
 async def get_chat_history(
@@ -102,6 +103,9 @@ async def send_message(
     actor_user_id = verify_request_user(request, message.user_id)
     await require_space_member(db, message.space_id, actor_user_id)
     message_type = (message.message_type or "text").lower()
+    if message_type not in ALLOWED_MESSAGE_TYPES:
+        raise HTTPException(status_code=400, detail="不支持的消息类型")
+    content = (message.content or "").strip()
     duration = message.media_duration
     if duration is not None:
         try:
@@ -109,10 +113,15 @@ async def send_message(
         except Exception:
             duration = None
     media_url = strip_url(message.media_url)
-    if message_type == "live":
+    if message_type in {"text", "system"}:
+        if not content:
+            raise HTTPException(status_code=400, detail="消息内容不能为空")
+    elif message_type == "live":
         media_url = encode_live_media(message.live_cover_url, message.live_video_url)
         if not media_url:
             raise HTTPException(status_code=400, detail="Live消息缺少封面或视频")
+    elif not media_url:
+        raise HTTPException(status_code=400, detail="媒体消息缺少资源地址")
     reply_to_id = message.reply_to_id
     reply_to_user_id = message.reply_to_user_id
     reply_to_content = message.reply_to_content
@@ -120,7 +129,7 @@ async def send_message(
     db_message = Message(
         space_id=message.space_id,
         user_id=message.user_id,
-        content=message.content or "",
+        content=content,
         message_type=message_type,
         media_url=media_url,
         media_duration=duration,
@@ -154,6 +163,7 @@ async def send_message(
         event_type="chat",
         sender_user_id=message.user_id,
         sender_alias=ua.alias if ua else None,
+        force_send=message_type == "system",
     )
     live_cover_url = None
     live_video_url = None

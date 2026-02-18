@@ -125,11 +125,18 @@ Page({
     }
   },
 
+  getActorUserId() {
+    return this.data.myUserId || wx.getStorageSync('openid') || '';
+  },
+
   fetchSpaceInfo() {
+    if (!this.data.spaceId) return;
+    const actorUserId = this.getActorUserId();
     wx.request({
       url: `${BASE_URL}/api/space/info`,
-      data: { space_id: this.data.spaceId },
+      data: { space_id: this.data.spaceId, user_id: actorUserId },
       success: (res) => {
+        if (res.statusCode !== 200) return;
         const info = res.data;
         const isOwner = wx.getStorageSync('openid') === info.owner_user_id;
         const nextOwner = info.owner_user_id || '';
@@ -137,6 +144,8 @@ Page({
           this.setData({ isOwner, ownerUserId: nextOwner });
           this.persistSettingsCache();
         }
+      },
+      complete: () => {
         this.fetchMembers();
       }
     });
@@ -224,11 +233,14 @@ Page({
   },
 
   fetchMembers() {
+    if (!this.data.spaceId) return;
+    const actorUserId = this.getActorUserId();
     wx.request({
       url: `${BASE_URL}/api/space/members`,
-      data: { space_id: this.data.spaceId },
+      data: { space_id: this.data.spaceId, user_id: actorUserId },
       success: (res) => {
-        const membersRaw = res.data.members || [];
+        if (res.statusCode !== 200) return;
+        const membersRaw = Array.isArray(res.data?.members) ? res.data.members : [];
         const nextSig = this.buildMembersSignature(membersRaw);
         const members = membersRaw.map(item => ({
           ...item,
@@ -236,14 +248,12 @@ Page({
           initial: (item.alias || item.user_id || '?').charAt(0)
         }));
         const preview = members.slice(0, 4);
-        if (nextSig !== this._membersSig) {
-          this._membersSig = nextSig;
-          this.setData({
-            members,
-            memberPreview: preview
-          });
-          this.persistSettingsCache({ membersSig: nextSig });
-        }
+        this._membersSig = nextSig;
+        this.setData({
+          members,
+          memberPreview: preview
+        });
+        this.persistSettingsCache({ membersSig: nextSig });
         if (this.data.isOwner) {
           this.fetchBlocks();
         }
@@ -251,10 +261,13 @@ Page({
     });
   },
   fetchBlocks() {
+    if (!this.data.spaceId) return;
+    const actorUserId = this.getActorUserId();
     wx.request({
       url: `${BASE_URL}/api/space/blocks`,
-      data: { space_id: this.data.spaceId },
+      data: { space_id: this.data.spaceId, user_id: actorUserId },
       success: (res) => {
+        if (res.statusCode !== 200) return;
         const blocks = res.data.blocks || [];
         const nextSig = this.buildBlocksSignature(blocks);
         if (nextSig !== this._blocksSig) {

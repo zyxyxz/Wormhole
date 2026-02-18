@@ -5,6 +5,9 @@
   </view>
 </navigation-bar>
 <view class="chat-container theme-root {{themeClass}}" bindtap="closeOverlayPanels">
+  <view wx:if="{{heartBurstVisible}}" class="heart-burst-layer">
+    <text wx:for="{{heartBurstHearts}}" wx:key="id" class="heart-burst-item" style="{{item.style}}">❤</text>
+  </view>
   <scroll-view class="message-list" scroll-y="true" scroll-with-animation="{{scrollWithAnimation}}" scroll-into-view="{{scrollTargetId}}" scroll-top="{{scrollTop}}" enable-flex="true" upper-threshold="80" bindscrolltoupper="loadOlderMessages" bindscrolltolower="onScrollToLower" bindscroll="onScroll" bindtap="closeOverlayPanels" style="padding-bottom: {{bottomPadding}}px;">
     <view class="history-hint">
       <text wx:if="{{historyLoading}}">加载中...</text>
@@ -15,7 +18,10 @@
       <view wx:if="{{item.showUnreadDivider}}" class="unread-divider">
         <text>以下为未读消息</text>
       </view>
-      <view class="message-item {{item.isSelf ? 'self' : ''}}" id="msg-{{item.id}}"
+      <view wx:if="{{item.messageType === 'system'}}" class="system-message-row" id="msg-{{item.id}}">
+        <text class="system-message-text">{{item.content}}</text>
+      </view>
+      <view wx:else class="message-item {{item.isSelf ? 'self' : ''}}" id="msg-{{item.id}}"
             bindlongpress="openMessageActions"
             data-id="{{item.id}}"
             data-user-id="{{item.userId}}"
@@ -25,52 +31,52 @@
             data-media-url="{{item.mediaUrl}}"
             data-live-cover-url="{{item.liveCoverUrl}}"
             data-live-video-url="{{item.liveVideoUrl}}">
-      <view class="avatar">
-        <image wx:if="{{item.avatar}}" src="{{item.avatar}}" mode="aspectFill"></image>
-        <text wx:else>{{item.initial}}</text>
-      </view>
-      <view class="message-content">
-        <view class="nickname">{{item.nickname}}</view>
-        <view wx:if="{{item.reply}}" class="reply-snippet">
-          <text class="reply-snippet-name">{{item.reply.nickname}}</text>
-          <emoji-text text="{{item.reply.content}}" size="20" mode="inline" customClass="reply-snippet-text" />
+        <view class="avatar">
+          <image wx:if="{{item.avatar}}" src="{{item.avatar}}" mode="aspectFill"></image>
+          <text wx:else>{{item.initial}}</text>
         </view>
-        <block wx:if="{{item.messageType === 'text'}}">
-          <view class="message-bubble">
-            <emoji-text text="{{item.content}}" size="24" mode="inline" />
+        <view class="message-content">
+          <view class="nickname">{{item.nickname}}</view>
+          <view wx:if="{{item.reply}}" class="reply-snippet {{item.reply.canPreview ? 'reply-snippet-clickable' : ''}}" bindtap="previewReplyMedia" data-reply-id="{{item.reply.id}}" data-reply-type="{{item.reply.type}}">
+            <text class="reply-snippet-name">{{item.reply.nickname}}</text>
+            <emoji-text text="{{item.reply.content}}" size="20" mode="inline" customClass="reply-snippet-text" />
           </view>
-        </block>
-        <block wx:elif="{{item.messageType === 'image'}}">
-          <image class="message-image" src="{{item.mediaUrl}}" mode="aspectFill" bindtap="previewChatImage" data-url="{{item.mediaUrl}}"></image>
-        </block>
-        <block wx:elif="{{item.messageType === 'video'}}">
-          <video class="message-video" src="{{item.mediaUrl}}" controls="true" show-mute-btn="true" object-fit="cover"></video>
-        </block>
-        <block wx:elif="{{item.messageType === 'live'}}">
-          <view class="live-message" bindtap="previewLiveMessage" data-cover="{{item.liveCoverUrl || item.mediaUrl}}" data-video="{{item.liveVideoUrl}}">
-            <image class="live-cover" src="{{item.liveCoverUrl || item.mediaUrl}}" mode="aspectFill"></image>
-            <view class="live-mask">
-              <view class="live-play"></view>
+          <block wx:if="{{item.messageType === 'text'}}">
+            <view class="message-bubble">
+              <emoji-text text="{{item.content}}" size="24" mode="inline" />
             </view>
-            <view class="live-badge">Live</view>
-          </view>
-        </block>
-        <block wx:elif="{{item.messageType === 'audio'}}">
-          <view class="audio-bubble" data-url="{{item.mediaUrl}}" data-id="{{item.id}}" bindtap="playAudio">
-            <text class="audio-icon">♪</text>
-            <text>{{item.audioDuration || 0}}s</text>
-            <text wx:if="{{audioPlayingId === item.id}}" class="playing">播放中</text>
-          </view>
-        </block>
-        <view class="message-meta">
-          <view class="message-time">{{item.displayTime}}</view>
-          <view wx:if="{{item.isSelf && item.sending}}" class="sending-spinner"></view>
-          <view wx:if="{{item.isSelf && item.readStatus}}" class="read-state" bindtap="openReadList" data-id="{{item.id}}">
-            <text>{{item.readStatus}}</text>
+          </block>
+          <block wx:elif="{{item.messageType === 'image'}}">
+            <image class="message-image" src="{{item.mediaUrl}}" mode="aspectFill" bindtap="previewChatImage" data-url="{{item.mediaUrl}}"></image>
+          </block>
+          <block wx:elif="{{item.messageType === 'video'}}">
+            <video class="message-video" src="{{item.mediaUrl}}" controls="true" show-mute-btn="true" object-fit="cover"></video>
+          </block>
+          <block wx:elif="{{item.messageType === 'live'}}">
+            <view class="live-message" bindtap="previewLiveMessage" data-cover="{{item.liveCoverUrl || item.mediaUrl}}" data-video="{{item.liveVideoUrl}}">
+              <image class="live-cover" src="{{item.liveCoverUrl || item.mediaUrl}}" mode="aspectFill"></image>
+              <view class="live-mask">
+                <view class="live-play"></view>
+              </view>
+              <view class="live-badge">Live</view>
+            </view>
+          </block>
+          <block wx:elif="{{item.messageType === 'audio'}}">
+            <view class="audio-bubble" data-url="{{item.mediaUrl}}" data-id="{{item.id}}" bindtap="playAudio">
+              <text class="audio-icon">♪</text>
+              <text>{{item.audioDuration || 0}}s</text>
+              <text wx:if="{{audioPlayingId === item.id}}" class="playing">播放中</text>
+            </view>
+          </block>
+          <view class="message-meta">
+            <view class="message-time">{{item.displayTime}}</view>
+            <view wx:if="{{item.isSelf && item.sending}}" class="sending-spinner"></view>
+            <view wx:if="{{item.isSelf && item.readStatus}}" class="read-state" bindtap="openReadList" data-id="{{item.id}}">
+              <text>{{item.readStatus}}</text>
+            </view>
           </view>
         </view>
       </view>
-    </view>
     </view>
     <view wx:if="{{typingDisplay.length}}" class="typing-row">
       <view class="typing-avatars">

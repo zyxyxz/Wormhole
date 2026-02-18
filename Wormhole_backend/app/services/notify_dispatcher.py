@@ -129,6 +129,7 @@ async def dispatch_room_notification(
     event_type: str,
     sender_user_id: str | None = None,
     sender_alias: str | None = None,
+    force_send: bool = False,
 ) -> None:
     if event_type not in EVENT_TYPES:
         return
@@ -147,10 +148,10 @@ async def dispatch_room_notification(
         for channel in channels:
             if sender_user_id and channel.user_id == sender_user_id:
                 continue
-            if channel.skip_when_online and channel.user_id in online_users:
+            if not force_send and channel.skip_when_online and channel.user_id in online_users:
                 continue
             cooldown_seconds = normalize_cooldown_seconds(channel.cooldown_seconds)
-            if cooldown_seconds and channel.last_notified_at:
+            if not force_send and cooldown_seconds and channel.last_notified_at:
                 delta = (now - channel.last_notified_at).total_seconds()
                 if delta < cooldown_seconds:
                     continue
@@ -179,6 +180,7 @@ def fire_room_notification(
     event_type: str,
     sender_user_id: str | None = None,
     sender_alias: str | None = None,
+    force_send: bool = False,
 ) -> None:
     try:
         loop = asyncio.get_running_loop()
@@ -188,6 +190,7 @@ def fire_room_notification(
                 event_type=event_type,
                 sender_user_id=sender_user_id,
                 sender_alias=sender_alias,
+                force_send=force_send,
             )
         )
     except Exception:

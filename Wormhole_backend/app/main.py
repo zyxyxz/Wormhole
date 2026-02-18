@@ -28,6 +28,8 @@ from app.services.notify_dispatcher import fire_room_notification
 from sqlalchemy import select
 from datetime import datetime
 
+ALLOWED_MESSAGE_TYPES = {"text", "image", "video", "audio", "live", "system"}
+
 app = FastAPI(title="虫洞私密共享空间")
 
 # 配置CORS
@@ -137,6 +139,8 @@ async def websocket_endpoint(websocket: WebSocket, space_id: int):
             content = data.get("content", "")
             user_id = ws_user_id
             message_type = (data.get("message_type") or "text").lower()
+            if message_type not in ALLOWED_MESSAGE_TYPES:
+                continue
             media_url = strip_url(data.get("media_url"))
             live_cover_url = data.get("live_cover_url")
             live_video_url = data.get("live_video_url")
@@ -155,7 +159,7 @@ async def websocket_endpoint(websocket: WebSocket, space_id: int):
             except Exception:
                 reply_to_id = None
             chat_manager.register_user(space_id, websocket, user_id)
-            if message_type == "text":
+            if message_type in {"text", "system"}:
                 content = (content or "").strip()
                 if not content:
                     continue
@@ -227,6 +231,7 @@ async def websocket_endpoint(websocket: WebSocket, space_id: int):
                     event_type="chat",
                     sender_user_id=user_id,
                     sender_alias=alias,
+                    force_send=message_type == "system",
                 )
                 payload = {
                     "id": msg.id,
