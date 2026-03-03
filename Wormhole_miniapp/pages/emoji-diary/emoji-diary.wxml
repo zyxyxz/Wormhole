@@ -1,64 +1,62 @@
 <navigation-bar title="Emoji日记" back="{{true}}" bind:back="goBack" home-button="{{true}}" bind:home="goHome" background="{{themeNavBg}}" color="{{themeNavText}}" />
 <view class="emoji-diary-page theme-root {{themeClass}}">
-  <scroll-view class="emoji-diary-scroll" scroll-y="true" enhanced="{{true}}">
-    <view class="month-card">
-      <button class="month-nav" bindtap="prevMonth">‹</button>
-      <view class="month-title">{{monthLabel}}</view>
-      <button class="month-nav" bindtap="nextMonth">›</button>
+  <view class="month-card">
+    <button class="month-nav" bindtap="prevMonth">‹</button>
+    <view class="month-title">{{monthLabel}}</view>
+    <button class="month-nav" bindtap="nextMonth">›</button>
+  </view>
+
+  <view class="month-tools">
+    <button class="today-btn" bindtap="goToday">回到今天</button>
+    <text wx:if="{{loading}}" class="loading-text">加载中...</text>
+  </view>
+
+  <view class="calendar-card">
+    <view class="week-row">
+      <text wx:for="{{weekHeaders}}" wx:key="*this" class="week-cell">{{item}}</text>
     </view>
 
-    <view class="month-tools">
-      <button class="today-btn" bindtap="goToday">回到今天</button>
-      <text wx:if="{{loading}}" class="loading-text">加载中...</text>
-    </view>
-
-    <view class="calendar-card">
-      <view class="week-row">
-        <text wx:for="{{weekHeaders}}" wx:key="*this" class="week-cell">{{item}}</text>
-      </view>
-
-      <view class="days-grid">
-        <view
-          wx:for="{{calendarDays}}"
-          wx:key="dateKey"
-          class="day-cell {{item.inMonth ? '' : 'out-month'}} {{item.isToday ? 'today' : ''}} {{item.selected ? 'selected' : ''}}"
-          data-date="{{item.dateKey}}"
-          data-in-month="{{item.inMonth}}"
-          bindtap="onTapDay"
-        >
-          <text class="day-number">{{item.dayNumber}}</text>
-          <text class="day-emoji">{{item.emoji}}</text>
-          <view wx:if="{{item.hasNote}}" class="note-dot"></view>
-        </view>
+    <view class="days-grid">
+      <view
+        wx:for="{{calendarDays}}"
+        wx:key="dateKey"
+        class="day-cell {{item.inMonth ? '' : 'out-month'}} {{item.isToday ? 'today' : ''}} {{item.selected ? 'selected' : ''}}"
+        data-date="{{item.dateKey}}"
+        data-in-month="{{item.inMonth}}"
+        bindtap="onTapDay"
+      >
+        <text class="day-number">{{item.dayNumber}}</text>
+        <text class="day-emoji">{{item.emoji}}</text>
+        <view wx:if="{{item.hasNote}}" class="note-dot"></view>
       </view>
     </view>
+  </view>
 
-    <view class="editor-card" wx:if="{{selectedDate}}">
-      <view class="editor-title">{{selectedDayLabel}}</view>
-      <view class="emoji-picker">
-        <view
-          wx:for="{{emojiOptions}}"
-          wx:key="*this"
-          class="emoji-chip {{selectedEmoji === item ? 'active' : ''}}"
-          data-emoji="{{item}}"
-          bindtap="pickEmoji"
-        >
-          {{item}}
-        </view>
-      </view>
-
-      <textarea
-        class="note-input"
-        placeholder="今天发生了什么？写一点备注..."
-        maxlength="300"
-        value="{{selectedNote}}"
-        bindinput="onNoteInput"
-      />
-
-      <view class="editor-actions">
-        <button class="ghost-btn" bindtap="clearEntry" loading="{{saving}}" disabled="{{saving}}">清空</button>
-        <button class="save-btn" bindtap="saveEntry" loading="{{saving}}" disabled="{{saving}}">保存</button>
+  <view class="editor-card" wx:if="{{selectedDate}}">
+    <view class="editor-title">{{selectedDayLabel}}</view>
+    <view class="emoji-picker">
+      <view
+        wx:for="{{emojiOptions}}"
+        wx:key="*this"
+        class="emoji-chip {{selectedEmoji === item ? 'active' : ''}}"
+        data-emoji="{{item}}"
+        bindtap="pickEmoji"
+      >
+        {{item}}
       </view>
     </view>
-  </scroll-view>
+
+    <textarea
+      class="note-input"
+      placeholder="今天发生了什么？写一点备注..."
+      maxlength="300"
+      value="{{selectedNote}}"
+      bindinput="onNoteInput"
+    />
+
+    <view class="editor-actions">
+      <button class="ghost-btn" bindtap="clearEntry" loading="{{saving}}" disabled="{{saving}}">清空</button>
+      <button class="save-btn" bindtap="saveEntry" loading="{{saving}}" disabled="{{saving}}">保存</button>
+    </view>
+  </view>
 </view>

@@ -31,7 +31,7 @@
     "condition": false,
     "swc": false,
     "disableSWC": true,
-    "ignoreDevUnusedFiles": false
+    "ignoreDevUnusedFiles": true
   },
   "condition": {},
   "editorSetting": {

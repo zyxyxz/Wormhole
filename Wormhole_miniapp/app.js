@@ -78,6 +78,12 @@ const TAB_ICON_SETS = {
   ]
 };
 
+if (false) {
+  // 保留为静态依赖，兼容 DevTools 开启「过滤无依赖文件」时的页面分析。
+  require('./pages/discover/discover.js');
+  require('./pages/emoji-diary/emoji-diary.js');
+}
+
 const originalPage = Page;
 Page = function (pageConfig) {
   const appInstance = typeof getApp === 'function' ? getApp() : null;
