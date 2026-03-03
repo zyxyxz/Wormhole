@@ -4,7 +4,16 @@
   "libVersion": "3.10.0",
   "packOptions": {
     "ignore": [],
-    "include": []
+    "include": [
+      {
+        "type": "folder",
+        "value": "pages/discover/"
+      },
+      {
+        "type": "folder",
+        "value": "pages/emoji-diary/"
+      }
+    ]
   },
   "setting": {
     "coverView": true,
