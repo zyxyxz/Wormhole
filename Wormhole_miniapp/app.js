@@ -4,7 +4,7 @@ const { BASE_URL } = require('./utils/config.js');
 const SPACE_ROUTES = new Set([
   'pages/chat/chat',
   'pages/notes/notes',
-  'pages/discover/discover',
+  'pages/explore/explore',
   'pages/notebook/notebook',
   'pages/notes-activity/notes-activity',
   'pages/emoji-diary/emoji-diary',
@@ -21,7 +21,7 @@ const CUSTOM_NAV_ROUTES = new Set([
   'pages/index/index',
   'pages/chat/chat',
   'pages/notes/notes',
-  'pages/discover/discover',
+  'pages/explore/explore',
   'pages/notebook/notebook',
   'pages/notes-activity/notes-activity',
   'pages/emoji-diary/emoji-diary',
@@ -38,7 +38,7 @@ const CUSTOM_NAV_ROUTES = new Set([
 const TAB_ROUTES = new Set([
   'pages/chat/chat',
   'pages/notes/notes',
-  'pages/discover/discover',
+  'pages/explore/explore',
   'pages/settings/settings'
 ]);
 

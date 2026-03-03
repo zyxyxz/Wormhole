@@ -11,6 +11,10 @@
       },
       {
         "type": "folder",
+        "value": "pages/explore/"
+      },
+      {
+        "type": "folder",
         "value": "pages/emoji-diary/"
       }
     ]

@@ -4,7 +4,7 @@
     "pages/space/space",
     "pages/chat/chat",
     "pages/notes/notes",
-    "pages/discover/discover",
+    "pages/explore/explore",
     "pages/notebook/notebook",
     "pages/notes-activity/notes-activity",
     "pages/emoji-diary/emoji-diary",
@@ -43,7 +43,7 @@
         "selectedIconPath": "/assets/icons/feed-active.png"
       },
       {
-        "pagePath": "pages/discover/discover",
+        "pagePath": "pages/explore/explore",
         "text": "发现",
         "iconPath": "/assets/icons/notebook.png",
         "selectedIconPath": "/assets/icons/notebook-active.png"

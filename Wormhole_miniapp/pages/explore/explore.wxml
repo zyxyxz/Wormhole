@@ -1,0 +1,43 @@
+<navigation-bar title="发现" back="{{false}}" home-button="{{true}}" bind:home="goHome" background="{{themeNavBg}}" color="{{themeNavText}}" />
+<view class="discover-page theme-root {{themeClass}}">
+  <view class="intro-card">
+    <view class="intro-title">空间工具集合</view>
+    <view class="intro-desc">把非高频功能收拢到一个入口，聊天和动态保持轻量。</view>
+    <view wx:if="{{spaceCode}}" class="space-code">当前空间号：{{spaceCode}}</view>
+  </view>
+
+  <view class="section-title">功能</view>
+  <view class="feature-list">
+    <view class="feature-card notebook" bindtap="openNotebook">
+      <view class="feature-head">
+        <view class="feature-name">笔记</view>
+        <view class="feature-tag">协作</view>
+      </view>
+      <view class="feature-desc">共享文档、整理长期信息、支持协作编辑。</view>
+    </view>
+
+    <view class="feature-card wallet" bindtap="openWallet">
+      <view class="feature-head">
+        <view class="feature-name">钱包</view>
+        <view class="feature-tag">账务</view>
+      </view>
+      <view class="feature-desc">查看余额、充值和交易记录。</view>
+    </view>
+
+    <view class="feature-card activity" bindtap="openActivity">
+      <view class="feature-head">
+        <view class="feature-name">互动提醒</view>
+        <view class="feature-tag">动态</view>
+      </view>
+      <view class="feature-desc">集中查看点赞和评论，快速回到相关动态。</view>
+    </view>
+
+    <view class="feature-card emoji" bindtap="openEmojiDiary">
+      <view class="feature-head">
+        <view class="feature-name">Emoji日记</view>
+        <view class="feature-tag">日历</view>
+      </view>
+      <view class="feature-desc">每天用一个 emoji 记录状态，点日期可添加当天备注。</view>
+    </view>
+  </view>
+</view>
