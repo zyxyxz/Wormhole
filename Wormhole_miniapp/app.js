@@ -360,6 +360,23 @@ App({
   },
 
   getSystemThemeLegacy() {
+    const readTheme = (getter) => {
+      if (typeof getter !== 'function') return '';
+      try {
+        const info = getter();
+        const theme = info && info.theme ? String(info.theme).toLowerCase() : '';
+        if (theme === 'dark' || theme === 'light') return theme;
+      } catch (e) {}
+      return '';
+    };
+    const fromSetting = readTheme(wx.getSystemSetting);
+    if (fromSetting) return fromSetting;
+    const fromAppBase = readTheme(wx.getAppBaseInfo);
+    if (fromAppBase) return fromAppBase;
+    const fromWindow = readTheme(wx.getWindowInfo);
+    if (fromWindow) return fromWindow;
+    const fromDevice = readTheme(wx.getDeviceInfo);
+    if (fromDevice) return fromDevice;
     try {
       const info = wx.getSystemInfoSync ? wx.getSystemInfoSync() : {};
       return info.theme || 'light';
@@ -565,42 +582,8 @@ App({
   },
 
   fetchSystemTheme() {
-    let resolved = false;
-    const markResolved = (theme) => {
-      resolved = true;
-      this.setSystemTheme(theme);
-    };
-    if (wx.getSystemSetting) {
-      try {
-        wx.getSystemSetting({
-          success: (res) => {
-            if (res && res.theme) {
-              markResolved(res.theme);
-            }
-          }
-        });
-      } catch (e) {}
-    }
-    if (wx.getSystemInfo) {
-      try {
-        wx.getSystemInfo({
-          success: (res) => {
-            if (res && res.theme) {
-              markResolved(res.theme);
-            }
-          },
-          complete: () => {
-            if (!resolved) {
-              markResolved(this.getSystemThemeLegacy());
-            }
-          }
-        });
-        return;
-      } catch (e) {}
-    }
-    if (!resolved) {
-      markResolved(this.getSystemThemeLegacy());
-    }
+    const theme = this.getSystemThemeLegacy();
+    this.setSystemTheme(theme);
   },
 
   setSystemTheme(theme) {
