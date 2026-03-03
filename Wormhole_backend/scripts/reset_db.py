@@ -29,6 +29,7 @@ async def recreate_db():
     import models.wallet # noqa: F401
     import models.feed   # noqa: F401
     import models.notify  # noqa: F401
+    import models.emoji_diary  # noqa: F401
     await create_tables()
 
 

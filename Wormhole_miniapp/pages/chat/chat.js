@@ -82,8 +82,9 @@ Page({
     keyboardHeight: 0,
     bottomPadding: 120,
     _baseBottomPadding: 120,
+    _inputAreaHeight: 0,
     recording: false,
-    audioPlayingId: null,
+    audioPlayingId: '',
     inputMode: 'text',
     historyLoading: false,
     historyHasMore: true,
@@ -129,26 +130,21 @@ Page({
     this.setData({ lastReadId: this.loadLastReadId() });
     this.fetchSpaceInfo();
     
-    // 初始化基础 padding（约 104rpx 高度）
-    try {
-      const windowInfo = wx.getWindowInfo ? wx.getWindowInfo() : {};
-      const windowWidth = windowInfo.windowWidth || windowInfo.screenWidth || 375;
-      const rpx = windowWidth / 750;
-      const base = Math.ceil(150 * rpx + 24); // 输入区 + 安全距离
-      this._emojiPanelPx = Math.ceil(380 * rpx);
-      this._plusPanelPx = Math.ceil(280 * rpx);
-      this.setData({ _baseBottomPadding: base, bottomPadding: base });
-    } catch(e) {}
-
     // 键盘高度变化监听
     if (wx.onKeyboardHeightChange) {
-      wx.onKeyboardHeightChange(res => {
+      if (this._keyboardHeightHandler && wx.offKeyboardHeightChange) {
+        wx.offKeyboardHeightChange(this._keyboardHeightHandler);
+      }
+      this._keyboardHeightHandler = (res) => {
         const kh = res.height || 0;
-        this.setData({ keyboardHeight: kh });
-        this.updateBottomPadding();
-        this.scrollToBottom();
-      });
+        this.setData({ keyboardHeight: kh }, () => {
+          this.updateBottomPadding();
+          this.scrollToBottom();
+        });
+      };
+      wx.onKeyboardHeightChange(this._keyboardHeightHandler);
     }
+    this.updateBottomPadding({ forceMeasure: true });
 
     // 初始化WebSocket连接
     this._pageActive = true;
@@ -181,14 +177,25 @@ Page({
     }
     if (wx.createInnerAudioContext) {
       this.audioCtx = wx.createInnerAudioContext();
-      this.audioCtx.onEnded(() => this.setData({ audioPlayingId: null }));
-      this.audioCtx.onStop(() => this.setData({ audioPlayingId: null }));
+      this.audioCtx.onEnded(() => this.resetAudioPlaybackState());
+      this.audioCtx.onStop(() => {
+        if (this._ignoreNextAudioStop) {
+          this._ignoreNextAudioStop = false;
+          return;
+        }
+        this.resetAudioPlaybackState();
+      });
+      this.audioCtx.onError(() => this.resetAudioPlaybackState());
     }
+  },
+  onReady() {
+    this.updateBottomPadding({ forceMeasure: true });
   },
   onInputFocus() {
     if (this.data.emojiPanelVisible || this.data.plusPanelVisible) {
-      this.setData({ emojiPanelVisible: false, plusPanelVisible: false });
-      this.updateBottomPadding();
+      this.setData({ emojiPanelVisible: false, plusPanelVisible: false }, () => {
+        this.updateBottomPadding({ forceMeasure: true });
+      });
     }
     this.scrollToBottom();
   },
@@ -210,6 +217,8 @@ Page({
     const updated = wx.getStorageSync('aliasUpdatedAt');
     if (updated) {
       this.getHistoryMessages({ reset: true });
+    } else {
+      this.syncLatestMessages({ force: true });
     }
     this.fetchMembers();
     this.fetchReadState();
@@ -231,6 +240,7 @@ Page({
       clearTimeout(this._wsReconnectTimer);
       this._wsReconnectTimer = null;
     }
+    this.stopWsHeartbeat();
     if (this.ws) {
       try {
         this._wsClosing = true;
@@ -269,7 +279,12 @@ Page({
       }
       this._wsConnecting = false;
       this._wsReady = true;
+      if (userId) {
+        this.updateOnlineUsers([userId], 1);
+      }
+      this.startWsHeartbeat();
       this.sendPresence();
+      this.syncLatestMessages();
     });
 
     ws.onMessage((res) => {
@@ -313,6 +328,7 @@ Page({
       }
       this._wsConnecting = false;
       this._wsReady = false;
+      this.stopWsHeartbeat();
       if (this.ws === ws) this.ws = null;
       if (this._wsShouldReconnect && this._wsKeepAlive && this.data.spaceId === this._wsSpaceId) {
         this._wsReconnectTimer = setTimeout(() => this.initWebSocket({ force: true }), 3000);
@@ -324,6 +340,7 @@ Page({
       console.log('WebSocket 连接错误', res && res.errMsg ? res.errMsg : '');
       this._wsConnecting = false;
       this._wsReady = false;
+      this.stopWsHeartbeat();
       if (this.ws === ws) this.ws = null;
     });
 
@@ -332,9 +349,16 @@ Page({
 
   handleWsEvent(message) {
     const event = message.event;
+    if (event === 'pong') {
+      return;
+    }
     if (event === 'presence') {
       const list = Array.isArray(message.online_user_ids) ? message.online_user_ids : [];
-      this.updateOnlineUsers(list);
+      const reportedCount = Number(message.online_count);
+      this.updateOnlineUsers(
+        list,
+        Number.isFinite(reportedCount) && reportedCount >= 0 ? reportedCount : null
+      );
       return;
     }
     if (event === 'typing') {
@@ -372,6 +396,25 @@ Page({
     const userId = this._currentUserId || wx.getStorageSync('openid');
     if (!userId) return;
     this.sendWsEvent({ event: 'presence', user_id: userId });
+  },
+
+  startWsHeartbeat() {
+    this.stopWsHeartbeat();
+    this._wsHeartbeatTimer = setInterval(() => {
+      this.sendWsHeartbeat();
+    }, 15000);
+  },
+
+  stopWsHeartbeat() {
+    if (!this._wsHeartbeatTimer) return;
+    clearInterval(this._wsHeartbeatTimer);
+    this._wsHeartbeatTimer = null;
+  },
+
+  sendWsHeartbeat() {
+    const userId = this._currentUserId || wx.getStorageSync('openid');
+    if (!userId || !this._wsReady) return;
+    this.sendWsEvent({ event: 'ping', user_id: userId });
   },
 
   sendTyping(typing) {
@@ -462,9 +505,20 @@ Page({
     });
   },
 
-  updateOnlineUsers(list) {
-    const ids = Array.isArray(list) ? list : [];
-    this.setData({ onlineUserIds: ids, onlineCount: ids.length });
+  updateOnlineUsers(list, reportedCount = null) {
+    const normalized = Array.isArray(list)
+      ? list.map(id => (id === undefined || id === null ? '' : String(id))).filter(Boolean)
+      : [];
+    const uniqIds = Array.from(new Set(normalized));
+    const myId = this._currentUserId || wx.getStorageSync('openid') || '';
+    if (myId && this._wsReady && !uniqIds.includes(myId)) {
+      uniqIds.unshift(myId);
+    }
+    const countByList = uniqIds.length;
+    const count = Number.isFinite(reportedCount) && reportedCount >= 0
+      ? Math.max(reportedCount, countByList)
+      : countByList;
+    this.setData({ onlineUserIds: uniqIds, onlineCount: count });
     this.refreshOnlineDisplay();
   },
 
@@ -751,7 +805,9 @@ Page({
       content: preview
     };
     if (!reply.id) return;
-    this.setData({ replyingTo: reply, inputMode: 'text' });
+    this.setData({ replyingTo: reply, inputMode: 'text' }, () => {
+      this.updateBottomPadding({ forceMeasure: true });
+    });
     if (this.data.emojiPanelVisible || this.data.plusPanelVisible) {
       this.setData({ emojiPanelVisible: false, plusPanelVisible: false });
       this.updateBottomPadding();
@@ -812,15 +868,59 @@ Page({
   },
 
   cancelReply() {
-    this.setData({ replyingTo: null });
+    this.setData({ replyingTo: null }, () => {
+      this.updateBottomPadding({ forceMeasure: true });
+    });
   },
 
-  updateBottomPadding() {
-    const base = this.data._baseBottomPadding || 120;
-    const kh = this.data.keyboardHeight || 0;
-    const emoji = this.data.emojiPanelVisible ? (this._emojiPanelPx || 0) : 0;
-    const plus = this.data.plusPanelVisible ? (this._plusPanelPx || 0) : 0;
-    this.setData({ bottomPadding: base + kh + emoji + plus });
+  measureInputAreaHeight(callback) {
+    const query = wx.createSelectorQuery().in(this);
+    query.select('.input-area').boundingClientRect();
+    query.exec((res) => {
+      const rect = res && res[0];
+      const height = rect && rect.height ? Math.ceil(rect.height) : 0;
+      if (typeof callback === 'function') {
+        callback(height);
+      }
+    });
+  },
+
+  updateBottomPadding({ forceMeasure = false } = {}) {
+    const kh = Number(this.data.keyboardHeight || 0);
+    const cachedHeight = Number(this.data._inputAreaHeight || 0);
+    const fallbackHeight = Number(this.data._baseBottomPadding || 120);
+    const expandedInputArea = this.data.emojiPanelVisible || this.data.plusPanelVisible || !!this.data.replyingTo;
+    const shouldMeasure = forceMeasure || !cachedHeight || expandedInputArea;
+    const apply = (measuredHeight = 0) => {
+      const baseHeight = measuredHeight > 0
+        ? measuredHeight
+        : (expandedInputArea ? (cachedHeight > 0 ? cachedHeight : fallbackHeight) : fallbackHeight);
+      const nextPadding = Math.max(baseHeight + kh, kh);
+      const nextData = {};
+      if (measuredHeight > 0 && measuredHeight !== cachedHeight) {
+        nextData._inputAreaHeight = measuredHeight;
+      }
+      if (measuredHeight > 0 && !expandedInputArea && measuredHeight !== fallbackHeight) {
+        // 只在收起态更新基础高度，避免把展开面板高度缓存成常驻底部占位
+        nextData._baseBottomPadding = measuredHeight;
+      }
+      if (nextPadding !== this.data.bottomPadding) {
+        nextData.bottomPadding = nextPadding;
+      }
+      if (Object.keys(nextData).length) {
+        this.setData(nextData);
+      }
+    };
+    if (!shouldMeasure) {
+      apply(0);
+      return;
+    }
+    const runner = () => this.measureInputAreaHeight((height) => apply(height));
+    if (wx.nextTick) {
+      wx.nextTick(runner);
+    } else {
+      setTimeout(runner, 0);
+    }
   },
 
   shouldStickToBottom() {
@@ -844,27 +944,25 @@ Page({
 
   closeOverlayPanels() {
     if (!this.data.emojiPanelVisible && !this.data.plusPanelVisible) return;
-    this.setData({ emojiPanelVisible: false, plusPanelVisible: false });
-    this.updateBottomPadding();
+    this.setData({ emojiPanelVisible: false, plusPanelVisible: false }, () => {
+      this.updateBottomPadding({ forceMeasure: true });
+    });
   },
 
   toggleEmojiPanel() {
     const next = !this.data.emojiPanelVisible;
-    if (next && this.data.plusPanelVisible) {
-      this.setData({ plusPanelVisible: false });
-    }
-    if (next) {
-      this.setData({ emojiPanelVisible: true, emojiScrollTop: 1 });
-      setTimeout(() => {
-        this.setData({ emojiScrollTop: 0 });
-      }, 0);
-    } else {
-      this.setData({ emojiPanelVisible: false });
-    }
-    this.updateBottomPadding();
-    if (next) {
-      this.scrollToBottomIfNeeded();
-    }
+    const nextData = next
+      ? { emojiPanelVisible: true, plusPanelVisible: false, emojiScrollTop: 1 }
+      : { emojiPanelVisible: false };
+    this.setData(nextData, () => {
+      this.updateBottomPadding({ forceMeasure: true });
+      if (next) {
+        setTimeout(() => {
+          this.setData({ emojiScrollTop: 0 });
+        }, 0);
+        this.scrollToBottomIfNeeded();
+      }
+    });
   },
 
   addEmoji(e) {
@@ -877,16 +975,14 @@ Page({
 
   togglePlusPanel() {
     const next = !this.data.plusPanelVisible;
-    if (next && this.data.emojiPanelVisible) {
-      this.setData({ emojiPanelVisible: false });
-    }
-    this.setData({ plusPanelVisible: next });
+    this.setData({ plusPanelVisible: next, emojiPanelVisible: false }, () => {
+      this.updateBottomPadding({ forceMeasure: true });
+      if (next) {
+        this.scrollToBottomIfNeeded();
+      }
+    });
     if (next) {
       try { wx.hideKeyboard(); } catch (e) {}
-    }
-    this.updateBottomPadding();
-    if (next) {
-      this.scrollToBottomIfNeeded();
     }
   },
 
@@ -1305,7 +1401,9 @@ Page({
             this.setData({ inputMessage: '' });
           }
           if (this.data.replyingTo) {
-            this.setData({ replyingTo: null });
+            this.setData({ replyingTo: null }, () => {
+              this.updateBottomPadding({ forceMeasure: true });
+            });
           }
           this.sendTyping(false);
           if (this.data.emojiPanelVisible) {
@@ -1343,7 +1441,9 @@ Page({
           this.setData({ inputMessage: '' });
         }
         if (this.data.replyingTo) {
-          this.setData({ replyingTo: null });
+          this.setData({ replyingTo: null }, () => {
+            this.updateBottomPadding({ forceMeasure: true });
+          });
         }
         this.sendTyping(false);
         if (this.data.emojiPanelVisible) {
@@ -1596,6 +1696,7 @@ Page({
       liveVideoUrl: message.live_video_url || '',
       mediaDuration: message.media_duration || 0,
       audioDuration: duration,
+      audioPlayId: this.normalizeAudioPlayId(message.id),
       client_id: message.client_id || '',
       sending: !!message.sending || !!message.pending,
       pending: !!message.pending,
@@ -1694,6 +1795,16 @@ Page({
     this.saveCachedMessages();
   },
 
+  syncLatestMessages({ force = false } = {}) {
+    const now = Date.now();
+    const minInterval = 2500;
+    if (!force && this._latestSyncAt && now - this._latestSyncAt < minInterval) {
+      return;
+    }
+    this._latestSyncAt = now;
+    this.checkLatestMessage();
+  },
+
   checkLatestMessage() {
     if (!this.data.spaceId) return;
     const raw = Array.isArray(this._rawMessages) ? this._rawMessages : [];
@@ -1726,8 +1837,13 @@ Page({
       this._heartBurstTimer = null;
     }
     if (this.audioCtx) {
+      this.stopAudioPlayback();
       this.audioCtx.destroy();
       this.audioCtx = null;
+    }
+    if (wx.offKeyboardHeightChange && this._keyboardHeightHandler) {
+      wx.offKeyboardHeightChange(this._keyboardHeightHandler);
+      this._keyboardHeightHandler = null;
     }
   },
 
@@ -1852,18 +1968,49 @@ Page({
     this.previewVideoUrl(videoUrl, coverUrl);
   },
 
+  normalizeAudioPlayId(rawId) {
+    if (rawId === undefined || rawId === null) return '';
+    return String(rawId);
+  },
+
+  resetAudioPlaybackState() {
+    if (!this.data.audioPlayingId) return;
+    this.setData({ audioPlayingId: '' });
+  },
+
+  stopAudioPlayback({ keepState = false } = {}) {
+    if (!this.audioCtx) return;
+    if (keepState) {
+      this._ignoreNextAudioStop = true;
+    }
+    try {
+      this.audioCtx.stop();
+    } catch (e) {
+      this._ignoreNextAudioStop = false;
+    }
+    if (!keepState) {
+      this.resetAudioPlaybackState();
+    }
+  },
+
   playAudio(e) {
     const url = e.currentTarget.dataset.url;
-    const id = e.currentTarget.dataset.id;
-    if (!url || !this.audioCtx) return;
-    if (this.data.audioPlayingId === id) {
-      this.audioCtx.stop();
-      this.setData({ audioPlayingId: null });
+    const playId = this.normalizeAudioPlayId(e.currentTarget.dataset.playId || e.currentTarget.dataset.id);
+    if (!url || !this.audioCtx || !playId) return;
+    if (this.data.audioPlayingId === playId) {
+      this.stopAudioPlayback();
       return;
     }
-    this.audioCtx.stop();
-    this.audioCtx.src = url;
-    this.audioCtx.play();
-    this.setData({ audioPlayingId: id });
+    if (this.data.audioPlayingId) {
+      this.stopAudioPlayback({ keepState: true });
+    }
+    try {
+      this.audioCtx.src = url;
+      this.audioCtx.play();
+      this.setData({ audioPlayingId: playId });
+    } catch (e) {
+      this.resetAudioPlaybackState();
+      wx.showToast({ title: '语音播放失败', icon: 'none' });
+    }
   }
 }); 

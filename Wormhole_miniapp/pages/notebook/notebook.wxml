@@ -1,4 +1,4 @@
-<navigation-bar title="笔记" back="{{false}}" home-button="{{true}}" bind:home="goHome" background="{{themeNavBg}}" color="{{themeNavText}}" />
+<navigation-bar title="笔记" back="{{true}}" home-button="{{true}}" bind:home="goHome" background="{{themeNavBg}}" color="{{themeNavText}}" />
 <view class="notebook-page theme-root {{themeClass}}">
   <scroll-view
     class="notebook-scroll"

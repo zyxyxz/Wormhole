@@ -4,8 +4,10 @@
     "pages/space/space",
     "pages/chat/chat",
     "pages/notes/notes",
+    "pages/discover/discover",
     "pages/notebook/notebook",
     "pages/notes-activity/notes-activity",
+    "pages/emoji-diary/emoji-diary",
     "pages/note-edit/note-edit",
     "pages/post-create/post-create",
     "pages/wallet/wallet",
@@ -41,16 +43,10 @@
         "selectedIconPath": "/assets/icons/feed-active.png"
       },
       {
-        "pagePath": "pages/notebook/notebook",
-        "text": "笔记",
+        "pagePath": "pages/discover/discover",
+        "text": "发现",
         "iconPath": "/assets/icons/notebook.png",
         "selectedIconPath": "/assets/icons/notebook-active.png"
-      },
-      {
-        "pagePath": "pages/wallet/wallet",
-        "text": "钱包",
-        "iconPath": "/assets/icons/wallet.png",
-        "selectedIconPath": "/assets/icons/wallet-active.png"
       },
       {
         "pagePath": "pages/settings/settings",

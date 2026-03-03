@@ -62,10 +62,15 @@
             </view>
           </block>
           <block wx:elif="{{item.messageType === 'audio'}}">
-            <view class="audio-bubble" data-url="{{item.mediaUrl}}" data-id="{{item.id}}" bindtap="playAudio">
-              <text class="audio-icon">♪</text>
+            <view class="audio-bubble {{audioPlayingId === item.audioPlayId ? 'is-playing' : ''}}" data-url="{{item.mediaUrl}}" data-play-id="{{item.audioPlayId}}" bindtap="playAudio">
+              <view wx:if="{{audioPlayingId === item.audioPlayId}}" class="audio-waves">
+                <view class="audio-wave-bar"></view>
+                <view class="audio-wave-bar"></view>
+                <view class="audio-wave-bar"></view>
+              </view>
+              <text wx:else class="audio-icon">♪</text>
               <text>{{item.audioDuration || 0}}s</text>
-              <text wx:if="{{audioPlayingId === item.id}}" class="playing">播放中</text>
+              <text wx:if="{{audioPlayingId === item.audioPlayId}}" class="playing">播放中</text>
             </view>
           </block>
           <view class="message-meta">

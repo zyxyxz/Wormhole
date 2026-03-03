@@ -1,3 +1,5 @@
+import json
+
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from app.api import space, chat, notes, wallet, settings
@@ -7,6 +9,7 @@ from app.api import user as user_api
 from app.api import auth as auth_api
 from app.api import logs as logs_api
 from app.api import notify as notify_api
+from app.api import emoji_diary as emoji_diary_api
 from app.database import create_tables
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
@@ -53,6 +56,7 @@ app.include_router(logs_api.router, prefix="/api/logs", tags=["日志"])
 app.include_router(feed_api.router, prefix="/api/feed", tags=["动态"]) 
 app.include_router(upload_api.router, prefix="/api", tags=["上传"]) 
 app.include_router(notify_api.router, prefix="/api/notify", tags=["通知"])
+app.include_router(emoji_diary_api.router, prefix="/api/emoji-diary", tags=["Emoji日记"])
 
 @app.on_event("startup")
 async def startup():
@@ -88,15 +92,51 @@ async def websocket_endpoint(websocket: WebSocket, space_id: int):
                 await websocket.close(code=4403)
                 return
     await chat_manager.connect(space_id, websocket)
+    # 连接建立后立即登记在线，避免依赖客户端额外发送 presence 事件
+    chat_manager.register_user(space_id, websocket, ws_user_id)
+    await chat_manager.broadcast_presence(space_id)
     try:
         while True:
-            data = await websocket.receive_json()
+            try:
+                packet = await websocket.receive()
+            except WebSocketDisconnect:
+                break
+            except RuntimeError:
+                break
+            except Exception:
+                continue
+            if packet.get("type") == "websocket.disconnect":
+                break
+            raw = packet.get("text")
+            if raw is None:
+                raw_bytes = packet.get("bytes")
+                if not raw_bytes:
+                    continue
+                try:
+                    raw = raw_bytes.decode("utf-8")
+                except Exception:
+                    continue
+            try:
+                data = json.loads(raw) if isinstance(raw, str) else {}
+            except Exception:
+                continue
+            if not isinstance(data, dict):
+                continue
             event = data.get("event")
             if event:
                 user_id = ws_user_id
                 if event == "presence":
                     chat_manager.register_user(space_id, websocket, user_id)
                     await chat_manager.broadcast_presence(space_id)
+                elif event == "ping":
+                    chat_manager.register_user(space_id, websocket, user_id)
+                    try:
+                        await websocket.send_json({
+                            "event": "pong",
+                            "ts": int(datetime.utcnow().timestamp() * 1000),
+                        })
+                    except Exception:
+                        break
                 elif event == "typing":
                     typing = bool(data.get("typing"))
                     chat_manager.register_user(space_id, websocket, user_id)
@@ -261,7 +301,7 @@ async def websocket_endpoint(websocket: WebSocket, space_id: int):
                     "typing": False
                 })
                 await chat_manager.broadcast(space_id, payload)
-    except WebSocketDisconnect:
+    finally:
         user_id = chat_manager.disconnect(space_id, websocket)
         if user_id:
             await chat_manager.broadcast(space_id, {

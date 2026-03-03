@@ -1,0 +1,213 @@
+page {
+  overflow: hidden;
+}
+
+.emoji-diary-page {
+  min-height: calc(100vh - 44px - env(safe-area-inset-top));
+  box-sizing: border-box;
+  padding: 22rpx;
+  background: var(--bg);
+}
+
+.month-card {
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
+  background: var(--surface);
+  border: 1rpx solid var(--border);
+  border-radius: 18rpx;
+  padding: 14rpx;
+  box-shadow: var(--shadow-soft);
+}
+
+.month-title {
+  flex: 1;
+  text-align: center;
+  font-size: 32rpx;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.month-nav {
+  width: 82rpx;
+  height: 70rpx;
+  line-height: 70rpx;
+  border-radius: 14rpx;
+  border: 1rpx solid var(--border);
+  background: var(--panel);
+  color: var(--text);
+  font-size: 42rpx;
+  padding: 0;
+}
+
+.month-tools {
+  margin-top: 14rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.today-btn {
+  border-radius: 999rpx;
+  border: 1rpx solid rgba(20, 184, 166, 0.35);
+  background: rgba(20, 184, 166, 0.12);
+  color: var(--primary-strong);
+  font-size: 24rpx;
+  padding: 8rpx 22rpx;
+}
+
+.loading-text {
+  color: var(--text-muted);
+  font-size: 24rpx;
+}
+
+.calendar-card {
+  margin-top: 14rpx;
+  border-radius: 20rpx;
+  border: 1rpx solid var(--border);
+  background: var(--surface);
+  box-shadow: var(--shadow-soft);
+  padding: 14rpx;
+}
+
+.week-row {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6rpx;
+}
+
+.week-cell {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 22rpx;
+  padding: 6rpx 0;
+}
+
+.days-grid {
+  margin-top: 8rpx;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8rpx;
+}
+
+.day-cell {
+  min-height: 106rpx;
+  border-radius: 16rpx;
+  border: 1rpx solid var(--border);
+  background: var(--panel);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 8rpx 4rpx;
+  box-sizing: border-box;
+}
+
+.day-cell.out-month {
+  opacity: 0.45;
+}
+
+.day-cell.today {
+  border-color: rgba(14, 165, 233, 0.6);
+}
+
+.day-cell.selected {
+  border-color: rgba(20, 184, 166, 0.75);
+  box-shadow: 0 0 0 2rpx rgba(20, 184, 166, 0.16) inset;
+}
+
+.day-number {
+  font-size: 21rpx;
+  color: var(--text-muted);
+}
+
+.day-emoji {
+  margin-top: 6rpx;
+  font-size: 36rpx;
+  line-height: 1.2;
+  min-height: 42rpx;
+}
+
+.note-dot {
+  margin-top: 4rpx;
+  width: 10rpx;
+  height: 10rpx;
+  border-radius: 50%;
+  background: var(--primary);
+}
+
+.editor-card {
+  margin-top: 16rpx;
+  border-radius: 20rpx;
+  border: 1rpx solid var(--border);
+  background: var(--surface);
+  box-shadow: var(--shadow-soft);
+  padding: 18rpx;
+  padding-bottom: calc(18rpx + env(safe-area-inset-bottom));
+}
+
+.editor-title {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.emoji-picker {
+  margin-top: 12rpx;
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 8rpx;
+}
+
+.emoji-chip {
+  text-align: center;
+  font-size: 34rpx;
+  line-height: 58rpx;
+  height: 58rpx;
+  border-radius: 12rpx;
+  border: 1rpx solid var(--border);
+  background: var(--panel);
+}
+
+.emoji-chip.active {
+  border-color: rgba(20, 184, 166, 0.7);
+  background: rgba(20, 184, 166, 0.16);
+}
+
+.note-input {
+  margin-top: 14rpx;
+  width: 100%;
+  min-height: 150rpx;
+  border-radius: 14rpx;
+  border: 1rpx solid var(--border);
+  background: var(--panel);
+  color: var(--text);
+  font-size: 26rpx;
+  padding: 14rpx;
+  box-sizing: border-box;
+}
+
+.editor-actions {
+  margin-top: 14rpx;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12rpx;
+}
+
+.ghost-btn {
+  background: var(--panel);
+  color: var(--text);
+  border: 1rpx solid var(--border);
+  border-radius: 12rpx;
+  font-size: 24rpx;
+  padding: 0 26rpx;
+}
+
+.save-btn {
+  background: linear-gradient(135deg, var(--accent-cyan), var(--accent-green));
+  color: #ffffff;
+  border: none;
+  border-radius: 12rpx;
+  font-size: 24rpx;
+  padding: 0 28rpx;
+}

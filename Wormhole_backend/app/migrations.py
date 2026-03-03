@@ -156,6 +156,28 @@ async def add_notify_channels(conn):
     await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_notify_channels_enabled ON notify_channels(enabled)"))
 
 
+async def add_emoji_diary_entries(conn):
+    if not await table_exists(conn, "emoji_diary_entries"):
+        await conn.execute(text(
+            """
+            CREATE TABLE emoji_diary_entries (
+                id INTEGER PRIMARY KEY,
+                space_id INTEGER NOT NULL,
+                user_id TEXT NOT NULL,
+                entry_date TEXT NOT NULL,
+                emoji TEXT NOT NULL DEFAULT '',
+                note TEXT NOT NULL DEFAULT '',
+                created_at DATETIME DEFAULT (datetime('now')),
+                updated_at DATETIME
+            )
+            """
+        ))
+    await conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_emoji_diary_space_user_date ON emoji_diary_entries(space_id, user_id, entry_date)"))
+    await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_emoji_diary_space_id ON emoji_diary_entries(space_id)"))
+    await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_emoji_diary_user_id ON emoji_diary_entries(user_id)"))
+    await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_emoji_diary_entry_date ON emoji_diary_entries(entry_date)"))
+
+
 MIGRATIONS = [
     ("202401_add_deleted_at_to_posts", add_deleted_at_to_posts),
     ("202402_add_share_code_expiry", add_share_code_expiry),
@@ -167,6 +189,7 @@ MIGRATIONS = [
     ("202601_add_space_member_read_columns", add_space_member_read_columns),
     ("202601_add_message_reply_columns", add_message_reply_columns),
     ("202602_add_notify_channels", add_notify_channels),
+    ("202603_add_emoji_diary_entries", add_emoji_diary_entries),
 ]
 
 
