@@ -151,7 +151,18 @@ Page({
     // 初始化WebSocket连接
     this._pageActive = true;
     this._wsKeepAlive = true;
+    this._wsRetryCount = 0;
     this.initWebSocket();
+    // 网络状态监听：离线 → 在线 时立刻重连
+    this._netListener = (res) => {
+      if (res && res.isConnected && !this._wsReady && this._wsKeepAlive) {
+        this._wsRetryCount = 0;
+        this.initWebSocket({ force: true });
+      }
+    };
+    if (wx.onNetworkStatusChange) {
+      wx.onNetworkStatusChange(this._netListener);
+    }
     this.fetchMembers();
     this.fetchReadState();
     this.fetchCustomStickers();
@@ -226,8 +237,9 @@ Page({
     this.fetchMembers();
     this.fetchReadState();
     this.fetchCustomStickers();
-    if (!this._wsReady && !this._wsConnecting) {
-      this.initWebSocket();
+    // 冷启/前后台切换后立即尝试重连
+    if (!this._wsReady && this._wsKeepAlive) {
+      this.initWebSocket({ force: true });
     }
   },
   onHide() {
@@ -243,6 +255,9 @@ Page({
     if (this._wsReconnectTimer) {
       clearTimeout(this._wsReconnectTimer);
       this._wsReconnectTimer = null;
+    }
+    if (!allowReconnect) {
+      this._wsRetryCount = 0;
     }
     this.stopWsHeartbeat();
     if (this.ws) {
@@ -283,6 +298,7 @@ Page({
       }
       this._wsConnecting = false;
       this._wsReady = true;
+      this._wsRetryCount = 0;
       if (userId) {
         this.updateOnlineUsers([userId], 1);
       }
@@ -324,18 +340,23 @@ Page({
     ws.onClose((res = {}) => {
       const code = res.code !== undefined ? res.code : '';
       const reason = res.reason || '';
-      if (!this._wsKeepAlive || this._wsClosing) {
-        console.log('退出房间，WebSocket 已关闭');
-      } else {
-        const detail = [code !== '' ? `code=${code}` : '', reason ? `reason=${reason}` : ''].filter(Boolean).join(' ');
-        console.log(`WebSocket 断开${detail ? `（${detail}）` : ''}，3秒后重连...`);
-      }
       this._wsConnecting = false;
       this._wsReady = false;
       this.stopWsHeartbeat();
       if (this.ws === ws) this.ws = null;
-      if (this._wsShouldReconnect && this._wsKeepAlive && this.data.spaceId === this._wsSpaceId) {
-        this._wsReconnectTimer = setTimeout(() => this.initWebSocket({ force: true }), 3000);
+      if (!this._wsKeepAlive || this._wsClosing) {
+        console.log('退出房间，WebSocket 已关闭');
+        return;
+      }
+      if (this._wsShouldReconnect && this.data.spaceId === this._wsSpaceId) {
+        const retry = this._wsRetryCount || 0;
+        const delay = Math.min(30000, 1000 * Math.pow(2, retry));
+        const detail = [code !== '' ? `code=${code}` : '', reason ? `reason=${reason}` : ''].filter(Boolean).join(' ');
+        console.log(`WebSocket 断开${detail ? `（${detail}）` : ''}，${Math.round(delay / 1000)}s 后重连(retry=${retry})...`);
+        this._wsReconnectTimer = setTimeout(() => {
+          this._wsRetryCount = retry + 1;
+          this.initWebSocket({ force: true });
+        }, delay);
       }
     });
 
@@ -354,6 +375,10 @@ Page({
   handleWsEvent(message) {
     const event = message.event;
     if (event === 'pong') {
+      return;
+    }
+    if (event === 'server_ping') {
+      // 服务端心跳探测，仅用于保持链路活跃，无需回应
       return;
     }
     if (event === 'presence') {
@@ -2005,6 +2030,12 @@ Page({
     this.sendTyping(false);
     this._wsKeepAlive = false;
     this.cleanupWebSocket({ allowReconnect: false });
+    if (this._netListener) {
+      if (wx.offNetworkStatusChange) {
+        try { wx.offNetworkStatusChange(this._netListener); } catch (e) {}
+      }
+      this._netListener = null;
+    }
     if (this._heartBurstTimer) {
       clearTimeout(this._heartBurstTimer);
       this._heartBurstTimer = null;
