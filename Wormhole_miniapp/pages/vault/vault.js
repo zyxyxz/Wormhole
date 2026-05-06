@@ -2,7 +2,10 @@ const { BASE_URL } = require('../../utils/config.js');
 const vaultCrypto = require('../../utils/vaultCrypto.js');
 
 const fs = wx.getFileSystemManager();
-const CHECK_ITERATIONS = 30000;
+// See docs/audits/2026-05-vault.md F1: raised from 30000 to align with the
+// vaultCrypto DEFAULT_ITERATIONS bump. Existing vaults keep their stored
+// iteration count; this only affects newly created vaults.
+const CHECK_ITERATIONS = 100000;
 
 function formatBytes(size) {
   const value = Number(size || 0);

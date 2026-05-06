@@ -11,7 +11,9 @@ class VaultSpace(Base):
     space_id = Column(Integer, ForeignKey("spaces.id"), unique=True, index=True)
     created_by = Column(String, index=True)
     kdf_algo = Column(String, default="pbkdf2-sha256")
-    kdf_iterations = Column(Integer, default=30000)
+    # Default for newly-inserted rows; existing rows retain their original
+    # value. See docs/audits/2026-05-vault.md F1.
+    kdf_iterations = Column(Integer, default=100000)
     key_salt = Column(String)
     check_nonce = Column(String)
     check_ciphertext = Column(Text)

@@ -8,7 +8,10 @@ class VaultStatusResponse(BaseModel):
     initialized: bool
     key_salt: Optional[str] = None
     kdf_algo: str = "pbkdf2-sha256"
-    kdf_iterations: int = 30000
+    # Default reflects the value used for *new* vaults; existing rows return
+    # whatever was stored at init time (typically 30000 for vaults created
+    # before 2026-05-06; 100000 thereafter — see docs/audits/2026-05-vault.md F1).
+    kdf_iterations: int = 100000
     check_nonce: Optional[str] = None
     check_ciphertext: Optional[str] = None
     check_tag: Optional[str] = None
@@ -20,7 +23,10 @@ class VaultInitRequest(BaseModel):
     user_id: str
     key_salt: str
     kdf_algo: str = "pbkdf2-sha256"
-    kdf_iterations: int = Field(default=30000, ge=10000, le=120000)
+    # Floor raised to 100000 (was 10000) per docs/audits/2026-05-vault.md F1.
+    # Ceiling raised to 600000 to allow conservative clients to opt into the
+    # OWASP-recommended value if device CPU permits.
+    kdf_iterations: int = Field(default=100000, ge=100000, le=600000)
     check_nonce: str
     check_ciphertext: str
     check_tag: str

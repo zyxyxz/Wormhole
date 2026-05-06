@@ -1,7 +1,12 @@
 const CHECK_TEXT = 'wormhole-vault-check-v1';
 const KDF_ALGO = 'pbkdf2-sha256';
 const CIPHER_ALGO = 'chacha20-hmac-sha256';
-const DEFAULT_ITERATIONS = 30000;
+// Bumped 2026-05-06 (Task 34 / F1) from 30000 to 100000 to align with
+// modern OWASP PBKDF2-SHA256 guidance (≥ 600k for server-side, ≥ 100k for
+// in-browser/in-miniapp where the KDF runs on the user's device CPU).
+// Existing vaults store their original `kdf_iterations` per row and keep
+// unlocking; this constant only governs *new* vaults created from now on.
+const DEFAULT_ITERATIONS = 100000;
 const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 const SHA256_K = [
   0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,

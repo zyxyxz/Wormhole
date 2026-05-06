@@ -8,6 +8,7 @@ from app.config import settings
 from app.database import get_db
 from app.security import require_space_member, verify_request_user
 from app.storage.oss import build_object_key, get_bucket, get_signed_url, guess_content_type, is_configured
+from app.utils.limiter import limiter
 from app.utils.operation_log import add_operation_log
 from models.vault import VaultFile, VaultSpace
 from schemas.vault import (
@@ -54,7 +55,10 @@ def _build_status(vault: VaultSpace | None) -> VaultStatusResponse:
         initialized=True,
         key_salt=vault.key_salt,
         kdf_algo=vault.kdf_algo or "pbkdf2-sha256",
-        kdf_iterations=int(vault.kdf_iterations or 30000),
+        # Fall back to 100000 only when a row somehow has NULL/0; existing
+        # rows from before the 2026-05-06 audit keep whatever value they
+        # were created with so the client can still derive the correct key.
+        kdf_iterations=int(vault.kdf_iterations or 100000),
         check_nonce=vault.check_nonce,
         check_ciphertext=vault.check_ciphertext,
         check_tag=vault.check_tag,
@@ -63,12 +67,16 @@ def _build_status(vault: VaultSpace | None) -> VaultStatusResponse:
 
 
 @router.get("/status", response_model=VaultStatusResponse)
+@limiter.limit("30/minute")
 async def vault_status(
     space_id: int,
     request: Request,
     user_id: str | None = None,
     db: AsyncSession = Depends(get_db),
 ):
+    # Rate-limited per docs/audits/2026-05-vault.md F4: this endpoint emits
+    # the salt + check ciphertext that an offline brute-forcer needs, so
+    # cap the rate at which a compromised member can scrape it.
     actor_user_id = verify_request_user(request, user_id)
     await require_space_member(db, space_id, actor_user_id)
     vault = (
@@ -78,6 +86,7 @@ async def vault_status(
 
 
 @router.post("/init", response_model=VaultStatusResponse)
+@limiter.limit("10/minute")
 async def init_vault(payload: VaultInitRequest, request: Request, db: AsyncSession = Depends(get_db)):
     actor_user_id = verify_request_user(request, payload.user_id)
     await require_space_member(db, payload.space_id, actor_user_id)
@@ -112,6 +121,7 @@ async def init_vault(payload: VaultInitRequest, request: Request, db: AsyncSessi
 
 
 @router.get("/files", response_model=VaultFilesResponse)
+@limiter.limit("60/minute")
 async def list_vault_files(
     space_id: int,
     request: Request,
@@ -129,6 +139,7 @@ async def list_vault_files(
 
 
 @router.post("/upload", response_model=VaultFileResponse)
+@limiter.limit("10/minute")
 async def upload_vault_file(
     request: Request,
     file: UploadFile = File(...),
@@ -211,6 +222,7 @@ async def upload_vault_file(
 
 
 @router.get("/files/{file_id}/download", response_model=VaultDownloadResponse)
+@limiter.limit("30/minute")
 async def get_vault_download(
     file_id: int,
     request: Request,
@@ -233,6 +245,7 @@ async def get_vault_download(
 
 
 @router.delete("/files/{file_id}")
+@limiter.limit("10/minute")
 async def delete_vault_file(
     file_id: int,
     request: Request,
