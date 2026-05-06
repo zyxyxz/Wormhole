@@ -8,7 +8,7 @@ from models.logs import OperationLog
 from models.user import UserAlias
 from models.chat import Message
 from models.feed import Post, Comment
-from schemas.logs import LogCreateRequest, LogListResponse, LogEntry
+from schemas.logs import LogCreateRequest, LogListResponse, LogEntry, LogBatchRequest
 from app.api.settings import verify_admin
 from app.security import verify_request_user, require_space_member
 from app.utils.limiter import limiter
@@ -36,6 +36,46 @@ async def track_log(request: Request, payload: LogCreateRequest, db: AsyncSessio
     )
     db.add(log)
     return {"success": True}
+
+
+@router.post("/track-batch")
+@limiter.limit("30/minute")
+async def track_log_batch(
+    request: Request,
+    payload: LogBatchRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """Accept a batch of operation log events.
+
+    Mirrors /track's auth model: every event in the batch must belong to the
+    same authenticated user; mixed-actor batches are rejected. Empty batches
+    are a valid no-op so a flush call with nothing queued can run cheaply.
+    """
+    if not payload.events:
+        return {"success": True, "count": 0}
+    actor_user_id = verify_request_user(request, payload.events[0].user_id)
+    ip = request.client.host if request.client else None
+    user_agent = request.headers.get("user-agent")
+    accepted = 0
+    for event in payload.events:
+        if not event.user_id or not event.action:
+            continue
+        if event.user_id != actor_user_id:
+            # Reject mixed-actor batches — same policy as /track.
+            continue
+        if event.space_id is not None:
+            await require_space_member(db, event.space_id, actor_user_id)
+        db.add(OperationLog(
+            user_id=event.user_id,
+            action=event.action,
+            page=event.page,
+            detail=event.detail,
+            space_id=event.space_id,
+            ip=ip,
+            user_agent=user_agent,
+        ))
+        accepted += 1
+    return {"success": True, "count": accepted}
 
 
 @router.get("/admin/list", response_model=LogListResponse)

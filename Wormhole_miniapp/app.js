@@ -64,6 +64,9 @@ App(Object.assign({
   },
 
   onHide() {
+    // Task 23: flush any queued operation logs before backgrounding so
+    // entries aren't lost when the app sits idle or the user kills it.
+    try { appLogger.flushNow(); } catch (e) {}
     const now = Date.now();
     if (this.globalData.skipNextHideRedirect || now < (this.globalData.holdUntil || 0)) {
       this.globalData.skipNextHideRedirect = false;

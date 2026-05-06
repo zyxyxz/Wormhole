@@ -1,24 +1,66 @@
 // utils/app-logger.js — operation log + page view tracking +
 // review-mode flag bootstrap. Extracted from app.js by Task 20.
-// All methods expect `this` bound to the App instance.
+// All `methods` expect `this` bound to the App instance.
+//
+// Task 23: logOperation now batches client log events. Entries queue in
+// memory and flush to /api/logs/track-batch either when the queue reaches
+// FLUSH_AT_SIZE or after FLUSH_INTERVAL_MS, whichever comes first. Call
+// `flushNow()` from app.onHide to push pending entries before background.
 const { BASE_URL } = require('./config.js');
 const { SPACE_ROUTES } = require('./routes.js');
+
+const FLUSH_INTERVAL_MS = 5000;
+const FLUSH_AT_SIZE = 20;
+
+// Module-private queue state. Shared across all logOperation callers.
+const _queue = [];
+let _flushTimer = null;
+
+function _flush() {
+  if (_flushTimer) {
+    clearTimeout(_flushTimer);
+    _flushTimer = null;
+  }
+  if (_queue.length === 0) return;
+  const batch = _queue.splice(0);
+  try {
+    wx.request({
+      url: `${BASE_URL}/api/logs/track-batch`,
+      method: 'POST',
+      data: { events: batch },
+      // patchNetworkSecurity already injects auth headers via wx.request override.
+      // On failure we drop the batch — preserving across app restarts is out of scope.
+      fail() {}
+    });
+  } catch (e) {}
+}
+
+function _scheduleFlush() {
+  if (_flushTimer) return;
+  _flushTimer = setTimeout(_flush, FLUSH_INTERVAL_MS);
+}
+
+exports.flushNow = function () {
+  _flush();
+};
 
 exports.methods = {
   logOperation(payload = {}) {
     const userId = payload.user_id || wx.getStorageSync('openid') || '';
     if (!userId || !payload.action) return;
-    wx.request({
-      url: `${BASE_URL}/api/logs/track`,
-      method: 'POST',
-      data: {
-        user_id: userId,
-        action: payload.action,
-        page: payload.page || '',
-        detail: payload.detail || '',
-        space_id: payload.space_id || null
-      }
+    _queue.push({
+      user_id: userId,
+      action: payload.action,
+      page: payload.page || '',
+      detail: payload.detail || '',
+      space_id: payload.space_id || null,
+      ts: Date.now()
     });
+    if (_queue.length >= FLUSH_AT_SIZE) {
+      _flush();
+    } else {
+      _scheduleFlush();
+    }
   },
 
   logPageView(route, options = {}) {

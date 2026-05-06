@@ -313,17 +313,37 @@ exports.methods = {
     });
   },
 
+  // Task 23: typing=true emissions are throttled to once per 800ms; the
+  // typing=false stop emission is always immediate so the remote indicator
+  // clears responsively.
+  emitTyping(typing) {
+    if (!typing) {
+      if (this._typingThrottleTimer) {
+        clearTimeout(this._typingThrottleTimer);
+        this._typingThrottleTimer = null;
+      }
+      this._typingThrottleAt = 0;
+      this.sendTyping(false);
+      return;
+    }
+    const now = Date.now();
+    const last = this._typingThrottleAt || 0;
+    if (now - last < 800) return;
+    this._typingThrottleAt = now;
+    this.sendTyping(true);
+  },
+
   onInputChange(e) {
     const value = e.detail.value || '';
     this.setData({ inputMessage: value });
     if (this.data.inputMode !== 'text') return;
     const hasText = value.trim().length > 0;
     if (hasText) {
-      this.sendTyping(true);
+      this.emitTyping(true);
       if (this._typingTimer) clearTimeout(this._typingTimer);
-      this._typingTimer = setTimeout(() => this.sendTyping(false), 1500);
+      this._typingTimer = setTimeout(() => this.emitTyping(false), 1500);
     } else {
-      this.sendTyping(false);
+      this.emitTyping(false);
     }
   },
 
@@ -407,7 +427,7 @@ exports.methods = {
         this.updateBottomPadding({ forceMeasure: true });
       });
     }
-    this.sendTyping(false);
+    this.emitTyping(false);
     if (this.data.emojiPanelVisible) {
       this.setData({ emojiPanelVisible: false });
       this.updateBottomPadding();
@@ -433,7 +453,7 @@ exports.methods = {
     const nextMode = this.data.inputMode === 'text' ? 'audio' : 'text';
     this.setData({ inputMode: nextMode, recording: false });
     if (nextMode !== 'text') {
-      this.sendTyping(false);
+      this.emitTyping(false);
       if (this.data.emojiPanelVisible || this.data.plusPanelVisible) {
         this.setData({ emojiPanelVisible: false, plusPanelVisible: false });
         this.updateBottomPadding();

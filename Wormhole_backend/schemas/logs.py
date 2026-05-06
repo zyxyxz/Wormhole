@@ -10,6 +10,19 @@ class LogCreateRequest(BaseModel):
     space_id: int | None = None
 
 
+class LogBatchEntry(BaseModel):
+    user_id: str
+    action: str
+    page: str | None = None
+    detail: str | None = None
+    space_id: int | None = None
+    ts: int | None = None
+
+
+class LogBatchRequest(BaseModel):
+    events: list[LogBatchEntry]
+
+
 class LogEntry(BaseModel):
     id: int
     user_id: str | None = None
