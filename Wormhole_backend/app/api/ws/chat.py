@@ -19,21 +19,30 @@ logger = logging.getLogger("wormhole.ws")
 router = APIRouter()
 
 # --- WS 心跳 / idle kick ----------------------------------------------------
-# CDN 通常对 WSS 上游设有 ~900s 空闲断连。服务端每 60s 主动发一帧 server_ping
-# 保活 TCP；同时若 180s 内未收到客户端任何帧（3 次心跳间隔无回应），主动以
-# code=4408（Request Timeout）关闭，避免服务端 hang 在 receive 上、客户端却
-# 以为连接还活着。客户端 handleWsEvent 已忽略未知 event，无需改造。
-WS_HEARTBEAT_INTERVAL_S = 60
+# CDN behaviour drives these numbers. Observed on the production CDN
+# (vedcdnlb.com): the upstream WS upgrade succeeds but the connection is
+# torn down after ~900 ms of no application data, suggesting the WS proxy
+# is applying an HTTP-style idle timeout. Until the CDN's WS keepalive is
+# raised in its console (火山引擎 → 加速域名 → 高级配置 → WebSocket 长连接超时),
+# we keep the channel busy from the server side: an initial ping right
+# after handshake plus a sub-second ping cadence.
+#
+# Idle-kick (code=4408) still fires after 180s of receiving zero frames
+# from the client — long enough to absorb network blips without orphaning
+# half-open sockets if the client genuinely vanished.
+WS_HEARTBEAT_FIRST_S = 1.0
+WS_HEARTBEAT_INTERVAL_S = 5.0
 WS_IDLE_KICK_THRESHOLD_S = 180
 
 
 async def _ws_chat_heartbeat(websocket: WebSocket, manager) -> None:
-    """每 60s 发 server_ping；若 180s 无客户端活动则关闭 (code=4408)。"""
+    """Send server_ping immediately + every 5s; close (code=4408) after 180s idle."""
+    # Initial ping shortly after handshake to defeat CDN sub-second idle timers.
+    try:
+        await asyncio.sleep(WS_HEARTBEAT_FIRST_S)
+    except asyncio.CancelledError:
+        return
     while True:
-        try:
-            await asyncio.sleep(WS_HEARTBEAT_INTERVAL_S)
-        except asyncio.CancelledError:
-            return
         if manager.is_idle(websocket, WS_IDLE_KICK_THRESHOLD_S):
             try:
                 await websocket.close(code=4408)
@@ -46,6 +55,10 @@ async def _ws_chat_heartbeat(websocket: WebSocket, manager) -> None:
                 "ts": int(time.time()),
             })
         except Exception:
+            return
+        try:
+            await asyncio.sleep(WS_HEARTBEAT_INTERVAL_S)
+        except asyncio.CancelledError:
             return
 
 

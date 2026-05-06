@@ -5,7 +5,7 @@ import time
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from sqlalchemy import select
 
-from app.api.ws.chat import WS_HEARTBEAT_INTERVAL_S
+from app.api.ws.chat import WS_HEARTBEAT_FIRST_S, WS_HEARTBEAT_INTERVAL_S
 from app.database import AsyncSessionLocal
 from app.security import get_ws_user_id
 from app.ws import event_manager
@@ -17,18 +17,26 @@ router = APIRouter()
 
 
 async def _ws_space_heartbeat(websocket: WebSocket) -> None:
-    """事件通道无活动追踪，仅做 60s 保活。"""
+    """First ping ~1s after handshake, then every WS_HEARTBEAT_INTERVAL_S.
+
+    Mirrors the chat heartbeat shape so the CDN sees regular frames; without
+    this the event_manager channel was getting torn down at ~900ms idle.
+    """
+    try:
+        await asyncio.sleep(WS_HEARTBEAT_FIRST_S)
+    except asyncio.CancelledError:
+        return
     while True:
-        try:
-            await asyncio.sleep(WS_HEARTBEAT_INTERVAL_S)
-        except asyncio.CancelledError:
-            return
         try:
             await websocket.send_json({
                 "event": "server_ping",
                 "ts": int(time.time()),
             })
         except Exception:
+            return
+        try:
+            await asyncio.sleep(WS_HEARTBEAT_INTERVAL_S)
+        except asyncio.CancelledError:
             return
 
 
