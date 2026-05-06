@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import time
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -30,8 +31,25 @@ from sqlalchemy import select
 from datetime import datetime
 
 logger = logging.getLogger("wormhole.ws")
+app_logger = logging.getLogger("wormhole.app")
 
-app = FastAPI(title="虫洞私密共享空间")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    require_jwt_secret_configured()
+    await create_tables()
+    # 静态资源（媒体文件）
+    try:
+        from fastapi.staticfiles import StaticFiles
+        app.mount("/static", StaticFiles(directory="static"), name="static")
+    except Exception as e:
+        app_logger.error("static mount failed: %s", e)
+    yield
+    # Shutdown — nothing for now
+
+
+app = FastAPI(title="虫洞私密共享空间", lifespan=lifespan)
 
 # 限流（slowapi）：路由使用 @limiter.limit(...) 装饰；超限抛 RateLimitExceeded -> 429
 app.state.limiter = limiter
@@ -61,17 +79,6 @@ app.include_router(upload_api.router, prefix="/api", tags=["上传"])
 app.include_router(notify_api.router, prefix="/api/notify", tags=["通知"])
 app.include_router(emoji_diary_api.router, prefix="/api/emoji-diary", tags=["Emoji日记"])
 app.include_router(vault_api.router, prefix="/api/vault", tags=["保密柜"])
-
-@app.on_event("startup")
-async def startup():
-    require_jwt_secret_configured()
-    await create_tables()
-    # 静态资源（媒体文件）
-    try:
-        from fastapi.staticfiles import StaticFiles
-        app.mount("/static", StaticFiles(directory="static"), name="static")
-    except Exception:
-        pass
 
 @app.get("/")
 async def root():
