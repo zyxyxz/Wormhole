@@ -298,30 +298,30 @@ App({
     this._networkPatched = true;
     const app = this;
 
+    // HTTP: identity flows through Authorization / X-Auth-Token / X-User-Id /
+    // X-Openid headers only. We deliberately do NOT inject user_id into the
+    // URL — query params leak into proxy/CDN/server logs and are easy to forge,
+    // and the backend has stopped honouring them on HTTP routes.
     const originalRequest = wx.request;
     wx.request = function (options = {}) {
-      let nextUrl = options.url || '';
-      const userId = app.getRequestUserId({ ...options, url: nextUrl });
-      nextUrl = app.appendUserIdToUrl(nextUrl, userId);
       const nextOptions = Object.assign({}, options, {
-        url: nextUrl,
-        header: app.getAuthHeaders(options.header || {}, { ...options, url: nextUrl })
+        header: app.getAuthHeaders(options.header || {}, options)
       });
       return originalRequest.call(wx, nextOptions);
     };
 
     const originalUploadFile = wx.uploadFile;
     wx.uploadFile = function (options = {}) {
-      let nextUrl = options.url || '';
-      const userId = app.getRequestUserId({ ...options, url: nextUrl });
-      nextUrl = app.appendUserIdToUrl(nextUrl, userId);
       const nextOptions = Object.assign({}, options, {
-        url: nextUrl,
-        header: app.getAuthHeaders(options.header || {}, { ...options, url: nextUrl })
+        header: app.getAuthHeaders(options.header || {}, options)
       });
       return originalUploadFile.call(wx, nextOptions);
     };
 
+    // WebSocket: WeChat MiniProgram's wx.connectSocket cannot reliably attach
+    // custom headers (some platforms / CDNs strip them), so we keep the
+    // user_id query fallback for the WS handshake. The backend's WS auth
+    // path (`get_ws_user_id`) still accepts it.
     const originalConnectSocket = wx.connectSocket;
     wx.connectSocket = function (options = {}) {
       let nextUrl = options.url || '';

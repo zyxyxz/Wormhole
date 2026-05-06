@@ -185,7 +185,39 @@ def _decode_token_user_id(token: str | None, *, strict: bool, request: Request |
     return str(subject)
 
 
-def get_header_user_id(request: Request) -> str | None:
+def get_http_user_id(request: Request) -> str | None:
+    """Resolve the caller's user_id for an HTTP route.
+
+    Reads from JWT (Authorization / X-Auth-Token) or X-User-Id / X-Openid
+    headers ONLY. The query string is intentionally ignored: query params
+    leak into proxy/CDN/server access logs and are easy to forge, so they
+    must not assert identity on HTTP. The WebSocket variant (`get_ws_user_id`)
+    keeps the query fallback because WeChat MiniProgram's wx.connectSocket
+    cannot reliably attach custom headers.
+    """
+    token_user_id = _decode_token_user_id(_extract_auth_token(request), strict=False, request=request)
+    declared_user_id = _extract_declared_user_id(request)
+    if token_user_id and declared_user_id and token_user_id != declared_user_id:
+        _audit_auth_failure(
+            request,
+            "token_declared_mismatch",
+            claimed_user_id=token_user_id,
+            declared_user_id=declared_user_id,
+            token_present=True,
+        )
+        return None
+    return token_user_id or declared_user_id
+
+
+def get_ws_user_id(request: Request) -> str | None:
+    """Resolve the caller's user_id for a WebSocket endpoint.
+
+    Same as the HTTP variant, but additionally accepts the user_id from
+    the URL query string. The WeChat MiniProgram WebSocket client cannot
+    reliably attach custom request headers (some platforms / CDNs strip
+    them), so the query fallback is the only universally working channel
+    for WS authentication. This MUST NOT be used for HTTP routes.
+    """
     token_user_id = _decode_token_user_id(_extract_auth_token(request), strict=False, request=request)
     declared_user_id = _extract_declared_user_id(request)
     query_user_id = _extract_query_user_id(request)
@@ -227,10 +259,16 @@ def verify_request_user(
     *,
     required: bool = True,
 ) -> str | None:
+    """HTTP-only request guard. Identity must come from token or header.
+
+    The URL query string is NOT consulted. A request that supplies
+    `?user_id=...` alone (no Authorization / X-Auth-Token / X-User-Id /
+    X-Openid header) is treated as anonymous and rejected when
+    `required=True`.
+    """
     token = _extract_auth_token(request)
     token_user_id = _decode_token_user_id(token, strict=bool(token), request=request)
     declared_user_id = _extract_declared_user_id(request)
-    query_user_id = _extract_query_user_id(request)
 
     if token_user_id and declared_user_id and token_user_id != declared_user_id:
         _audit_auth_failure(
@@ -242,18 +280,7 @@ def verify_request_user(
         )
         raise HTTPException(status_code=403, detail="登录凭证与用户头不匹配")
 
-    if claimed_user_id and query_user_id and claimed_user_id != query_user_id:
-        _audit_auth_failure(
-            request,
-            "claimed_query_mismatch",
-            claimed_user_id=claimed_user_id,
-            declared_user_id=query_user_id,
-            token_present=bool(token),
-        )
-        raise HTTPException(status_code=403, detail="请求用户参数不匹配")
-
     header_user_id = token_user_id or declared_user_id
-    fallback_user_id = claimed_user_id or query_user_id
     if claimed_user_id and header_user_id and claimed_user_id != header_user_id:
         _audit_auth_failure(
             request,
@@ -263,24 +290,8 @@ def verify_request_user(
             token_present=bool(token),
         )
         raise HTTPException(status_code=403, detail="用户身份不匹配")
-    if query_user_id and header_user_id and query_user_id != header_user_id:
-        _audit_auth_failure(
-            request,
-            "query_mismatch",
-            claimed_user_id=query_user_id,
-            declared_user_id=header_user_id,
-            token_present=bool(token),
-        )
-        raise HTTPException(status_code=403, detail="请求用户身份不匹配")
     if header_user_id:
         return claimed_user_id or header_user_id
-    if fallback_user_id:
-        _audit_auth_fallback(
-            request,
-            user_id=fallback_user_id,
-            source="claimed" if claimed_user_id else "query",
-        )
-        return fallback_user_id
     if required:
         _audit_auth_failure(
             request,
