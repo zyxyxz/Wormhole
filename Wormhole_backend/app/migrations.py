@@ -108,6 +108,23 @@ async def add_operation_logs(conn):
     await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_operation_logs_space_id ON operation_logs(space_id)"))
 
 
+async def add_operation_log_composite_indexes(conn):
+    """Composite indexes that match the queries on the logs admin page.
+
+    Listing by space + recency, or by action + recency, both rely on these
+    leading-edge indexes; without them the planner falls back to single-column
+    indexes plus a sort.
+    """
+    await conn.execute(text(
+        "CREATE INDEX IF NOT EXISTS ix_operation_logs_space_created "
+        "ON operation_logs(space_id, created_at)"
+    ))
+    await conn.execute(text(
+        "CREATE INDEX IF NOT EXISTS ix_operation_logs_action_created "
+        "ON operation_logs(action, created_at)"
+    ))
+
+
 async def add_space_member_read_columns(conn):
     if not await column_exists(conn, "space_members", "last_read_message_id"):
         await conn.execute(text("ALTER TABLE space_members ADD COLUMN last_read_message_id INTEGER"))
@@ -253,6 +270,7 @@ MIGRATIONS = [
     ("202602_add_user_theme_preference", add_user_theme_preference),
     ("202402_add_message_media", add_message_media_columns),
     ("202601_add_operation_logs", add_operation_logs),
+    ("202602_add_operation_log_composite_indexes", add_operation_log_composite_indexes),
     ("202601_add_soft_delete_columns", add_soft_delete_columns),
     ("202601_add_space_member_read_columns", add_space_member_read_columns),
     ("202601_add_message_reply_columns", add_message_reply_columns),

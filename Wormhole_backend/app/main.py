@@ -27,6 +27,7 @@ from models.space import SpaceMember, Space
 from app.ws import chat_manager, event_manager
 from app.security import require_jwt_secret_configured, get_ws_user_id
 from app.services import chat_service
+from app.services.log_service import start_log_worker, stop_log_worker
 from sqlalchemy import select
 from datetime import datetime
 
@@ -45,8 +46,11 @@ async def lifespan(app: FastAPI):
         app.mount("/static", StaticFiles(directory="static"), name="static")
     except Exception as e:
         app_logger.error("static mount failed: %s", e)
+    # Background writer that batches operation_log inserts off the request path.
+    start_log_worker()
     yield
-    # Shutdown — nothing for now
+    # Shutdown: drain in-flight log entries before exiting.
+    await stop_log_worker()
 
 
 app = FastAPI(title="虫洞私密共享空间", lifespan=lifespan)
