@@ -269,16 +269,19 @@ def verify_request_user(
     *,
     required: bool = True,
 ) -> str | None:
-    """HTTP-only request guard. Identity must come from token or header.
+    """HTTP request guard.
 
-    The URL query string is NOT consulted. A request that supplies
-    `?user_id=...` alone (no Authorization / X-Auth-Token / X-User-Id /
-    X-Openid header) is treated as anonymous and rejected when
-    `required=True`.
+    Preferred identity comes from Authorization / X-Auth-Token (JWT) or
+    X-User-Id / X-Openid header. URL `?user_id=...` is accepted as a
+    transitional fallback for older clients that haven't been upgraded yet
+    (each use is logged as `AUTH_FALLBACK source=query` so we can track
+    when the legacy path can be retired). Token-via-query is NOT accepted —
+    that one stays closed because a leaked log is a leaked credential.
     """
     token = _extract_auth_token(request)
     token_user_id = _decode_token_user_id(token, strict=bool(token), request=request)
     declared_user_id = _extract_declared_user_id(request)
+    query_user_id = _extract_query_user_id(request)
 
     if token_user_id and declared_user_id and token_user_id != declared_user_id:
         _audit_auth_failure(
@@ -302,6 +305,18 @@ def verify_request_user(
         raise HTTPException(status_code=403, detail="用户身份不匹配")
     if header_user_id:
         return claimed_user_id or header_user_id
+
+    # Legacy fallback: trust ?user_id= when no header was sent. Logged so we
+    # can phase this out once the new client (1.1.0+) is fully rolled out.
+    fallback_user_id = claimed_user_id or query_user_id
+    if fallback_user_id:
+        _audit_auth_fallback(
+            request,
+            user_id=fallback_user_id,
+            source="claimed" if claimed_user_id else "query",
+        )
+        return fallback_user_id
+
     if required:
         _audit_auth_failure(
             request,

@@ -70,20 +70,20 @@ def test_get_ws_user_id_accepts_header_too():
     assert security.get_ws_user_id(req) == "oeAAA"
 
 
-def test_verify_request_user_rejects_query_only_identity():
-    """Requesting user via ?user_id= alone must not authenticate on HTTP."""
+def test_verify_request_user_accepts_query_as_legacy_fallback():
+    """Transitional: ?user_id= is honoured when no header is sent.
+
+    Logged as AUTH_FALLBACK source=query so we can phase this out once the
+    1.1.0+ client (which always sets X-User-Id) is fully rolled out.
+    """
     req = _make_request(query={"user_id": "oeBBB"})
-    with pytest.raises(HTTPException) as exc:
-        security.verify_request_user(req, required=True)
-    assert exc.value.status_code in (401, 403)
+    assert security.verify_request_user(req, required=True) == "oeBBB"
 
 
-def test_verify_request_user_query_does_not_satisfy_claimed_check():
-    """Claimed body user_id must be backed by token/header, not by query echo."""
+def test_verify_request_user_query_satisfies_claimed_check_via_fallback():
+    """Claimed body user_id with no header is accepted via legacy query fallback."""
     req = _make_request(query={"user_id": "oeCCC"})
-    with pytest.raises(HTTPException) as exc:
-        security.verify_request_user(req, claimed_user_id="oeCCC", required=True)
-    assert exc.value.status_code in (401, 403)
+    assert security.verify_request_user(req, claimed_user_id="oeCCC", required=True) == "oeCCC"
 
 
 def test_verify_request_user_accepts_header_identity():
@@ -91,9 +91,25 @@ def test_verify_request_user_accepts_header_identity():
     assert security.verify_request_user(req, required=True) == "oeDDD"
 
 
-def test_verify_request_user_optional_returns_none_without_identity():
+def test_verify_request_user_optional_returns_query_fallback():
+    """When ?user_id= is present and required=False, return it (legacy)."""
     req = _make_request(query={"user_id": "oeEEE"})
+    assert security.verify_request_user(req, required=False) == "oeEEE"
+
+
+def test_verify_request_user_optional_returns_none_without_any_identity():
+    """When nothing is present and required=False, return None."""
+    req = _make_request()
     assert security.verify_request_user(req, required=False) is None
+
+
+def test_verify_request_user_token_query_still_blocked():
+    """Token-via-query stays closed even with the user_id query fallback open."""
+    # _extract_auth_token defaults to allow_query=False on HTTP path; a
+    # ?token= alone produces no identity here.
+    req = _make_request(query={"token": "fake.jwt.token"})
+    with pytest.raises(HTTPException):
+        security.verify_request_user(req, required=True)
 
 
 def test_http_route_via_real_request_rejects_query_user_id():
