@@ -825,6 +825,7 @@ App({
     const sid = wx.getStorageSync('currentSpaceId');
     const uid = wx.getStorageSync('openid') || '';
     if (!sid || !uid) return;
+    this._spaceEventDesired = true;
     this._spaceEventConnecting = true;
     const url = `${WS_URL}/ws/space/${sid}?user_id=${encodeURIComponent(uid)}`;
     let sock;
@@ -871,6 +872,7 @@ App({
   },
 
   _scheduleSpaceEventsReconnect() {
+    if (!this._spaceEventDesired) return;
     if (this._spaceEventReconnectTimer) return;
     if (!wx.getStorageSync('currentSpaceId')) return;
     if (!wx.getStorageSync('openid')) return;
@@ -884,6 +886,7 @@ App({
   },
 
   disconnectSpaceEvents() {
+    this._spaceEventDesired = false;
     if (this._spaceEventReconnectTimer) {
       clearTimeout(this._spaceEventReconnectTimer);
       this._spaceEventReconnectTimer = null;
