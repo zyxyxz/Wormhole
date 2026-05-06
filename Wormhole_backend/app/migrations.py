@@ -172,6 +172,12 @@ async def add_messages_edit_columns(conn):
         await conn.execute(text("ALTER TABLE messages ADD COLUMN edit_history TEXT"))
 
 
+async def add_messages_mentions_column(conn):
+    """Task 29: @mentions stored as JSON list of user_id strings."""
+    if not await column_exists(conn, "messages", "mentions"):
+        await conn.execute(text("ALTER TABLE messages ADD COLUMN mentions TEXT"))
+
+
 async def add_message_reactions_table(conn):
     """Task 28: emoji reactions on messages.
 
@@ -347,6 +353,7 @@ MIGRATIONS = [
     ("202605_add_hot_path_composite_indexes", add_hot_path_composite_indexes),
     ("202606_add_messages_edit_columns", add_messages_edit_columns),
     ("202607_add_message_reactions_table", add_message_reactions_table),
+    ("202608_add_messages_mentions_column", add_messages_mentions_column),
 ]
 
 

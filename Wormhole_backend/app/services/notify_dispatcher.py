@@ -195,3 +195,85 @@ def fire_room_notification(
         )
     except Exception:
         return
+
+
+# --- Task 29: directed @mention notifications -----------------------------
+# Mentions reuse the per-user NotifyChannel infrastructure but bypass the
+# "skip when online" gate and cooldown — a directed ping is meant to
+# interrupt, otherwise the recipient might miss it. The sender is always
+# excluded (self-mention is allowed but doesn't push back).
+
+
+async def dispatch_mention_notifications(
+    *,
+    space_id: int,
+    mentioned_user_ids: list[str],
+    sender_user_id: str | None,
+    sender_alias: str | None,
+    message_id: int,
+) -> None:
+    targets = [uid for uid in (mentioned_user_ids or []) if uid and uid != sender_user_id]
+    if not targets:
+        return
+    async with AsyncSessionLocal() as db:
+        rows = await db.execute(
+            select(NotifyChannel).where(
+                NotifyChannel.space_id == space_id,
+                NotifyChannel.enabled.is_(True),
+                NotifyChannel.notify_chat.is_(True),
+                NotifyChannel.user_id.in_(targets),
+            )
+        )
+        channels = rows.scalars().all()
+        if not channels:
+            return
+        now = datetime.utcnow()
+        for channel in channels:
+            title, body = build_disguise_text(channel, "chat", sender_alias=sender_alias)
+            actor = (sender_alias or "").strip() or "有人"
+            body = f"{body}\n@提及：{actor} 在群里@了你"
+            success = await send_channel_message(channel, title, body, event_type="chat")
+            if not success:
+                continue
+            channel.last_notified_at = now
+            add_operation_log(
+                db,
+                user_id=channel.user_id,
+                action="notify_mention",
+                space_id=space_id,
+                detail={
+                    "provider": channel.provider,
+                    "channel_id": channel.id,
+                    "message_id": message_id,
+                    "sender_user_id": sender_user_id,
+                },
+            )
+        await db.commit()
+
+
+def fire_mention_notifications(
+    *,
+    space_id: int,
+    mentioned_user_ids: list[str],
+    sender_user_id: str | None,
+    sender_alias: str | None,
+    message_id: int,
+) -> None:
+    """Schedule directed pushes to each @mentioned user (other than sender).
+
+    Fire-and-forget like ``fire_room_notification`` — wraps in
+    ``loop.create_task`` so the WS handler doesn't block on outbound HTTP.
+    """
+    try:
+        loop = asyncio.get_running_loop()
+        loop.create_task(
+            dispatch_mention_notifications(
+                space_id=space_id,
+                mentioned_user_ids=mentioned_user_ids,
+                sender_user_id=sender_user_id,
+                sender_alias=sender_alias,
+                message_id=message_id,
+            )
+        )
+    except Exception:
+        return

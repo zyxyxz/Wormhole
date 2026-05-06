@@ -46,6 +46,7 @@ class MessageResponse(MessageBase):
     created_at: datetime
     edited_at: Optional[datetime] = None
     reactions: List[ReactionGroup] = Field(default_factory=list)
+    mentions: List[str] = Field(default_factory=list)
 
     class Config:
         from_attributes = True

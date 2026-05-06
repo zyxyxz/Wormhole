@@ -30,6 +30,7 @@ from app.utils.media import (
 from app.utils.operation_log import add_operation_log
 from app.security import verify_request_user, require_space_member
 from datetime import datetime
+import json
 
 router = APIRouter()
 
@@ -132,6 +133,16 @@ async def get_chat_history(
         if msg_type == "live":
             live_cover_url, live_video_url = process_live_media_urls(m.media_url)
             media_url = live_cover_url
+        # Task 29: surface stored @mentions to history readers so the UI
+        # can highlight them on first paint.
+        m_mentions: list[str] = []
+        if m.mentions:
+            try:
+                parsed = json.loads(m.mentions)
+                if isinstance(parsed, list):
+                    m_mentions = [str(x) for x in parsed if isinstance(x, str)]
+            except Exception:
+                m_mentions = []
         resp_msgs.append(
             MessageResponse(
                 id=m.id,
@@ -157,6 +168,7 @@ async def get_chat_history(
                     ReactionGroup(emoji=g["emoji"], user_ids=g["user_ids"])
                     for g in reactions_by_msg.get(m.id, [])
                 ],
+                mentions=m_mentions,
             )
         )
 

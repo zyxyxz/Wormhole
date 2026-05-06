@@ -336,8 +336,14 @@ exports.methods = {
 
   onInputChange(e) {
     const value = e.detail.value || '';
+    const cursor = (e.detail && typeof e.detail.cursor === 'number') ? e.detail.cursor : value.length;
     this.setData({ inputMessage: value });
     if (this.data.inputMode !== 'text') return;
+    // Task 29: detect `@` trigger to show member picker. We match the
+    // last `@` followed by zero-or-more non-space, non-@ chars at the
+    // cursor position, so typing past a space (or another @) closes
+    // the popover automatically.
+    this.refreshMentionPicker(value, cursor);
     const hasText = value.trim().length > 0;
     if (hasText) {
       this.emitTyping(true);
@@ -345,6 +351,55 @@ exports.methods = {
       this._typingTimer = setTimeout(() => this.emitTyping(false), 1500);
     } else {
       this.emitTyping(false);
+    }
+  },
+
+  refreshMentionPicker(value, cursor) {
+    const text = typeof value === 'string' ? value : '';
+    const cursorPos = (typeof cursor === 'number' && cursor >= 0) ? cursor : text.length;
+    const before = text.substring(0, cursorPos);
+    const match = before.match(/@([^\s@]*)$/);
+    if (!match) {
+      if (this.data.mentionPickerOpen) {
+        this.setData({ mentionPickerOpen: false, mentionPickerCandidates: [] });
+      }
+      return;
+    }
+    const query = match[1] || '';
+    const myId = this._currentUserId || '';
+    const members = (this.data.members || []).filter((m) => m && m.user_id && m.user_id !== myId);
+    const lowered = query.toLowerCase();
+    const filtered = members.filter((m) => {
+      if (!lowered) return true;
+      const alias = (m.alias || '').toLowerCase();
+      return alias.indexOf(lowered) !== -1;
+    }).slice(0, 10);
+    this.setData({
+      mentionPickerOpen: filtered.length > 0,
+      mentionPickerCandidates: filtered,
+      mentionPickerQuery: query,
+    });
+  },
+
+  onPickMention(e) {
+    const ds = e.currentTarget.dataset || {};
+    const userId = ds.userId || ds.userid || '';
+    const alias = ds.alias || userId || '';
+    if (!userId) return;
+    const value = this.data.inputMessage || '';
+    const replaced = value.replace(/@([^\s@]*)$/, `@${alias} `);
+    this._pendingMentions = this._pendingMentions || new Set();
+    this._pendingMentions.add(userId);
+    this.setData({
+      inputMessage: replaced,
+      mentionPickerOpen: false,
+      mentionPickerCandidates: [],
+    });
+  },
+
+  closeMentionPicker() {
+    if (this.data.mentionPickerOpen) {
+      this.setData({ mentionPickerOpen: false, mentionPickerCandidates: [] });
     }
   },
 
@@ -421,6 +476,24 @@ exports.methods = {
       message.reply_to_content = reply.content;
       message.reply_to_type = reply.type || 'text';
     }
+    // Task 29: attach @mentions only on text/system frames where the
+    // user could plausibly have typed `@alias`. Server caps at 20 and
+    // dedupes, but we filter here too so the WS frame stays small.
+    if ((message.message_type === 'text' || message.message_type === 'system')
+        && this._pendingMentions && this._pendingMentions.size) {
+      const content = message.content || '';
+      const surviving = [];
+      this._pendingMentions.forEach((uid) => {
+        const member = (this.data.members || []).find((m) => m && m.user_id === uid);
+        const alias = member && member.alias ? member.alias : '';
+        if (alias && content.indexOf(`@${alias}`) !== -1) {
+          surviving.push(uid);
+        }
+      });
+      if (surviving.length) {
+        message.mentions = surviving.slice(0, 20);
+      }
+    }
     if (!message.user_id) {
       wx.showToast({ title: '未登录', icon: 'none' });
       return;
@@ -472,6 +545,12 @@ exports.methods = {
     if (this.data.plusPanelVisible) {
       this.setData({ plusPanelVisible: false });
       this.updateBottomPadding();
+    }
+    // Task 29: clear pending @mentions and close the picker so the
+    // next message starts with an empty mention set.
+    this._pendingMentions = new Set();
+    if (this.data.mentionPickerOpen) {
+      this.setData({ mentionPickerOpen: false, mentionPickerCandidates: [] });
     }
   },
 

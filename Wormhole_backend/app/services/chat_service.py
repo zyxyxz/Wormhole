@@ -13,7 +13,10 @@ from typing import Optional, Tuple
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.services.notify_dispatcher import fire_room_notification
+from app.services.notify_dispatcher import (
+    fire_mention_notifications,
+    fire_room_notification,
+)
 from app.ws import event_manager
 from app.utils.media import (
     encode_live_media,
@@ -84,6 +87,7 @@ async def send_message(
     client_id: Optional[str] = None,
     ip: Optional[str] = None,
     user_agent: Optional[str] = None,
+    mentions: Optional[list[str]] = None,
 ) -> Tuple[Message, dict]:
     """Persist a chat message, log it, fire notifications, and return the
     broadcast payload.
@@ -122,6 +126,21 @@ async def send_message(
     elif not cleaned_media_url:
         raise ChatSendError(400, "媒体消息缺少资源地址")
 
+    # Task 29: validate, dedupe and cap @mentions before persistence. We
+    # store as JSON text so SQLite + Postgres can both round-trip it; the
+    # frontend treats the field as a plain string list.
+    cleaned_mentions: list[str] = []
+    mentions_value: Optional[str] = None
+    if mentions:
+        for uid in mentions:
+            if isinstance(uid, str):
+                stripped = uid.strip()
+                if stripped:
+                    cleaned_mentions.append(stripped)
+        cleaned_mentions = list(dict.fromkeys(cleaned_mentions))[:20]
+        if cleaned_mentions:
+            mentions_value = json.dumps(cleaned_mentions, ensure_ascii=False)
+
     db_message = Message(
         space_id=space_id,
         user_id=user_id,
@@ -133,6 +152,7 @@ async def send_message(
         reply_to_user_id=reply_to_user_id,
         reply_to_content=reply_to_content,
         reply_to_type=reply_to_type,
+        mentions=mentions_value,
     )
     db.add(db_message)
     await db.commit()
@@ -176,6 +196,18 @@ async def send_message(
         force_send=msg_type == "system",
     )
 
+    # Task 29: directed push to each @mentioned user (excluding sender).
+    # Self-mention is allowed but the dispatcher filters the sender out so
+    # alice never sees her own @alice as a fresh notification.
+    if cleaned_mentions:
+        fire_mention_notifications(
+            space_id=space_id,
+            mentioned_user_ids=cleaned_mentions,
+            sender_user_id=user_id,
+            sender_alias=sender_alias.alias if sender_alias else None,
+            message_id=db_message.id,
+        )
+
     media_url_payload = process_message_media_url(db_message.media_url, db_message.message_type)
     live_cover_payload = None
     live_video_payload = None
@@ -212,6 +244,7 @@ async def send_message(
         "reply_to_type": db_message.reply_to_type,
         "reply_to_alias": reply_alias.alias if reply_alias else None,
         "reply_to_avatar_url": process_avatar_url(reply_alias.avatar_url if reply_alias else None),
+        "mentions": cleaned_mentions,
     }
 
     # Push an unread-bump event over the room's event_manager channel so any

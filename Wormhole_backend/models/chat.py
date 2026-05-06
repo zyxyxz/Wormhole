@@ -24,3 +24,4 @@ class Message(Base):
     deleted_at = Column(DateTime(timezone=True), nullable=True)
     edited_at = Column(DateTime(timezone=True), nullable=True)
     edit_history = Column(Text, nullable=True)  # JSON list of prior versions
+    mentions = Column(Text, nullable=True)  # Task 29: JSON list of user_id strings

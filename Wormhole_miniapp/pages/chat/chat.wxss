@@ -325,3 +325,12 @@ page { overflow: hidden; }
 .modal-avatar image { width: 100%; height: 100%; }
 .modal-name { font-size: 24rpx; color: var(--text); }
 .modal-empty { text-align: center; color: var(--text-muted); font-size: 22rpx; padding: 12rpx 0; }
+
+/* Task 29: @mention picker - shown above input-row when typing `@`. */
+.mention-picker { background: var(--surface); border: 1rpx solid var(--border); border-radius: 16rpx; box-shadow: var(--shadow); margin-bottom: 12rpx; max-height: 360rpx; overflow-y: auto; padding: 6rpx 0; }
+.mention-item { display: flex; align-items: center; gap: 14rpx; padding: 12rpx 18rpx; }
+.mention-item:active { background: var(--bg-secondary); }
+.mention-avatar { width: 56rpx; height: 56rpx; border-radius: 50%; background: var(--bg-secondary); display: flex; align-items: center; justify-content: center; overflow: hidden; color: var(--text); font-size: 24rpx; flex: 0 0 auto; }
+.mention-avatar-img { width: 100%; height: 100%; }
+.mention-avatar-fallback { background: var(--accent-soft, var(--bg-secondary)); }
+.mention-name { font-size: 26rpx; color: var(--text); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

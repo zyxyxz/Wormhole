@@ -219,6 +219,11 @@ async def chat_ws_endpoint(websocket: WebSocket, space_id: int):
                 continue
             user_id = ws_user_id
             chat_manager.register_user(space_id, websocket, user_id)
+            # Task 29: optional `mentions` (list of user_id strings). Anything
+            # other than a list is dropped — the service further filters
+            # non-string / blank entries before persisting.
+            mentions_raw = data.get("mentions")
+            mentions_arg = mentions_raw if isinstance(mentions_raw, list) else None
             async with AsyncSessionLocal() as session:
                 try:
                     _msg, payload = await chat_service.send_message(
@@ -238,6 +243,7 @@ async def chat_ws_endpoint(websocket: WebSocket, space_id: int):
                         client_id=data.get("client_id"),
                         ip=(websocket.client.host if websocket.client else None),
                         user_agent=websocket.headers.get("user-agent") if hasattr(websocket, "headers") else None,
+                        mentions=mentions_arg,
                     )
                 except chat_service.ChatSendError:
                     # WS 上下文：静默丢弃非法帧（与既有 `continue` 语义一致）

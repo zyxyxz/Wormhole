@@ -123,6 +123,17 @@
       </view>
       <view class="reply-cancel" bindtap="cancelEdit">×</view>
     </view>
+    <view wx:if="{{mentionPickerOpen && mentionPickerCandidates.length}}" class="mention-picker" catchtap="noop">
+      <view wx:for="{{mentionPickerCandidates}}" wx:key="user_id" class="mention-item"
+            data-user-id="{{item.user_id}}" data-alias="{{item.alias || item.displayName}}"
+            bindtap="onPickMention">
+        <view class="mention-avatar" wx:if="{{item.avatar_url}}">
+          <image class="mention-avatar-img" src="{{item.avatar_url}}" mode="aspectFill"></image>
+        </view>
+        <view class="mention-avatar mention-avatar-fallback" wx:else>{{item.initial}}</view>
+        <view class="mention-name">{{item.alias || item.displayName || item.user_id}}</view>
+      </view>
+    </view>
     <view class="input-row">
       <button class="tool-btn" catchtap="toggleInputMode">
         <view class="icon mic" wx:if="{{inputMode === 'text'}}">
