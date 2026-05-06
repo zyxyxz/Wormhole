@@ -5,96 +5,10 @@ const auth = require('./utils/auth.js');
 const theme = require('./utils/theme.js');
 const badge = require('./utils/badge.js');
 const lock = require('./utils/lock.js');
+const activity = require('./utils/activity.js');
 const { THEME_PRESETS } = theme;
 
-const originalPage = Page;
-Page = function (pageConfig) {
-  const appInstance = typeof getApp === 'function' ? getApp() : null;
-  const originalData = (pageConfig.data && typeof pageConfig.data === 'object') ? pageConfig.data : {};
-  const themeDefaults = appInstance && appInstance.globalData ? {
-    themePreference: appInstance.globalData.themePreference,
-    themeMode: appInstance.globalData.themeMode,
-    themeClass: appInstance.globalData.themeClass,
-    themeNavBg: appInstance.globalData.themeNavBg,
-    themeNavText: appInstance.globalData.themeNavText,
-    themeNavFront: appInstance.globalData.themeNavFront
-  } : {};
-  pageConfig.data = Object.assign({}, themeDefaults, originalData);
-  const lifecycleHooks = new Set([
-    'onLoad', 'onShow', 'onReady', 'onHide', 'onUnload',
-    'onPullDownRefresh', 'onReachBottom', 'onPageScroll',
-    'onShareAppMessage', 'onAddToFavorites', 'onPageResize', 'onTabItemTap'
-  ]);
-  Object.keys(pageConfig).forEach((key) => {
-    const fn = pageConfig[key];
-    if (typeof fn !== 'function' || lifecycleHooks.has(key)) return;
-    pageConfig[key] = function () {
-      try {
-        const app = getApp();
-        if (app && typeof app.recordUserActivity === 'function') {
-          app.recordUserActivity();
-        }
-      } catch (e) {}
-      return fn.apply(this, arguments);
-    };
-  });
-
-  const originalOnLoad = pageConfig.onLoad;
-  pageConfig.onLoad = function () {
-    try {
-      const app = getApp();
-      if (app && typeof app.applyThemeForRoute === 'function') {
-        app.applyThemeForRoute(this.route, this);
-      }
-    } catch (e) {}
-    if (typeof originalOnLoad === 'function') {
-      return originalOnLoad.apply(this, arguments);
-    }
-  };
-
-  const originalOnShow = pageConfig.onShow;
-  pageConfig.onShow = function () {
-    try {
-      const app = getApp();
-      if (app && typeof app.recordUserActivity === 'function') {
-        app.recordUserActivity();
-      }
-      if (app && typeof app.startInactivityTimer === 'function') {
-        app.startInactivityTimer();
-      }
-      if (app && typeof app.logPageView === 'function') {
-        app.logPageView(this.route, this.options || {});
-      }
-      if (app && typeof app.applyThemeForRoute === 'function') {
-        app.applyThemeForRoute(this.route, this);
-      }
-      if (app && typeof app.refreshNotesBadge === 'function') {
-        app.refreshNotesBadge(this.route);
-      }
-      if (app && typeof app.refreshChatBadge === 'function') {
-        app.refreshChatBadge(this.route);
-      }
-    } catch (e) {}
-    if (typeof originalOnShow === 'function') {
-      return originalOnShow.apply(this, arguments);
-    }
-  };
-
-  const originalOnHide = pageConfig.onHide;
-  pageConfig.onHide = function () {
-    try {
-      const app = getApp();
-      if (app && typeof app.stopInactivityTimer === 'function') {
-        app.stopInactivityTimer();
-      }
-    } catch (e) {}
-    if (typeof originalOnHide === 'function') {
-      return originalOnHide.apply(this, arguments);
-    }
-  };
-
-  return originalPage(pageConfig);
-};
+activity.installPageWrapper();
 
 App(Object.assign({
   globalData: {
@@ -119,10 +33,6 @@ App(Object.assign({
     themeTabText: THEME_PRESETS.light.tabText,
     themeTabSelected: THEME_PRESETS.light.tabSelected,
     themeTabBorderStyle: THEME_PRESETS.light.tabBorderStyle
-  },
-
-  recordUserActivity() {
-    this.startInactivityTimer();
   },
 
   logOperation(payload = {}) {
@@ -314,4 +224,4 @@ App(Object.assign({
       }
     } catch (e) {}
   }
-}, auth.methods, theme.methods, badge.methods, lock.methods))
+}, auth.methods, theme.methods, badge.methods, lock.methods, activity.methods))
