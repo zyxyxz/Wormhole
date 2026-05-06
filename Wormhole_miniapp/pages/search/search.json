@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "搜索",
+  "usingComponents": {
+    "skeleton-list": "/components/skeleton-list/skeleton-list",
+    "empty": "/components/empty/empty"
+  }
+}

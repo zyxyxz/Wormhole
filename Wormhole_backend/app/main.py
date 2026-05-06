@@ -13,6 +13,7 @@ from app.api import emoji_diary as emoji_diary_api
 from app.api import feed as feed_api
 from app.api import logs as logs_api
 from app.api import notify as notify_api
+from app.api import search as search_api
 from app.api import upload as upload_api
 from app.api import user as user_api
 from app.api import vault as vault_api
@@ -77,6 +78,7 @@ app.include_router(upload_api.router, prefix="/api", tags=["上传"])
 app.include_router(notify_api.router, prefix="/api/notify", tags=["通知"])
 app.include_router(emoji_diary_api.router, prefix="/api/emoji-diary", tags=["Emoji日记"])
 app.include_router(vault_api.router, prefix="/api/vault", tags=["保密柜"])
+app.include_router(search_api.router, prefix="/api/search", tags=["搜索"])
 
 # WebSocket 端点
 app.include_router(ws_chat.router)

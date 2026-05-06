@@ -18,7 +18,8 @@
     "pages/notify/notify",
     "pages/admin/admin",
     "pages/admin-space/admin-space",
-    "pages/admin-logs/admin-logs"
+    "pages/admin-logs/admin-logs",
+    "pages/search/search"
   ],
   "window": {
     "backgroundTextStyle": "light",

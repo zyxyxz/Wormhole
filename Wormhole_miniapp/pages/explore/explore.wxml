@@ -37,5 +37,11 @@
       <view class="app-name">Emoji日记</view>
       <view class="app-desc">每日状态</view>
     </view>
+
+    <view class="app-card search" bindtap="openSearch">
+      <view class="app-icon">🔍</view>
+      <view class="app-name">搜索消息</view>
+      <view class="app-desc">全文检索</view>
+    </view>
   </view>
 </view>

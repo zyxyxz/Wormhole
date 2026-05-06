@@ -178,6 +178,65 @@ async def add_messages_mentions_column(conn):
         await conn.execute(text("ALTER TABLE messages ADD COLUMN mentions TEXT"))
 
 
+async def add_messages_fts5(conn):
+    """Task 30: FTS5 virtual table + AI/AU/AD triggers for messages.content.
+
+    Uses an external-content table linked by ``rowid='id'`` so storage isn't
+    doubled — the content lives in ``messages`` and FTS5 only stores the
+    inverted index. Triggers keep the index in sync on insert/update/delete,
+    and a single-shot backfill seeds rows that pre-date this migration.
+
+    SQLite must be compiled with FTS5 (true for the standard distribution
+    used in tests/CI/prod). If FTS5 is missing, the CREATE VIRTUAL TABLE
+    statement raises and the migration aborts cleanly — surfacing the
+    misconfiguration loudly is better than masking it.
+    """
+    await conn.execute(text(
+        """
+        CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts5(
+            content,
+            content='messages',
+            content_rowid='id',
+            tokenize='unicode61'
+        )
+        """
+    ))
+    await conn.execute(text(
+        """
+        CREATE TRIGGER IF NOT EXISTS messages_fts_ai AFTER INSERT ON messages BEGIN
+            INSERT INTO messages_fts(rowid, content) VALUES (new.id, new.content);
+        END
+        """
+    ))
+    await conn.execute(text(
+        """
+        CREATE TRIGGER IF NOT EXISTS messages_fts_au AFTER UPDATE ON messages BEGIN
+            INSERT INTO messages_fts(messages_fts, rowid, content) VALUES ('delete', old.id, old.content);
+            INSERT INTO messages_fts(rowid, content) VALUES (new.id, new.content);
+        END
+        """
+    ))
+    await conn.execute(text(
+        """
+        CREATE TRIGGER IF NOT EXISTS messages_fts_ad AFTER DELETE ON messages BEGIN
+            INSERT INTO messages_fts(messages_fts, rowid, content) VALUES ('delete', old.id, old.content);
+        END
+        """
+    ))
+    # Backfill rows that already exist in `messages`. We use FTS5's
+    # documented `'rebuild'` command instead of an explicit
+    # `INSERT INTO messages_fts(rowid, content) SELECT ...` because the
+    # explicit form's `WHERE id NOT IN (SELECT rowid FROM messages_fts)`
+    # subquery interacts badly with the AI trigger on `messages` — under
+    # SQLite + aiosqlite the inverted index is left empty even though the
+    # rowid/content pairs land in the index docstore. `'rebuild'` is
+    # idempotent and the canonical first-run path for external-content FTS5
+    # tables.
+    await conn.execute(text(
+        "INSERT INTO messages_fts(messages_fts) VALUES('rebuild')"
+    ))
+
+
 async def add_message_reactions_table(conn):
     """Task 28: emoji reactions on messages.
 
@@ -354,6 +413,7 @@ MIGRATIONS = [
     ("202606_add_messages_edit_columns", add_messages_edit_columns),
     ("202607_add_message_reactions_table", add_message_reactions_table),
     ("202608_add_messages_mentions_column", add_messages_mentions_column),
+    ("202609_add_messages_fts5", add_messages_fts5),
 ]
 
 

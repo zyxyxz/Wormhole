@@ -1,0 +1,46 @@
+<view class="search-page theme-root {{themeClass}}">
+  <view class="search-header">
+    <view class="search-input-wrap">
+      <input
+        class="search-input"
+        placeholder="搜索聊天消息"
+        placeholder-class="search-placeholder"
+        value="{{query}}"
+        bindinput="onInput"
+        bindconfirm="onSearch"
+        confirm-type="search"
+        focus="{{true}}"
+      />
+      <view wx:if="{{query}}" class="clear-btn" bindtap="onClear">×</view>
+    </view>
+    <view class="cancel-btn" bindtap="onBack">取消</view>
+  </view>
+
+  <skeleton-list show="{{loading}}" rows="{{4}}" />
+
+  <view class="search-results" wx:if="{{!loading && results.length}}">
+    <view
+      wx:for="{{results}}"
+      wx:key="id"
+      class="result-item"
+      bindtap="onTapResult"
+      data-message-id="{{item.id}}"
+    >
+      <view class="result-avatar">
+        <image wx:if="{{item.avatar_url}}" class="result-avatar-img" src="{{item.avatar_url}}" mode="aspectFill" />
+        <text wx:else class="result-avatar-fallback">{{item.aliasInitial}}</text>
+      </view>
+      <view class="result-body">
+        <view class="result-meta">
+          <text class="result-alias">{{item.alias || item.user_id}}</text>
+          <text class="result-time">{{item.timeLabel}}</text>
+        </view>
+        <view class="result-content">{{item.content}}</view>
+      </view>
+    </view>
+  </view>
+
+  <view wx:if="{{!loading && submittedQuery && !results.length}}" class="empty-wrap">
+    <empty text="无结果" />
+  </view>
+</view>

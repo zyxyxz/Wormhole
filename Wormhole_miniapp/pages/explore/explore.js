@@ -48,5 +48,9 @@ Page({
 
   openEmojiDiary() {
     wx.navigateTo({ url: '/pages/emoji-diary/emoji-diary' });
+  },
+
+  openSearch() {
+    wx.navigateTo({ url: '/pages/search/search' });
   }
 });
