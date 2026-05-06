@@ -32,12 +32,23 @@ router = APIRouter()
 # half-open sockets if the client genuinely vanished.
 WS_HEARTBEAT_FIRST_S = 1.0
 WS_HEARTBEAT_INTERVAL_S = 5.0
-WS_IDLE_KICK_THRESHOLD_S = 180
+# Idle threshold tuned for a 60s client heartbeat (chat-ws.js) with 1.5x
+# tolerance: 90s of no client frames → reap. Lower than the previous 180s
+# because behind CDN/FRP the upstream half-close often doesn't propagate, so
+# the receive loop hangs and the connection slot leaks (we observed ~13
+# zombies per active user). The send-fail path in the heartbeat (below) also
+# now closes() explicitly, so genuinely-dead TCP gets reaped within 5s.
+WS_IDLE_KICK_THRESHOLD_S = 90
 
 
 async def _ws_chat_heartbeat(websocket: WebSocket, manager) -> None:
-    """Send server_ping immediately + every 5s; close (code=4408) after 180s idle."""
-    # Initial ping shortly after handshake to defeat CDN sub-second idle timers.
+    """First ping ~1s after handshake, then every WS_HEARTBEAT_INTERVAL_S.
+
+    On any failure to send (TCP gone but receive() hasn't noticed yet — common
+    behind CDN/FRP) we explicitly close() so the receive loop wakes up and the
+    endpoint exits cleanly. Without the explicit close the recv blocks forever
+    and the connection slot leaks.
+    """
     try:
         await asyncio.sleep(WS_HEARTBEAT_FIRST_S)
     except asyncio.CancelledError:
@@ -55,6 +66,12 @@ async def _ws_chat_heartbeat(websocket: WebSocket, manager) -> None:
                 "ts": int(time.time()),
             })
         except Exception:
+            # Send failed → peer is gone but receive() hasn't seen it yet.
+            # Force close so the main loop exits and the slot is freed.
+            try:
+                await websocket.close(code=1011)
+            except Exception:
+                pass
             return
         try:
             await asyncio.sleep(WS_HEARTBEAT_INTERVAL_S)
