@@ -6,6 +6,7 @@
     "pages/notes/notes",
     "pages/explore/explore",
     "pages/notebook/notebook",
+    "pages/vault/vault",
     "pages/notes-activity/notes-activity",
     "pages/emoji-diary/emoji-diary",
     "pages/note-edit/note-edit",

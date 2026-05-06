@@ -178,6 +178,74 @@ async def add_emoji_diary_entries(conn):
     await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_emoji_diary_entry_date ON emoji_diary_entries(entry_date)"))
 
 
+async def add_chat_stickers(conn):
+    if not await table_exists(conn, "chat_stickers"):
+        await conn.execute(text(
+            """
+            CREATE TABLE chat_stickers (
+                id INTEGER PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                media_url TEXT NOT NULL,
+                created_at DATETIME DEFAULT (datetime('now')),
+                updated_at DATETIME
+            )
+            """
+        ))
+    await conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_chat_stickers_user_media ON chat_stickers(user_id, media_url)"))
+    await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_chat_stickers_user_id ON chat_stickers(user_id)"))
+
+
+async def add_vault_tables(conn):
+    if not await table_exists(conn, "vault_spaces"):
+        await conn.execute(text(
+            """
+            CREATE TABLE vault_spaces (
+                id INTEGER PRIMARY KEY,
+                space_id INTEGER UNIQUE,
+                created_by TEXT,
+                kdf_algo TEXT DEFAULT 'pbkdf2-sha256',
+                kdf_iterations INTEGER DEFAULT 30000,
+                key_salt TEXT,
+                check_nonce TEXT,
+                check_ciphertext TEXT,
+                check_tag TEXT,
+                created_at DATETIME DEFAULT (datetime('now')),
+                updated_at DATETIME
+            )
+            """
+        ))
+    if not await table_exists(conn, "vault_files"):
+        await conn.execute(text(
+            """
+            CREATE TABLE vault_files (
+                id INTEGER PRIMARY KEY,
+                space_id INTEGER,
+                uploader_user_id TEXT,
+                object_key TEXT,
+                encrypted_name TEXT,
+                name_nonce TEXT,
+                name_tag TEXT,
+                encrypted_meta TEXT,
+                meta_nonce TEXT,
+                meta_tag TEXT,
+                file_nonce TEXT,
+                file_tag TEXT,
+                cipher_algo TEXT DEFAULT 'chacha20-hmac-sha256',
+                original_size INTEGER DEFAULT 0,
+                encrypted_size INTEGER DEFAULT 0,
+                content_type TEXT DEFAULT 'application/octet-stream',
+                created_at DATETIME DEFAULT (datetime('now')),
+                deleted_at DATETIME
+            )
+            """
+        ))
+    await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_vault_spaces_space_id ON vault_spaces(space_id)"))
+    await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_vault_spaces_created_by ON vault_spaces(created_by)"))
+    await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_vault_files_space_id ON vault_files(space_id)"))
+    await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_vault_files_uploader_user_id ON vault_files(uploader_user_id)"))
+    await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_vault_files_object_key ON vault_files(object_key)"))
+
+
 MIGRATIONS = [
     ("202401_add_deleted_at_to_posts", add_deleted_at_to_posts),
     ("202402_add_share_code_expiry", add_share_code_expiry),
@@ -190,6 +258,8 @@ MIGRATIONS = [
     ("202601_add_message_reply_columns", add_message_reply_columns),
     ("202602_add_notify_channels", add_notify_channels),
     ("202603_add_emoji_diary_entries", add_emoji_diary_entries),
+    ("202603_add_chat_stickers", add_chat_stickers),
+    ("202604_add_vault_tables", add_vault_tables),
 ]
 
 

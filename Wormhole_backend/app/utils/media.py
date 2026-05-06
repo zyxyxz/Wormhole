@@ -31,7 +31,11 @@ def process_avatar_url(url: str | None) -> str | None:
 
 
 def process_message_media_url(url: str | None, message_type: str | None) -> str | None:
-    if (message_type or "").lower() != "image":
+    msg_type = (message_type or "").lower()
+    if msg_type == "sticker":
+        # 贴图保留原图，避免动图被处理链路破坏
+        return get_access_url(url)
+    if msg_type != "image":
         return get_access_url(url)
     return append_oss_process(url, settings.OSS_IMAGE_PROCESS_CHAT, force_image=True)
 
@@ -79,6 +83,9 @@ def process_upload_url(
         return append_oss_process(url, settings.OSS_IMAGE_PROCESS_AVATAR, force_image=True)
     if (message_type or "").lower() == "image":
         return append_oss_process(url, settings.OSS_IMAGE_PROCESS_CHAT, force_image=True)
+    if (message_type or "").lower() == "sticker":
+        # 贴图保留原图，避免动图被处理链路破坏
+        return get_access_url(url)
     if (media_type or "").lower() == "image":
         return append_oss_process(url, settings.OSS_IMAGE_PROCESS_FEED, force_image=True)
     if is_image_content:

@@ -30,3 +30,4 @@ Wormhole_miniapp/node_modules/
 Wormhole_miniapp/.ci-build
 .venv_wormhole/
 private.*.key
+.omx/

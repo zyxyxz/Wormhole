@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Optional
 from datetime import datetime
 
@@ -70,3 +70,29 @@ class ChatReadStatusResponse(BaseModel):
 class MessageDeleteRequest(BaseModel):
     message_id: int
     operator_user_id: str
+
+
+class ChatStickerResponse(BaseModel):
+    id: int
+    user_id: str
+    media_url: str
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class ChatStickerListResponse(BaseModel):
+    stickers: List[ChatStickerResponse] = Field(default_factory=list)
+
+
+class ChatStickerAddRequest(BaseModel):
+    user_id: str
+    media_url: str
+
+
+class ChatStickerAddResponse(BaseModel):
+    success: bool = True
+    existed: bool = False
+    sticker: ChatStickerResponse

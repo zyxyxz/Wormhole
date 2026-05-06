@@ -8,6 +8,9 @@ class EmojiDiaryEntryResponse(BaseModel):
     id: int
     space_id: int
     user_id: str
+    editor_alias: Optional[str] = None
+    editor_avatar_url: Optional[str] = None
+    editor_display_name: Optional[str] = None
     entry_date: str
     emoji: str
     note: str

@@ -220,6 +220,8 @@ def _format_message_content(message: Message | None) -> str:
         return "[Live消息]"
     if message.message_type == "audio":
         return "[语音消息]"
+    if message.message_type == "sticker":
+        return "[表情消息]"
     return f"[{message.message_type or '消息'}]"
 
 

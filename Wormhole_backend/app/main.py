@@ -10,6 +10,7 @@ from app.api import auth as auth_api
 from app.api import logs as logs_api
 from app.api import notify as notify_api
 from app.api import emoji_diary as emoji_diary_api
+from app.api import vault as vault_api
 from app.database import create_tables
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
@@ -31,7 +32,7 @@ from app.services.notify_dispatcher import fire_room_notification
 from sqlalchemy import select
 from datetime import datetime
 
-ALLOWED_MESSAGE_TYPES = {"text", "image", "video", "audio", "live", "system"}
+ALLOWED_MESSAGE_TYPES = {"text", "image", "video", "audio", "live", "system", "sticker"}
 
 app = FastAPI(title="虫洞私密共享空间")
 
@@ -57,6 +58,7 @@ app.include_router(feed_api.router, prefix="/api/feed", tags=["动态"])
 app.include_router(upload_api.router, prefix="/api", tags=["上传"]) 
 app.include_router(notify_api.router, prefix="/api/notify", tags=["通知"])
 app.include_router(emoji_diary_api.router, prefix="/api/emoji-diary", tags=["Emoji日记"])
+app.include_router(vault_api.router, prefix="/api/vault", tags=["保密柜"])
 
 @app.on_event("startup")
 async def startup():

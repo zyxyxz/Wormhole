@@ -34,6 +34,11 @@
 
   <view class="editor-card" wx:if="{{selectedDate}}">
     <view class="editor-title">{{selectedDayLabel}}</view>
+    <view wx:if="{{selectedEditorName}}" class="editor-meta">
+      <image wx:if="{{selectedEditorAvatar}}" class="editor-meta-avatar" src="{{selectedEditorAvatar}}" mode="aspectFill"></image>
+      <view wx:else class="editor-meta-avatar placeholder">{{selectedEditorInitial}}</view>
+      <text class="editor-meta-text">最后编辑：{{selectedEditorName}}</text>
+    </view>
     <view class="emoji-picker">
       <view
         wx:for="{{emojiOptions}}"

@@ -34,6 +34,10 @@ Page({
     wx.navigateTo({ url: '/pages/notebook/notebook' });
   },
 
+  openVault() {
+    wx.navigateTo({ url: '/pages/vault/vault' });
+  },
+
   openWallet() {
     wx.navigateTo({ url: '/pages/wallet/wallet' });
   },

@@ -38,6 +38,9 @@ Page({
     selectedDayLabel: '',
     selectedEmoji: '',
     selectedNote: '',
+    selectedEditorName: '',
+    selectedEditorAvatar: '',
+    selectedEditorInitial: '',
     loading: false,
     saving: false,
     emojiOptions: ['🙂', '😄', '😍', '🤩', '😌', '🤔', '😴', '🥱', '😭', '😡', '🤒', '😎', '🥳', '😮', '🤯']
@@ -115,15 +118,33 @@ Page({
     return `${parsed.year}年${pad2(parsed.month)}月${pad2(parsed.day)}日`;
   },
 
+  normalizeEntry(item) {
+    const editorName = (item.editor_display_name || item.editor_alias || item.user_id || '').trim();
+    return {
+      id: item.id,
+      emoji: item.emoji || '',
+      note: item.note || '',
+      user_id: item.user_id || '',
+      editor_name: editorName,
+      editor_avatar_url: item.editor_avatar_url || '',
+      editor_initial: (editorName || '匿').charAt(0)
+    };
+  },
+
+  extractEditorFields(entry) {
+    const name = (entry && entry.editor_name) || '';
+    return {
+      selectedEditorName: name,
+      selectedEditorAvatar: (entry && entry.editor_avatar_url) || '',
+      selectedEditorInitial: name ? (entry.editor_initial || name.charAt(0) || '匿') : ''
+    };
+  },
+
   buildEntriesMap(entries) {
     const map = {};
     (entries || []).forEach((item) => {
       if (!item || !item.entry_date) return;
-      map[item.entry_date] = {
-        id: item.id,
-        emoji: item.emoji || '',
-        note: item.note || ''
-      };
+      map[item.entry_date] = this.normalizeEntry(item);
     });
     return map;
   },
@@ -207,12 +228,16 @@ Page({
     this._pendingSelectDate = '';
 
     const selectedEntry = entriesMap[selectedDate] || {};
+    const editorFields = this.extractEditorFields(selectedEntry);
     this.setData({
       entriesMap,
       selectedDate,
       selectedDayLabel: this.formatDayLabel(selectedDate),
       selectedEmoji: selectedEntry.emoji || '',
       selectedNote: selectedEntry.note || '',
+      selectedEditorName: editorFields.selectedEditorName,
+      selectedEditorAvatar: editorFields.selectedEditorAvatar,
+      selectedEditorInitial: editorFields.selectedEditorInitial,
       calendarDays: this.buildCalendar(entriesMap, selectedDate),
       monthLabel: this.formatMonthLabel(year, month)
     });
@@ -306,11 +331,15 @@ Page({
     }
 
     const selectedEntry = this.data.entriesMap[dateKey] || {};
+    const editorFields = this.extractEditorFields(selectedEntry);
     this.setData({
       selectedDate: dateKey,
       selectedDayLabel: this.formatDayLabel(dateKey),
       selectedEmoji: selectedEntry.emoji || '',
       selectedNote: selectedEntry.note || '',
+      selectedEditorName: editorFields.selectedEditorName,
+      selectedEditorAvatar: editorFields.selectedEditorAvatar,
+      selectedEditorInitial: editorFields.selectedEditorInitial,
       calendarDays: this.buildCalendar(this.data.entriesMap, dateKey)
     });
   },
@@ -354,14 +383,15 @@ Page({
         if (result.removed) {
           delete nextEntries[selectedDate];
         } else if (result.entry) {
-          nextEntries[selectedDate] = {
-            id: result.entry.id,
-            emoji: result.entry.emoji || '',
-            note: result.entry.note || ''
-          };
+          nextEntries[selectedDate] = this.normalizeEntry(result.entry);
         }
+        const selectedEntry = nextEntries[selectedDate] || {};
+        const editorFields = this.extractEditorFields(selectedEntry);
         this.setData({
           entriesMap: nextEntries,
+          selectedEditorName: editorFields.selectedEditorName,
+          selectedEditorAvatar: editorFields.selectedEditorAvatar,
+          selectedEditorInitial: editorFields.selectedEditorInitial,
           calendarDays: this.buildCalendar(nextEntries, selectedDate)
         });
         wx.showToast({ title: result.removed ? '已清空' : '已保存', icon: 'success' });

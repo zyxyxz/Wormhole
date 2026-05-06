@@ -3,6 +3,7 @@ const { ensureDiaryMode } = require('../../utils/review.js');
 const { EMOJI_DISPLAY_LIST } = require('../../utils/wechat-emoji.js');
 
 const CHAT_CACHE_LIMIT = 50;
+const CUSTOM_STICKER_LIMIT = 120;
 const MISS_YOU_SUFFIX = '在想你';
 const MUTUAL_MISSYOU_WINDOW_MS = 90000;
 const HEART_BURST_COOLDOWN_MS = 6000;
@@ -76,6 +77,7 @@ Page({
     emojiPanelVisible: false,
     emojiList: EMOJI_DISPLAY_LIST,
     emojiScrollTop: 0,
+    customStickers: [],
     plusPanelVisible: false,
     plusActions: PLUS_ACTIONS,
     isAtBottom: true,
@@ -152,6 +154,7 @@ Page({
     this.initWebSocket();
     this.fetchMembers();
     this.fetchReadState();
+    this.fetchCustomStickers();
     
     const hasCache = this.loadCachedMessages();
     if (hasCache) {
@@ -222,6 +225,7 @@ Page({
     }
     this.fetchMembers();
     this.fetchReadState();
+    this.fetchCustomStickers();
     if (!this._wsReady && !this._wsConnecting) {
       this.initWebSocket();
     }
@@ -756,13 +760,169 @@ Page({
     this.setData({ showReadModal: false });
   },
 
+  normalizeCustomSticker(raw) {
+    if (!raw) return null;
+    const mediaUrl = String(raw.media_url || raw.mediaUrl || '').trim();
+    if (!mediaUrl) return null;
+    const id = Number(raw.id || 0);
+    return {
+      id: Number.isFinite(id) && id > 0 ? id : 0,
+      mediaUrl,
+      createdAt: raw.created_at || raw.createdAt || ''
+    };
+  },
+
+  setCustomStickers(stickers) {
+    const seen = new Set();
+    const list = [];
+    (Array.isArray(stickers) ? stickers : []).forEach((item) => {
+      const normalized = this.normalizeCustomSticker(item);
+      if (!normalized) return;
+      const idKey = normalized.id > 0 ? `id:${normalized.id}` : '';
+      const urlKey = `url:${normalized.mediaUrl}`;
+      if ((idKey && seen.has(idKey)) || seen.has(urlKey)) return;
+      if (idKey) seen.add(idKey);
+      seen.add(urlKey);
+      list.push(normalized);
+    });
+    this.setData({ customStickers: list.slice(0, CUSTOM_STICKER_LIMIT) });
+  },
+
+  fetchCustomStickers({ silent = true } = {}) {
+    const userId = this._currentUserId || wx.getStorageSync('openid') || '';
+    if (!userId) {
+      this.ensureIdentity().then((uid) => {
+        if (!uid) return;
+        this.fetchCustomStickers({ silent });
+      });
+      return;
+    }
+    wx.request({
+      url: `${BASE_URL}/api/chat/stickers`,
+      data: { user_id: userId, limit: CUSTOM_STICKER_LIMIT },
+      success: (res) => {
+        if (res.statusCode !== 200) {
+          if (!silent) {
+            wx.showToast({ title: res.data?.detail || '加载表情失败', icon: 'none' });
+          }
+          return;
+        }
+        const stickers = Array.isArray(res.data?.stickers) ? res.data.stickers : [];
+        this.setCustomStickers(stickers);
+      },
+      fail: () => {
+        if (!silent) {
+          wx.showToast({ title: '加载表情失败', icon: 'none' });
+        }
+      }
+    });
+  },
+
+  addStickerToPack(mediaUrl, { silent = false } = {}) {
+    const url = String(mediaUrl || '').trim();
+    if (!url) {
+      if (!silent) {
+        wx.showToast({ title: '表情地址无效', icon: 'none' });
+      }
+      return;
+    }
+    const userId = this._currentUserId || wx.getStorageSync('openid') || '';
+    if (!userId) {
+      this.ensureIdentity().then((uid) => {
+        if (!uid) {
+          if (!silent) wx.showToast({ title: '未登录', icon: 'none' });
+          return;
+        }
+        this.addStickerToPack(url, { silent });
+      });
+      return;
+    }
+    wx.request({
+      url: `${BASE_URL}/api/chat/stickers/add`,
+      method: 'POST',
+      data: {
+        user_id: userId,
+        media_url: url
+      },
+      success: (res) => {
+        if (res.statusCode !== 200 || res.data?.success === false) {
+          if (!silent) {
+            wx.showToast({ title: res.data?.detail || '添加失败', icon: 'none' });
+          }
+          return;
+        }
+        const sticker = this.normalizeCustomSticker(res.data?.sticker);
+        if (sticker) {
+          const current = Array.isArray(this.data.customStickers) ? this.data.customStickers : [];
+          const merged = [sticker].concat(
+            current.filter(item => item.mediaUrl !== sticker.mediaUrl && (!sticker.id || item.id !== sticker.id))
+          );
+          this.setCustomStickers(merged);
+        } else {
+          this.fetchCustomStickers({ silent: true });
+        }
+        if (!silent) {
+          wx.showToast({ title: res.data?.existed ? '已在表情包' : '已添加表情', icon: 'none' });
+        }
+      },
+      fail: () => {
+        if (!silent) {
+          wx.showToast({ title: '添加失败', icon: 'none' });
+        }
+      }
+    });
+  },
+
+  chooseCustomSticker() {
+    const app = typeof getApp === 'function' ? getApp() : null;
+    if (app && typeof app.enterForegroundHold === 'function') {
+      app.enterForegroundHold(60000);
+    }
+    wx.chooseImage({
+      count: 1,
+      sourceType: ['album'],
+      sizeType: ['compressed'],
+      success: (res) => {
+        const path = (res.tempFilePaths || [])[0];
+        if (!path) return;
+        wx.showLoading({ title: '上传中', mask: true });
+        this.uploadMediaFile(path, 'sticker').then((url) => {
+          if (!url) {
+            wx.showToast({ title: '上传失败', icon: 'none' });
+            return;
+          }
+          this.addStickerToPack(url, { silent: false });
+        }).finally(() => {
+          wx.hideLoading();
+        });
+      },
+      complete: () => {
+        if (app && typeof app.leaveForegroundHold === 'function') {
+          app.leaveForegroundHold();
+        }
+      }
+    });
+  },
+
+  sendCustomSticker(e) {
+    const mediaUrl = String(e.currentTarget.dataset.url || '').trim();
+    if (!mediaUrl) return;
+    this.sendPayload({
+      message_type: 'sticker',
+      media_url: mediaUrl
+    });
+  },
+
   noop() {},
 
   openMessageActions(e) {
     const dataset = e.currentTarget.dataset || {};
     const myId = this._currentUserId || wx.getStorageSync('openid');
     const canDelete = dataset.userId === myId;
+    const messageType = String(dataset.messageType || 'text').toLowerCase();
+    const canCollectSticker = ['sticker', 'image'].includes(messageType) && !!String(dataset.mediaUrl || '').trim();
     const actions = ['回复', '复制'];
+    if (canCollectSticker) actions.push('添加到表情包');
     if (canDelete) actions.push('撤回并删除');
     wx.showActionSheet({
       itemList: actions,
@@ -774,9 +934,9 @@ Page({
         }
         if (action === '复制') {
           let text = '';
-          if ((dataset.messageType || 'text') === 'text') {
+          if (messageType === 'text') {
             text = dataset.content || '';
-          } else if ((dataset.messageType || '') === 'live') {
+          } else if (messageType === 'live') {
             text = dataset.liveVideoUrl || dataset.liveCoverUrl || dataset.mediaUrl || '';
           } else {
             text = dataset.mediaUrl || dataset.content || '';
@@ -786,6 +946,10 @@ Page({
             return;
           }
           wx.setClipboardData({ data: text });
+          return;
+        }
+        if (action === '添加到表情包') {
+          this.addStickerToPack(dataset.mediaUrl || '');
           return;
         }
         if (action === '撤回并删除') {
@@ -801,7 +965,7 @@ Page({
       id: Number(dataset.id),
       userId: dataset.userId,
       nickname: dataset.nickname || dataset.userId || '匿名',
-      type: dataset.messageType || 'text',
+      type: String(dataset.messageType || 'text').toLowerCase(),
       content: preview
     };
     if (!reply.id) return;
@@ -816,11 +980,12 @@ Page({
   },
 
   buildReplyPreview(dataset) {
-    const type = dataset.messageType || 'text';
+    const type = String(dataset.messageType || 'text').toLowerCase();
     const content = dataset.content || '';
     if (type === 'image') return '[图片]';
     if (type === 'video') return '[视频]';
     if (type === 'audio') return '[语音]';
+    if (type === 'sticker') return '[表情]';
     if (type === 'live') return '[Live]';
     if (type === 'system') return '[系统提示]';
     const trimmed = (content || '').trim();
@@ -957,6 +1122,7 @@ Page({
     this.setData(nextData, () => {
       this.updateBottomPadding({ forceMeasure: true });
       if (next) {
+        this.fetchCustomStickers({ silent: true });
         setTimeout(() => {
           this.setData({ emojiScrollTop: 0 });
         }, 0);
@@ -1527,7 +1693,7 @@ Page({
     }
     if (idx === -1) {
       const serverUser = serverMessage.user_id;
-      const serverType = serverMessage.message_type || 'text';
+      const serverType = String(serverMessage.message_type || 'text').toLowerCase();
       const serverContent = (serverMessage.content || '').trim();
       const serverMedia = serverMessage.media_url || '';
       const serverLiveCover = serverMessage.live_cover_url || '';
@@ -1664,13 +1830,20 @@ Page({
     const avatar = message.avatar_url || '';
     const initialSource = nickname || message.user_id || '匿';
     const duration = message.media_duration ? Math.round(message.media_duration / 1000) : 0;
-    const type = message.message_type || 'text';
+    const type = String(message.message_type || 'text').toLowerCase();
     const rawContent = message.content || '';
     let reply = null;
     if (message.reply_to_id) {
       const replyNickname = message.reply_to_alias || message.reply_to_user_id || '匿名';
       const replyType = (message.reply_to_type || 'text').toLowerCase();
-      const replyContent = message.reply_to_content || (replyType === 'image' ? '[图片]' : replyType === 'video' ? '[视频]' : replyType === 'audio' ? '[语音]' : replyType === 'live' ? '[Live]' : '[消息]');
+      const replyContent = message.reply_to_content || (
+        replyType === 'image' ? '[图片]'
+          : replyType === 'video' ? '[视频]'
+            : replyType === 'audio' ? '[语音]'
+              : replyType === 'sticker' ? '[表情]'
+                : replyType === 'live' ? '[Live]'
+                  : '[消息]'
+      );
       reply = {
         id: message.reply_to_id,
         userId: message.reply_to_user_id,
@@ -1678,7 +1851,7 @@ Page({
         avatar: message.reply_to_avatar_url || '',
         content: replyContent,
         type: replyType,
-        canPreview: ['image', 'video', 'live'].includes(replyType)
+        canPreview: ['image', 'video', 'live', 'sticker'].includes(replyType)
       };
     }
     return {
@@ -1925,7 +2098,7 @@ Page({
   previewReplyMedia(e) {
     const dataset = e.currentTarget.dataset || {};
     const replyType = String(dataset.replyType || '').toLowerCase();
-    if (!['image', 'video', 'live'].includes(replyType)) return;
+    if (!['image', 'video', 'live', 'sticker'].includes(replyType)) return;
     const replyId = Number(dataset.replyId || 0);
     const messages = this.data.messages || [];
     const target = replyId ? messages.find(item => Number(item.id) === replyId) : null;
@@ -1934,6 +2107,10 @@ Page({
       return;
     }
     if (target.messageType === 'image' && target.mediaUrl) {
+      this.previewChatImage({ currentTarget: { dataset: { url: target.mediaUrl } } });
+      return;
+    }
+    if (target.messageType === 'sticker' && target.mediaUrl) {
       this.previewChatImage({ currentTarget: { dataset: { url: target.mediaUrl } } });
       return;
     }

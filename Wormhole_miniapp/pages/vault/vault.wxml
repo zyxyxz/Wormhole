@@ -1,0 +1,66 @@
+<navigation-bar title="保密柜" back="{{true}}" home-button="{{true}}" bind:home="goHome" background="{{themeNavBg}}" color="{{themeNavText}}" />
+<view class="vault-page theme-root {{themeClass}}">
+  <scroll-view
+    class="vault-scroll"
+    scroll-y="true"
+    refresher-enabled="{{unlocked}}"
+    refresher-triggered="{{refreshing}}"
+    bindrefresherrefresh="onPullDownRefresh"
+  >
+    <view class="hero">
+      <view class="hero-icon">🔐</view>
+      <view class="hero-copy">
+        <view class="hero-title">端到端加密文件柜</view>
+        <view class="hero-desc">文件在本机加密后上传，云端只保存密文。保密口令不会上传，丢失后无法找回。</view>
+      </view>
+    </view>
+
+    <view class="unlock-card" wx:if="{{!unlocked}}">
+      <view class="unlock-title">{{initialized ? '输入保密口令' : '创建保密柜口令'}}</view>
+      <view class="unlock-desc">
+        {{initialized ? '输入空间成员线下共享的口令，解锁后才能查看文件名和内容。' : '首次创建后，同一空间成员需要用同一个口令解锁。建议至少 12 位。'}}
+      </view>
+      <input
+        class="pass-input"
+        password="{{true}}"
+        placeholder="输入保密口令"
+        value="{{passphrase}}"
+        bindinput="onPassphraseInput"
+      />
+      <button class="primary-btn" loading="{{unlocking}}" bindtap="unlockOrCreate">
+        {{initialized ? '解锁保密柜' : '创建并解锁'}}
+      </button>
+    </view>
+
+    <view wx:if="{{unlocked}}" class="vault-toolbar">
+      <view>
+        <view class="toolbar-title">密文文件</view>
+        <view class="toolbar-sub">单文件上限 {{maxFileSizeLabel}}</view>
+      </view>
+      <button class="upload-btn" loading="{{uploading}}" bindtap="chooseAndUpload">上传</button>
+    </view>
+
+    <skeleton-list show="{{loading && unlocked}}" rows="5" />
+    <view wx:if="{{unlocked && !loading}}" class="file-list">
+      <view class="file-card" wx:for="{{files}}" wx:key="id">
+        <view class="file-icon">{{item.icon}}</view>
+        <view class="file-main" bindtap="downloadAndPreview" data-id="{{item.id}}">
+          <view class="file-name">{{item.name}}</view>
+          <view class="file-meta">{{item.sizeLabel}} · {{item.timeLabel}}</view>
+        </view>
+        <button class="delete-btn" size="mini" data-id="{{item.id}}" catchtap="deleteFile">删除</button>
+      </view>
+      <empty wx:if="{{!files.length}}" text="还没有保密文件，点击上传" />
+    </view>
+  </scroll-view>
+
+  <view class="video-mask" wx:if="{{showVideoPreview}}" catchtap="closeVideoPreview">
+    <view class="video-panel" catchtap="noop">
+      <view class="video-head">
+        <text>{{videoPreviewName}}</text>
+        <button class="close-btn" size="mini" bindtap="closeVideoPreview">关闭</button>
+      </view>
+      <video class="video-player" src="{{videoPreviewPath}}" controls autoplay></video>
+    </view>
+  </view>
+</view>

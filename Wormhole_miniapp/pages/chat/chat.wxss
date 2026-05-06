@@ -61,6 +61,7 @@ page { overflow: hidden; }
 .message-bubble { background: var(--bubble); padding: 16rpx 20rpx; border-radius: 16rpx; word-break: break-word; border: none; color: var(--text); box-shadow: var(--shadow-soft); }
 .self .message-bubble { background: var(--bubble-self); color: var(--text); }
 .message-image { width: 360rpx; max-width: 60vw; border-radius: 16rpx; margin: 8rpx 0; }
+.message-sticker { width: 220rpx; height: 220rpx; max-width: 46vw; max-height: 46vw; margin: 8rpx 0; }
 .message-video { width: 360rpx; max-width: 60vw; border-radius: 16rpx; margin: 8rpx 0; background: #000000; }
 .live-message {
   width: 360rpx;
@@ -261,8 +262,18 @@ page { overflow: hidden; }
 }
 .voice-button { flex: 1; height: 72rpx; line-height: 72rpx; text-align: center; border-radius: 16rpx; background: var(--bg-secondary); border: 1rpx dashed var(--border); color: var(--text); }
 .voice-button:active { background: var(--bubble-self); border-color: var(--primary-strong); }
-.emoji-panel { margin-top: 12rpx; background: transparent; border-radius: 16rpx; border: 1rpx solid var(--border); height: 380rpx; overflow: hidden; }
-.emoji-scroll { height: 100%; padding: 16rpx; box-sizing: border-box; }
+.emoji-panel { margin-top: 12rpx; background: transparent; border-radius: 16rpx; border: 1rpx solid var(--border); height: 460rpx; overflow: hidden; display: flex; flex-direction: column; }
+.sticker-pack { padding: 14rpx 16rpx 10rpx; background: transparent; }
+.sticker-pack-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10rpx; }
+.sticker-pack-title { font-size: 22rpx; color: var(--text-muted); }
+.sticker-pack-add { font-size: 22rpx; color: var(--primary-strong); padding: 6rpx 12rpx; border-radius: 999rpx; border: 1rpx solid var(--border); background: var(--panel); }
+.sticker-pack-scroll { height: 92rpx; white-space: nowrap; }
+.sticker-pack-row { display: flex; align-items: center; gap: 12rpx; min-height: 92rpx; }
+.sticker-pack-item { width: 88rpx; height: 88rpx; border-radius: 14rpx; border: 1rpx solid var(--border); background: var(--panel); display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0; }
+.sticker-pack-image { width: 80rpx; height: 80rpx; }
+.sticker-pack-empty { font-size: 22rpx; color: var(--text-muted); }
+.emoji-divider { height: 1rpx; background: var(--border); margin: 0 16rpx; }
+.emoji-scroll { flex: 1; min-height: 0; padding: 16rpx; box-sizing: border-box; }
 .emoji-grid { display: flex; flex-wrap: wrap; gap: 12rpx; }
 .emoji-item { width: 64rpx; height: 64rpx; border-radius: 12rpx; background-color: transparent; border: 1rpx solid var(--border); display: flex; align-items: center; justify-content: center; }
 .emoji-item-inner { display: inline-block; }

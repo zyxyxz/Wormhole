@@ -49,6 +49,9 @@
           <block wx:elif="{{item.messageType === 'image'}}">
             <image class="message-image" src="{{item.mediaUrl}}" mode="aspectFill" bindtap="previewChatImage" data-url="{{item.mediaUrl}}"></image>
           </block>
+          <block wx:elif="{{item.messageType === 'sticker'}}">
+            <image class="message-sticker" src="{{item.mediaUrl}}" mode="aspectFit" bindtap="previewChatImage" data-url="{{item.mediaUrl}}"></image>
+          </block>
           <block wx:elif="{{item.messageType === 'video'}}">
             <video class="message-video" src="{{item.mediaUrl}}" controls="true" show-mute-btn="true" object-fit="cover"></video>
           </block>
@@ -147,6 +150,21 @@
       </button>
     </view>
     <view class="emoji-panel" catchtap="noop" style="{{emojiPanelVisible ? '' : 'display:none;'}}">
+      <view class="sticker-pack">
+        <view class="sticker-pack-header">
+          <text class="sticker-pack-title">我的表情</text>
+          <view class="sticker-pack-add" bindtap="chooseCustomSticker">+ 添加</view>
+        </view>
+        <scroll-view class="sticker-pack-scroll" scroll-x="true" enable-flex="true">
+          <view class="sticker-pack-row">
+            <view wx:if="{{!customStickers.length}}" class="sticker-pack-empty">长按聊天中的表情可收藏</view>
+            <view wx:for="{{customStickers}}" wx:key="id" class="sticker-pack-item" data-url="{{item.mediaUrl}}" bindtap="sendCustomSticker">
+              <image class="sticker-pack-image" src="{{item.mediaUrl}}" mode="aspectFit"></image>
+            </view>
+          </view>
+        </scroll-view>
+      </view>
+      <view class="emoji-divider"></view>
       <scroll-view class="emoji-scroll" scroll-y="true" scroll-top="{{emojiScrollTop}}">
         <view class="emoji-grid">
           <view wx:for="{{emojiList}}" wx:key="code" class="emoji-item" data-emoji="{{item.code}}" bindtap="addEmoji">

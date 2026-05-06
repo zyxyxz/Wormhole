@@ -51,60 +51,74 @@ page {
   color: var(--text);
 }
 
-.feature-list {
-  display: flex;
-  flex-direction: column;
+.app-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14rpx;
   padding-bottom: calc(24rpx + env(safe-area-inset-bottom));
 }
 
-.feature-card {
+.app-card {
+  min-height: 184rpx;
   border-radius: 20rpx;
   border: 1rpx solid var(--border);
   background: var(--surface);
-  padding: 20rpx;
+  padding: 18rpx 12rpx;
   box-shadow: var(--shadow-soft);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8rpx;
+  text-align: center;
+  box-sizing: border-box;
 }
 
-.feature-card.notebook {
-  border-left: 10rpx solid #22d3ee;
+.app-card.notebook .app-icon {
+  background: rgba(34, 211, 238, 0.16);
 }
 
-.feature-card.wallet {
-  border-left: 10rpx solid #14b8a6;
+.app-card.vault .app-icon {
+  background: rgba(99, 102, 241, 0.16);
 }
 
-.feature-card.activity {
-  border-left: 10rpx solid #0ea5e9;
+.app-card.wallet .app-icon {
+  background: rgba(20, 184, 166, 0.16);
 }
 
-.feature-card.emoji {
-  border-left: 10rpx solid #f59e0b;
+.app-card.activity .app-icon {
+  background: rgba(14, 165, 233, 0.16);
 }
 
-.feature-head {
+.app-card.emoji .app-icon {
+  background: rgba(245, 158, 11, 0.16);
+}
+
+.app-icon {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 20rpx;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
+  font-size: 38rpx;
 }
 
-.feature-name {
-  font-size: 30rpx;
+.app-name {
+  max-width: 100%;
+  font-size: 26rpx;
   font-weight: 700;
   color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.feature-tag {
-  font-size: 21rpx;
-  padding: 6rpx 14rpx;
-  border-radius: 999rpx;
-  color: var(--primary-strong);
-  background: rgba(20, 184, 166, 0.12);
-}
-
-.feature-desc {
-  margin-top: 10rpx;
-  font-size: 24rpx;
-  line-height: 1.65;
+.app-desc {
+  max-width: 100%;
+  font-size: 22rpx;
   color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

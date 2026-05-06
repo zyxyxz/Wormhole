@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from app.database import get_db
 from models.chat import Message
+from models.chat_sticker import ChatSticker
 from models.space import Space, SpaceMember
 from models.user import UserAlias
 from schemas.chat import (
@@ -13,6 +14,10 @@ from schemas.chat import (
     ChatReadStatusResponse,
     ReaderStatus,
     MessageDeleteRequest,
+    ChatStickerAddRequest,
+    ChatStickerAddResponse,
+    ChatStickerListResponse,
+    ChatStickerResponse,
 )
 from app.ws import chat_manager
 from app.utils.media import (
@@ -28,7 +33,67 @@ from app.services.notify_dispatcher import fire_room_notification
 from datetime import datetime
 
 router = APIRouter()
-ALLOWED_MESSAGE_TYPES = {"text", "image", "video", "audio", "live", "system"}
+ALLOWED_MESSAGE_TYPES = {"text", "image", "video", "audio", "live", "system", "sticker"}
+
+
+def _build_sticker_response(row: ChatSticker) -> ChatStickerResponse:
+    return ChatStickerResponse(
+        id=row.id,
+        user_id=row.user_id,
+        media_url=process_message_media_url(row.media_url, "sticker") or "",
+        created_at=row.created_at,
+        updated_at=row.updated_at,
+    )
+
+
+@router.get("/stickers", response_model=ChatStickerListResponse)
+async def list_chat_stickers(
+    user_id: str,
+    request: Request,
+    limit: int = 120,
+    db: AsyncSession = Depends(get_db),
+):
+    actor_user_id = verify_request_user(request, user_id)
+    limit = max(1, min(limit, 300))
+    rows = (
+        await db.execute(
+            select(ChatSticker)
+            .where(ChatSticker.user_id == actor_user_id)
+            .order_by(ChatSticker.id.desc())
+            .limit(limit)
+        )
+    ).scalars().all()
+    return ChatStickerListResponse(stickers=[_build_sticker_response(row) for row in rows])
+
+
+@router.post("/stickers/add", response_model=ChatStickerAddResponse)
+async def add_chat_sticker(
+    payload: ChatStickerAddRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    actor_user_id = verify_request_user(request, payload.user_id)
+    media_url = strip_url(payload.media_url)
+    if not media_url:
+        raise HTTPException(status_code=400, detail="表情地址不能为空")
+    existing = (
+        await db.execute(
+            select(ChatSticker).where(
+                ChatSticker.user_id == actor_user_id,
+                ChatSticker.media_url == media_url,
+            )
+        )
+    ).scalar_one_or_none()
+    if existing:
+        return ChatStickerAddResponse(success=True, existed=True, sticker=_build_sticker_response(existing))
+    row = ChatSticker(
+        user_id=actor_user_id,
+        media_url=media_url,
+    )
+    db.add(row)
+    await db.commit()
+    await db.refresh(row)
+    return ChatStickerAddResponse(success=True, existed=False, sticker=_build_sticker_response(row))
 
 @router.get("/history", response_model=ChatHistoryResponse)
 async def get_chat_history(
