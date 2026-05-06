@@ -670,16 +670,9 @@ Commit: `chore: remove deprecated discover page in favor of explore`
 
 ---
 
-## Task 25: 暗色模式资源 SVG 化（可选，若小程序 svg 限制大可跳过）
+## Task 25: 暗色模式资源 SVG 化（DEFERRED）
 
-**Files:** `Wormhole_miniapp/assets/icons/`、`pages/chat/chat.wxml` 等
-
-将 light/dark 双份 png 改为单 svg + `mask-image`/CSS filter。**风险：** 微信小程序 `<image>` 对 svg 支持有限，建议改用 iconfont 字体方案：
-- 引入 iconfont（unicode 或 class），`color` 直接跟主题切换。
-
-如果重构成本高，本任务降级为"将 chat/feed/notebook/settings 4 套图标整合为 4 个双色 png 而非 8 个单色 png"。
-
-Commit: `chore(theme): consolidate icon assets`
+> **DEFERRED 2026-05-06:** 当前 `Wormhole_miniapp/assets/icons/` 共 18 个 PNG（chat/feed/notebook/notes/settings/wallet × {light, dark, active}），总体积约 100KB，且 `wx.setTabBarItem` 切换正常。SVG/iconfont 在小程序里有 `<image>` 渲染限制 + 字体加载首屏闪烁，ROI 低。新增图标或重做整套 UI 时再统一处理。Phase 5 优先做功能。
 
 ---
 
