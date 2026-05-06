@@ -177,6 +177,7 @@ App({
     holdUntil: 0,
     hideTimer: null,
     lastHideTimestamp: 0,
+    // SECURITY: 1 hour auto-lock — privacy guard, do not lower without review.
     autoLockSeconds: 3600,
     reviewMode: false,
     inactivityTimer: null,
@@ -613,6 +614,7 @@ App({
     }
   },
 
+  // SECURITY: defaults to 1 hour (3600s). Reducing this default requires security review.
   getAutoLockSeconds() {
     const stored = wx.getStorageSync('autoLockSeconds');
     if (stored === undefined || stored === null || stored === '') {
@@ -898,6 +900,7 @@ App({
     this.globalData.lastHideTimestamp = now;
   }
   ,
+  // SECURITY: defaults to true. Privacy is core to this app — do not change without security review.
   getAutoLockOnHide() {
     const stored = wx.getStorageSync('autoLockOnHide');
     if (stored === undefined || stored === null || stored === '') {

@@ -89,6 +89,14 @@
   - Python 缓存与系统杂项：`__pycache__/`、`.DS_Store` 等
 - 若需要生产级数据库迁移，建议引入 Alembic；当前开发流程使用一次性重建脚本。
 
+## 安全策略
+
+- **自动锁屏（默认 ON）**：应用进入后台后，默认会锁定（`autoLockOnHide=true`）。后台不活跃 1 小时（`autoLockSeconds=3600`）后会强制重新进入空间号。这两个默认值是为了保护隐私 —— **修改默认值之前必须经过安全评审**。相关代码：`Wormhole_miniapp/app.js` 的 `getAutoLockOnHide()`、`getAutoLockSeconds()`、`globalData.autoLockSeconds`。
+- **JWT 密钥**：生产环境必须设置 `AUTH_JWT_SECRET`（≥ 32 字符），未设置时启动会失败。`WECHAT_APP_SECRET` 仅用于微信登录，**不参与** JWT 签名。
+- **HTTP 鉴权**：HTTP 路由仅接受 `Authorization: Bearer <jwt>`、`X-Auth-Token`、`X-User-Id`、`X-Openid` 这四个 header；URL query 中的 `user_id` / `token` 在 HTTP 上不被信任。WebSocket 因 CDN 限制保留 query 回退。
+- **CORS**：生产环境通过 `ALLOWED_ORIGINS`（逗号分隔）显式列出可信来源；通配符 `*` 已禁用。
+- **限流**：登录、上传、日志上报、空间口令加入均有 IP 级速率限制（slowapi）。
+
 ## 主要接口速查
 - 空间/分享
   - `POST /api/space/enter`（space_code, user_id）
