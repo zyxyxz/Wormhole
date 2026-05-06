@@ -81,6 +81,7 @@ async def chat_ws_endpoint(websocket: WebSocket, space_id: int):
                 await websocket.close(code=4403)
                 return
     await chat_manager.connect(space_id, websocket)
+    connect_at = time.time()
     logger.info(
         "WS_CONNECT chat space=%s user=%s query=%s",
         space_id, ws_user_id, dict(websocket.query_params),
@@ -93,17 +94,25 @@ async def chat_ws_endpoint(websocket: WebSocket, space_id: int):
     await chat_manager.broadcast_presence(space_id)
     # 启动服务端心跳（CDN 900s 保活 + 180s idle kick）
     hb_task = asyncio.create_task(_ws_chat_heartbeat(websocket, chat_manager))
+    close_reason = "loop_exit"
     try:
         while True:
             try:
                 packet = await websocket.receive()
-            except WebSocketDisconnect:
+            except WebSocketDisconnect as exc:
+                close_reason = f"client_disconnect code={getattr(exc, 'code', '?')} reason={getattr(exc, 'reason', '')!r}"
                 break
-            except RuntimeError:
+            except RuntimeError as exc:
+                close_reason = f"runtime_error {exc!s}"
                 break
-            except Exception:
+            except Exception as exc:
+                logger.warning(
+                    "WS_RECV_ERROR space=%s user=%s exc=%s",
+                    space_id, ws_user_id, exc, exc_info=True,
+                )
                 continue
             if packet.get("type") == "websocket.disconnect":
+                close_reason = f"disconnect_packet code={packet.get('code', '?')}"
                 break
             # 每收到一帧（含 ping/typing/read/普通消息）都视为活动
             chat_manager.touch(websocket)
@@ -335,3 +344,9 @@ async def chat_ws_endpoint(websocket: WebSocket, space_id: int):
                 "typing": False
             })
         await chat_manager.broadcast_presence(space_id)
+        logger.info(
+            "WS_DISCONNECT chat space=%s user=%s lifetime_ms=%d reason=%s",
+            space_id, ws_user_id,
+            int((time.time() - connect_at) * 1000),
+            close_reason,
+        )
