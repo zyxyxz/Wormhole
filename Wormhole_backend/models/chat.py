@@ -1,10 +1,14 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, Index
 from sqlalchemy.sql import func
 from app.database import Base
 
 class Message(Base):
     __tablename__ = "messages"
-    
+    __table_args__ = (
+        Index("ix_messages_space_id_id", "space_id", "id"),
+        Index("ix_messages_space_deleted", "space_id", "deleted_at"),
+    )
+
     id = Column(Integer, primary_key=True, index=True)
     space_id = Column(Integer, ForeignKey("spaces.id"))
     user_id = Column(String, index=True)

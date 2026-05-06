@@ -125,6 +125,39 @@ async def add_operation_log_composite_indexes(conn):
     ))
 
 
+async def add_hot_path_composite_indexes(conn):
+    """Composite indexes that match hot read paths on chat history and feed.
+
+    - messages by (space_id, id) for `WHERE space_id=? ORDER BY id DESC LIMIT ?`
+    - messages by (space_id, deleted_at) for soft-delete filter on the same path
+    - posts by (space_id, id) for paginated feed listing
+    - posts by (space_id, deleted_at) for soft-delete filter on the same path
+    - comments by (post_id, id) for per-post comment listing
+    - comments by (post_id, deleted_at) for soft-delete filter on the same path
+
+    `post_likes` already has a UNIQUE(post_id, user_id) index so no extra
+    composite is needed there.
+    """
+    await conn.execute(text(
+        "CREATE INDEX IF NOT EXISTS ix_messages_space_id_id ON messages(space_id, id)"
+    ))
+    await conn.execute(text(
+        "CREATE INDEX IF NOT EXISTS ix_messages_space_deleted ON messages(space_id, deleted_at)"
+    ))
+    await conn.execute(text(
+        "CREATE INDEX IF NOT EXISTS ix_posts_space_id_id ON posts(space_id, id)"
+    ))
+    await conn.execute(text(
+        "CREATE INDEX IF NOT EXISTS ix_posts_space_deleted ON posts(space_id, deleted_at)"
+    ))
+    await conn.execute(text(
+        "CREATE INDEX IF NOT EXISTS ix_comments_post_id_id ON comments(post_id, id)"
+    ))
+    await conn.execute(text(
+        "CREATE INDEX IF NOT EXISTS ix_comments_post_deleted ON comments(post_id, deleted_at)"
+    ))
+
+
 async def add_space_member_read_columns(conn):
     if not await column_exists(conn, "space_members", "last_read_message_id"):
         await conn.execute(text("ALTER TABLE space_members ADD COLUMN last_read_message_id INTEGER"))
@@ -278,6 +311,7 @@ MIGRATIONS = [
     ("202603_add_emoji_diary_entries", add_emoji_diary_entries),
     ("202603_add_chat_stickers", add_chat_stickers),
     ("202604_add_vault_tables", add_vault_tables),
+    ("202605_add_hot_path_composite_indexes", add_hot_path_composite_indexes),
 ]
 
 

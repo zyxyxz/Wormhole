@@ -1,10 +1,14 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, UniqueConstraint
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, UniqueConstraint, Index
 from sqlalchemy.sql import func
 from app.database import Base
 
 
 class Post(Base):
     __tablename__ = "posts"
+    __table_args__ = (
+        Index("ix_posts_space_id_id", "space_id", "id"),
+        Index("ix_posts_space_deleted", "space_id", "deleted_at"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     space_id = Column(Integer, ForeignKey("spaces.id"), index=True)
@@ -19,6 +23,10 @@ class Post(Base):
 
 class Comment(Base):
     __tablename__ = "comments"
+    __table_args__ = (
+        Index("ix_comments_post_id_id", "post_id", "id"),
+        Index("ix_comments_post_deleted", "post_id", "deleted_at"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     post_id = Column(Integer, ForeignKey("posts.id"), index=True)
