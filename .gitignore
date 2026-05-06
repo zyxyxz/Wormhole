@@ -10,8 +10,11 @@ __pycache__/
 .env
 Wormhole_backend/.env
 
-# SQLite DB
+# SQLite DB + WAL/SHM runtime files + backups
 Wormhole_backend/wormhole.db
+Wormhole_backend/wormhole.db-wal
+Wormhole_backend/wormhole.db-shm
+Wormhole_backend/wormhole.db.bak.*
 
 # Uploads / static artifacts
 Wormhole_backend/static/uploads/
