@@ -21,7 +21,6 @@ from schemas.chat import (
 )
 from app.ws import chat_manager
 from app.utils.media import (
-    encode_live_media,
     process_avatar_url,
     process_live_media_urls,
     process_message_media_url,
@@ -29,11 +28,10 @@ from app.utils.media import (
 )
 from app.utils.operation_log import add_operation_log
 from app.security import verify_request_user, require_space_member
-from app.services.notify_dispatcher import fire_room_notification
+from app.services import chat_service
 from datetime import datetime
 
 router = APIRouter()
-ALLOWED_MESSAGE_TYPES = {"text", "image", "video", "audio", "live", "system", "sticker"}
 
 
 def _build_sticker_response(row: ChatSticker) -> ChatStickerResponse:
@@ -167,117 +165,28 @@ async def send_message(
 ):
     actor_user_id = verify_request_user(request, message.user_id)
     await require_space_member(db, message.space_id, actor_user_id)
-    message_type = (message.message_type or "text").lower()
-    if message_type not in ALLOWED_MESSAGE_TYPES:
-        raise HTTPException(status_code=400, detail="不支持的消息类型")
-    content = (message.content or "").strip()
-    duration = message.media_duration
-    if duration is not None:
-        try:
-            duration = int(duration)
-        except Exception:
-            duration = None
-    media_url = strip_url(message.media_url)
-    if message_type in {"text", "system"}:
-        if not content:
-            raise HTTPException(status_code=400, detail="消息内容不能为空")
-    elif message_type == "live":
-        media_url = encode_live_media(message.live_cover_url, message.live_video_url)
-        if not media_url:
-            raise HTTPException(status_code=400, detail="Live消息缺少封面或视频")
-    elif not media_url:
-        raise HTTPException(status_code=400, detail="媒体消息缺少资源地址")
-    reply_to_id = message.reply_to_id
-    reply_to_user_id = message.reply_to_user_id
-    reply_to_content = message.reply_to_content
-    reply_to_type = message.reply_to_type
-    db_message = Message(
-        space_id=message.space_id,
-        user_id=message.user_id,
-        content=content,
-        message_type=message_type,
-        media_url=media_url,
-        media_duration=duration,
-        reply_to_id=reply_to_id,
-        reply_to_user_id=reply_to_user_id,
-        reply_to_content=reply_to_content,
-        reply_to_type=reply_to_type,
-    )
-    db.add(db_message)
-    await db.commit()
-    await db.refresh(db_message)
-    # 附带别名并广播
-    alias_targets = [message.user_id]
-    if reply_to_user_id:
-        alias_targets.append(reply_to_user_id)
-    alias_rows = await db.execute(select(UserAlias).where(UserAlias.space_id == message.space_id, UserAlias.user_id.in_(alias_targets)))
-    alias_map = {r.user_id: r for r in alias_rows.scalars().all()}
-    ua = alias_map.get(message.user_id)
-    reply_ua = alias_map.get(reply_to_user_id) if reply_to_user_id else None
-    add_operation_log(
-        db,
-        user_id=message.user_id,
-        action="chat_send",
-        space_id=message.space_id,
-        detail={"message_id": db_message.id, "message_type": db_message.message_type},
-        ip=(request.client.host if request.client else None),
-        user_agent=request.headers.get("user-agent")
-    )
-    fire_room_notification(
-        space_id=message.space_id,
-        event_type="chat",
-        sender_user_id=message.user_id,
-        sender_alias=ua.alias if ua else None,
-        force_send=message_type == "system",
-    )
-    live_cover_url = None
-    live_video_url = None
-    media_url_payload = process_message_media_url(db_message.media_url, db_message.message_type)
-    if (db_message.message_type or "").lower() == "live":
-        live_cover_url, live_video_url = process_live_media_urls(db_message.media_url)
-        media_url_payload = live_cover_url
-    payload = {
-        "id": db_message.id,
-        "user_id": db_message.user_id,
-        "content": db_message.content,
-        "message_type": db_message.message_type,
-        "media_url": media_url_payload,
-        "live_cover_url": live_cover_url,
-        "live_video_url": live_video_url,
-        "media_duration": db_message.media_duration,
-        "created_at": db_message.created_at,
-        "created_at_ts": int(db_message.created_at.timestamp() * 1000) if db_message.created_at else None,
-        "client_id": message.client_id,
-        "alias": ua.alias if ua else None,
-        "avatar_url": process_avatar_url(ua.avatar_url if ua else None),
-        "reply_to_id": db_message.reply_to_id,
-        "reply_to_user_id": db_message.reply_to_user_id,
-        "reply_to_content": db_message.reply_to_content,
-        "reply_to_type": db_message.reply_to_type,
-        "reply_to_alias": reply_ua.alias if reply_ua else None,
-        "reply_to_avatar_url": process_avatar_url(reply_ua.avatar_url if reply_ua else None),
-    }
-    await chat_manager.broadcast(message.space_id, {
-        "id": payload["id"],
-        "user_id": payload["user_id"],
-        "content": payload["content"],
-        "message_type": payload["message_type"],
-        "media_url": payload["media_url"],
-        "live_cover_url": payload["live_cover_url"],
-        "live_video_url": payload["live_video_url"],
-        "media_duration": payload["media_duration"],
-        "created_at": payload["created_at"].isoformat() if payload["created_at"] else None,
-        "created_at_ts": payload["created_at_ts"],
-        "client_id": payload["client_id"],
-        "alias": payload["alias"],
-        "avatar_url": payload["avatar_url"],
-        "reply_to_id": payload["reply_to_id"],
-        "reply_to_user_id": payload["reply_to_user_id"],
-        "reply_to_content": payload["reply_to_content"],
-        "reply_to_type": payload["reply_to_type"],
-        "reply_to_alias": payload["reply_to_alias"],
-        "reply_to_avatar_url": payload["reply_to_avatar_url"],
-    })
+    try:
+        _msg, payload = await chat_service.send_message(
+            db,
+            space_id=message.space_id,
+            user_id=message.user_id,
+            content=message.content,
+            message_type=message.message_type,
+            media_url=message.media_url,
+            media_duration=message.media_duration,
+            reply_to_id=message.reply_to_id,
+            reply_to_user_id=message.reply_to_user_id,
+            reply_to_content=message.reply_to_content,
+            reply_to_type=message.reply_to_type,
+            live_cover_url=message.live_cover_url,
+            live_video_url=message.live_video_url,
+            client_id=message.client_id,
+            ip=(request.client.host if request.client else None),
+            user_agent=request.headers.get("user-agent"),
+        )
+    except chat_service.ChatSendError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
+    await chat_manager.broadcast(message.space_id, payload)
     return {"success": True, "message": "发送成功"}
 
 

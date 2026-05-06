@@ -22,24 +22,12 @@ from app.database import create_tables
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 from app.database import AsyncSessionLocal
-from models.chat import Message
 from models.space import SpaceMember, Space
-from models.user import UserAlias
 from app.ws import chat_manager, event_manager
-from app.utils.media import (
-    encode_live_media,
-    process_avatar_url,
-    process_live_media_urls,
-    process_message_media_url,
-    strip_url,
-)
-from app.utils.operation_log import add_operation_log
 from app.security import require_jwt_secret_configured, get_ws_user_id
-from app.services.notify_dispatcher import fire_room_notification
+from app.services import chat_service
 from sqlalchemy import select
 from datetime import datetime
-
-ALLOWED_MESSAGE_TYPES = {"text", "image", "video", "audio", "live", "system", "sticker"}
 
 logger = logging.getLogger("wormhole.ws")
 
@@ -251,131 +239,38 @@ async def websocket_endpoint(websocket: WebSocket, space_id: int):
                                     "last_read_message_id": mem.last_read_message_id,
                                 })
                 continue
-            content = data.get("content", "")
             user_id = ws_user_id
-            message_type = (data.get("message_type") or "text").lower()
-            if message_type not in ALLOWED_MESSAGE_TYPES:
-                continue
-            media_url = strip_url(data.get("media_url"))
-            live_cover_url = data.get("live_cover_url")
-            live_video_url = data.get("live_video_url")
-            media_duration = data.get("media_duration")
-            client_id = data.get("client_id")
-            reply_to_id = data.get("reply_to_id")
-            reply_to_user_id = data.get("reply_to_user_id")
-            reply_to_content = data.get("reply_to_content")
-            reply_to_type = data.get("reply_to_type")
-            try:
-                media_duration = int(media_duration) if media_duration is not None else None
-            except Exception:
-                media_duration = None
-            try:
-                reply_to_id = int(reply_to_id) if reply_to_id is not None else None
-            except Exception:
-                reply_to_id = None
             chat_manager.register_user(space_id, websocket, user_id)
-            if message_type in {"text", "system"}:
-                content = (content or "").strip()
-                if not content:
-                    continue
-            elif message_type == "live":
-                media_url = encode_live_media(live_cover_url, live_video_url)
-                if not media_url:
-                    continue
-            elif not media_url:
-                # 非文本消息必须有媒体地址
-                continue
             async with AsyncSessionLocal() as session:
-                msg = Message(
-                    space_id=space_id,
-                    user_id=user_id,
-                    content=content or "",
-                    message_type=message_type,
-                    media_url=media_url,
-                    media_duration=media_duration,
-                    reply_to_id=reply_to_id,
-                    reply_to_user_id=reply_to_user_id,
-                    reply_to_content=reply_to_content,
-                    reply_to_type=reply_to_type,
-                )
-                session.add(msg)
-                await session.commit()
-                await session.refresh(msg)
-                add_operation_log(
-                    session,
-                    user_id=user_id,
-                    action="chat_send",
-                    space_id=space_id,
-                    detail={"message_id": msg.id, "message_type": msg.message_type},
-                    ip=(websocket.client.host if websocket.client else None),
-                    user_agent=websocket.headers.get("user-agent") if hasattr(websocket, "headers") else None
-                )
-                await session.commit()
-                # 查找别名
-                alias = None
-                avatar_url = None
-                reply_alias = None
-                reply_avatar_url = None
                 try:
-                    alias_targets = [user_id]
-                    if reply_to_user_id:
-                        alias_targets.append(reply_to_user_id)
-                    res = await session.execute(
-                        select(UserAlias).where(UserAlias.space_id == space_id, UserAlias.user_id.in_(alias_targets))
+                    _msg, payload = await chat_service.send_message(
+                        session,
+                        space_id=space_id,
+                        user_id=user_id,
+                        content=data.get("content", ""),
+                        message_type=data.get("message_type") or "text",
+                        media_url=data.get("media_url"),
+                        media_duration=data.get("media_duration"),
+                        reply_to_id=data.get("reply_to_id"),
+                        reply_to_user_id=data.get("reply_to_user_id"),
+                        reply_to_content=data.get("reply_to_content"),
+                        reply_to_type=data.get("reply_to_type"),
+                        live_cover_url=data.get("live_cover_url"),
+                        live_video_url=data.get("live_video_url"),
+                        client_id=data.get("client_id"),
+                        ip=(websocket.client.host if websocket.client else None),
+                        user_agent=websocket.headers.get("user-agent") if hasattr(websocket, "headers") else None,
                     )
-                    alias_map = {r.user_id: r for r in res.scalars().all()}
-                    ua = alias_map.get(user_id)
-                    if ua:
-                        alias = ua.alias
-                        avatar_url = ua.avatar_url
-                    reply_ua = alias_map.get(reply_to_user_id) if reply_to_user_id else None
-                    if reply_ua:
-                        reply_alias = reply_ua.alias
-                        reply_avatar_url = reply_ua.avatar_url
-                except Exception:
-                    alias = None
-                    avatar_url = None
-                live_cover_payload = None
-                live_video_payload = None
-                media_url_payload = process_message_media_url(msg.media_url, msg.message_type)
-                if (msg.message_type or "").lower() == "live":
-                    live_cover_payload, live_video_payload = process_live_media_urls(msg.media_url)
-                    media_url_payload = live_cover_payload
-                fire_room_notification(
-                    space_id=space_id,
-                    event_type="chat",
-                    sender_user_id=user_id,
-                    sender_alias=alias,
-                    force_send=message_type == "system",
-                )
-                payload = {
-                    "id": msg.id,
-                    "user_id": msg.user_id,
-                    "content": msg.content,
-                    "message_type": msg.message_type,
-                    "media_url": media_url_payload,
-                    "live_cover_url": live_cover_payload,
-                    "live_video_url": live_video_payload,
-                    "media_duration": msg.media_duration,
-                    "created_at": msg.created_at.isoformat() if msg.created_at else datetime.utcnow().isoformat(),
-                    "created_at_ts": int(msg.created_at.timestamp() * 1000) if msg.created_at else None,
-                    "client_id": client_id,
-                    "alias": alias,
-                    "avatar_url": process_avatar_url(avatar_url),
-                    "reply_to_id": msg.reply_to_id,
-                    "reply_to_user_id": msg.reply_to_user_id,
-                    "reply_to_content": msg.reply_to_content,
-                    "reply_to_type": msg.reply_to_type,
-                    "reply_to_alias": reply_alias,
-                    "reply_to_avatar_url": process_avatar_url(reply_avatar_url),
-                }
-                chat_manager.set_typing(space_id, user_id, False)
-                await chat_manager.broadcast(space_id, {
-                    "event": "typing",
-                    "user_id": user_id,
-                    "typing": False
-                })
-                await chat_manager.broadcast(space_id, payload)
+                except chat_service.ChatSendError:
+                    # WS 上下文：静默丢弃非法帧（与既有 `continue` 语义一致）
+                    continue
+            chat_manager.set_typing(space_id, user_id, False)
+            await chat_manager.broadcast(space_id, {
+                "event": "typing",
+                "user_id": user_id,
+                "typing": False,
+            })
+            await chat_manager.broadcast(space_id, payload)
     finally:
         hb_task.cancel()
         try:
