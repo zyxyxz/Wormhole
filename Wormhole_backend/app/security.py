@@ -1,4 +1,5 @@
 import logging
+import os
 
 from fastapi import HTTPException, Request
 from jose import JWTError, jwt
@@ -14,6 +15,22 @@ def _split_header_names(raw_value: str, fallback: list[str]) -> list[str]:
     return names or fallback
 
 
+def assert_jwt_secret_configured() -> None:
+    """Fail fast in production when AUTH_JWT_SECRET is not configured.
+
+    In development (the default when WORMHOLE_ENV is unset), the dev fallback
+    secret is acceptable so local dev stays frictionless. In production, the
+    operator MUST set a strong AUTH_JWT_SECRET; otherwise tokens would be
+    signed by a publicly-known string.
+    """
+    env = os.getenv("WORMHOLE_ENV", "development")
+    if env == "production" and not settings.AUTH_JWT_SECRET:
+        raise RuntimeError(
+            "AUTH_JWT_SECRET is required in production. "
+            "Set the AUTH_JWT_SECRET environment variable to a strong, random value."
+        )
+
+
 USER_HEADER_NAMES = _split_header_names(
     settings.AUTH_USER_HEADERS,
     ["x-user-id", "x-openid", "x-userid"],
@@ -22,7 +39,7 @@ TOKEN_HEADER_NAMES = _split_header_names(
     settings.AUTH_TOKEN_HEADERS,
     ["authorization", "x-auth-token"],
 )
-JWT_SECRET = settings.AUTH_JWT_SECRET or settings.WECHAT_APP_SECRET or "wormhole-dev-secret"
+JWT_SECRET = settings.AUTH_JWT_SECRET or "wormhole-dev-secret"
 JWT_ALGORITHM = settings.AUTH_JWT_ALGORITHM or "HS256"
 logger = logging.getLogger("wormhole.security")
 
