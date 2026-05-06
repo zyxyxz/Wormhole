@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from jose import jwt
 from pydantic import BaseModel
 from app.config import settings
+from app.security import JWT_SECRET
 import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
@@ -18,7 +19,6 @@ class LoginRequest(BaseModel):
 
 
 def build_access_token(user_id: str) -> str:
-    secret = settings.AUTH_JWT_SECRET or settings.WECHAT_APP_SECRET or "wormhole-dev-secret"
     now = datetime.now(timezone.utc)
     expire = now + timedelta(days=max(1, int(settings.AUTH_TOKEN_EXPIRE_DAYS or 30)))
     payload = {
@@ -26,7 +26,7 @@ def build_access_token(user_id: str) -> str:
         "iat": int(now.timestamp()),
         "exp": int(expire.timestamp()),
     }
-    return jwt.encode(payload, secret, algorithm=settings.AUTH_JWT_ALGORITHM or "HS256")
+    return jwt.encode(payload, JWT_SECRET, algorithm=settings.AUTH_JWT_ALGORITHM or "HS256")
 
 
 def build_login_response(openid: str) -> dict:

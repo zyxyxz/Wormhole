@@ -36,6 +36,7 @@
 - Modify: `Wormhole_backend/app/security.py:25-26`
 - Modify: `Wormhole_backend/app/config.py:32-33`
 - Modify: `Wormhole_backend/app/main.py`（startup 校验）
+- Modify: `Wormhole_backend/app/api/auth.py`（signer 与 verifier 共用 JWT_SECRET，移除 WECHAT_APP_SECRET 回退）
 - Test: `Wormhole_backend/tests/test_security_bootstrap.py`（新建）
 
 **Step 1: 写失败测试**
