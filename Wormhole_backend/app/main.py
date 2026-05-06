@@ -27,7 +27,7 @@ from app.utils.media import (
     strip_url,
 )
 from app.utils.operation_log import add_operation_log
-from app.security import assert_jwt_secret_configured, get_header_user_id
+from app.security import require_jwt_secret_configured, get_header_user_id
 from app.services.notify_dispatcher import fire_room_notification
 from sqlalchemy import select
 from datetime import datetime
@@ -62,7 +62,7 @@ app.include_router(vault_api.router, prefix="/api/vault", tags=["保密柜"])
 
 @app.on_event("startup")
 async def startup():
-    assert_jwt_secret_configured()
+    require_jwt_secret_configured()
     await create_tables()
     # 静态资源（媒体文件）
     try:
