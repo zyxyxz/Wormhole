@@ -13,6 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.services.notify_dispatcher import fire_room_notification
+from app.ws import event_manager
 from app.utils.media import (
     encode_live_media,
     process_avatar_url,
@@ -188,4 +189,21 @@ async def send_message(
         "reply_to_alias": reply_alias.alias if reply_alias else None,
         "reply_to_avatar_url": process_avatar_url(reply_alias.avatar_url if reply_alias else None),
     }
+
+    # Push an unread-bump event over the room's event_manager channel so any
+    # client connected to /ws/space/{space_id} (the global app.js listener
+    # used while NOT on the chat page) can increment its tab-bar badge
+    # without polling. Chat-page subscribers use chat_manager and ignore
+    # this stream — see app.js spaceEventSocket lifecycle.
+    try:
+        await event_manager.broadcast(space_id, {
+            "event": "unread_inc",
+            "from_user_id": user_id,
+            "message_id": db_message.id,
+        })
+    except Exception:
+        # Broadcast failures must never break the send; the message is
+        # already persisted and the chat_manager broadcast is the SSOT.
+        pass
+
     return db_message, payload
