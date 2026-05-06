@@ -15,6 +15,7 @@ from app.config import settings
 from app.utils.media import process_avatar_url
 from app.utils.operation_log import add_operation_log
 from app.security import verify_request_user, require_space_member
+from app.utils.limiter import limiter
 from models.notify import NotifyChannel
 
 router = APIRouter()
@@ -226,7 +227,8 @@ async def share_space(payload: ShareRequest, request: Request, db: AsyncSession 
     return {"share_code": code, "expires_in": 300}
 
 @router.post("/join-by-share")
-async def join_by_share(payload: JoinByShareRequest, request: Request, db: AsyncSession = Depends(get_db)):
+@limiter.limit("10/minute")
+async def join_by_share(request: Request, payload: JoinByShareRequest, db: AsyncSession = Depends(get_db)):
     verify_request_user(request, payload.user_id)
     # 校验新空间号
     if not payload.new_code.isdigit() or len(payload.new_code) != 6:

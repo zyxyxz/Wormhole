@@ -6,6 +6,7 @@ from jose import jwt
 from pydantic import BaseModel
 from app.config import settings
 from app.security import JWT_SECRET
+from app.utils.limiter import limiter
 import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
@@ -40,7 +41,8 @@ def build_login_response(openid: str) -> dict:
 
 
 @router.post("/login")
-async def login(payload: LoginRequest, request: Request, db: AsyncSession = Depends(get_db)):
+@limiter.limit("10/minute")
+async def login(request: Request, payload: LoginRequest, db: AsyncSession = Depends(get_db)):
     appid = settings.WECHAT_APP_ID
     secret = settings.WECHAT_APP_SECRET
     if not appid or not secret:

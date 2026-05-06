@@ -2,8 +2,11 @@ import json
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 from app.api import space, chat, notes, wallet, settings
 from app.config import settings as app_settings
+from app.utils.limiter import limiter
 from app.api import feed as feed_api
 from app.api import upload as upload_api
 from app.api import user as user_api
@@ -36,6 +39,10 @@ from datetime import datetime
 ALLOWED_MESSAGE_TYPES = {"text", "image", "video", "audio", "live", "system", "sticker"}
 
 app = FastAPI(title="虫洞私密共享空间")
+
+# 限流（slowapi）：路由使用 @limiter.limit(...) 装饰；超限抛 RateLimitExceeded -> 429
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # 配置CORS
 allowed = [o.strip() for o in app_settings.ALLOWED_ORIGINS.split(",") if o.strip()]

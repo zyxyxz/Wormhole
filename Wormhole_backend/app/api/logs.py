@@ -11,12 +11,14 @@ from models.feed import Post, Comment
 from schemas.logs import LogCreateRequest, LogListResponse, LogEntry
 from app.api.settings import verify_admin
 from app.security import verify_request_user, require_space_member
+from app.utils.limiter import limiter
 
 router = APIRouter()
 
 
 @router.post("/track")
-async def track_log(payload: LogCreateRequest, request: Request, db: AsyncSession = Depends(get_db)):
+@limiter.limit("60/minute")
+async def track_log(request: Request, payload: LogCreateRequest, db: AsyncSession = Depends(get_db)):
     if not payload.user_id or not payload.action:
         raise HTTPException(status_code=400, detail="缺少用户或动作")
     actor_user_id = verify_request_user(request, payload.user_id)

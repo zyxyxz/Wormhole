@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.security import verify_request_user, require_space_member
+from app.utils.limiter import limiter
 
 from app.storage.oss import (
     build_object_key,
@@ -17,6 +18,7 @@ router = APIRouter()
 
 
 @router.post("/upload")
+@limiter.limit("30/minute")
 async def upload_file(
     request: Request,
     file: UploadFile = File(...),
