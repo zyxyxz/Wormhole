@@ -32,6 +32,18 @@ Page({
     const hasDigits = (this.data.spaceCode || []).some(d => d !== '');
     if (!force && !hasDigits) return;
     this.setData({ spaceCode: emptySpaceCode() });
+    if (this._enterDebounce) {
+      clearTimeout(this._enterDebounce);
+      this._enterDebounce = null;
+    }
+    this._lastEnteredCode = '';
+  },
+
+  onUnload() {
+    if (this._enterDebounce) {
+      clearTimeout(this._enterDebounce);
+      this._enterDebounce = null;
+    }
   },
 
   onKeyTap(e) {
@@ -49,9 +61,53 @@ Page({
     }
 
     this.setData({ spaceCode }, () => {
-      if (this.data.spaceCode.every(d => d !== '')) {
-        this.onConfirm();
+      // Cancel any pending confirm; if length drops below 6 we want to abort.
+      if (this._enterDebounce) {
+        clearTimeout(this._enterDebounce);
+        this._enterDebounce = null;
       }
+      if (this.data.spaceCode.every(d => d !== '')) {
+        const code = this.data.spaceCode.join('');
+        // 200ms debounce after the 6th digit lands, then ask for confirmation.
+        this._enterDebounce = setTimeout(() => {
+          this._enterDebounce = null;
+          this._confirmAndEnter(code);
+        }, 200);
+      }
+    });
+  },
+
+  _confirmAndEnter(code) {
+    if (!code || code.length !== 6) return;
+    // Make sure the digits in data still match (user may have backspaced after timeout fired).
+    if (this.data.spaceCode.join('') !== code) return;
+    if (this._entering) return;
+    if (this._lastEnteredCode === code) {
+      // Already in-flight / just submitted this code; ignore the dupe.
+      return;
+    }
+    wx.showModal({
+      title: '确认进入',
+      content: `进入空间 ${code} ?`,
+      confirmText: '进入',
+      cancelText: '取消',
+      success: (res) => {
+        if (!res || !res.confirm) {
+          // User cancelled — leave the input intact so they can edit/backspace.
+          return;
+        }
+        this._entering = true;
+        this._lastEnteredCode = code;
+        try {
+          this.onConfirm();
+        } finally {
+          // Reset the in-flight flag so a failed network call doesn't lock the user out.
+          setTimeout(() => { this._entering = false; }, 1000);
+        }
+      },
+      fail: () => {
+        this._entering = false;
+      },
     });
   },
 
