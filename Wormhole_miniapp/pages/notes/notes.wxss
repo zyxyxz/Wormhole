@@ -142,6 +142,10 @@ page {
 .comments { margin-top: 10rpx; padding: 12rpx 16rpx; background: var(--panel); border-radius: 16rpx; }
 .comment { display: flex; gap: 12rpx; margin-bottom: 12rpx; }
 .comment:last-child { margin-bottom: 0; }
+.comment-children { margin-top: 10rpx; padding-left: 16rpx; border-left: 2rpx solid var(--border); }
+.comment.child { margin-bottom: 8rpx; }
+.comment.child:last-child { margin-bottom: 0; }
+.comment.child .comment-content { font-size: 26rpx; }
 .comment-body { flex: 1; }
 .comment-header { display: flex; justify-content: space-between; align-items: center; font-size: 24rpx; }
 .comment-meta { display: flex; align-items: center; gap: 10rpx; }

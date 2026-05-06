@@ -175,6 +175,7 @@ async def list_posts(space_id: int, request: Request, user_id: str | None = None
                     alias=(alias_map.get(c.user_id).alias if alias_map.get(c.user_id) else None),
                     avatar_url=process_avatar_url(alias_map.get(c.user_id).avatar_url if alias_map.get(c.user_id) else None),
                     content=c.content,
+                    parent_id=c.parent_id,
                     created_at=c.created_at,
                     created_at_ts=int(c.created_at.timestamp() * 1000) if c.created_at else None,
                 ) for c in comments_map.get(p.id, [])

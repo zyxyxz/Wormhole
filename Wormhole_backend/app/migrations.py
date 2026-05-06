@@ -343,6 +343,21 @@ async def add_chat_stickers(conn):
     await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_chat_stickers_user_id ON chat_stickers(user_id)"))
 
 
+async def add_comments_parent_id(conn):
+    """Task 31: nested replies (max 2 levels) on feed comments.
+
+    Adds a self-referential ``parent_id`` so a reply can target a top-level
+    comment. The route layer enforces the 2-level cap by rejecting parents
+    whose own ``parent_id`` is non-null. The index supports the per-post
+    fan-out used when grouping replies under their parents on the client.
+    """
+    if not await column_exists(conn, "comments", "parent_id"):
+        await conn.execute(text("ALTER TABLE comments ADD COLUMN parent_id INTEGER"))
+    await conn.execute(text(
+        "CREATE INDEX IF NOT EXISTS ix_comments_parent_id ON comments(parent_id)"
+    ))
+
+
 async def add_vault_tables(conn):
     if not await table_exists(conn, "vault_spaces"):
         await conn.execute(text(
@@ -414,6 +429,7 @@ MIGRATIONS = [
     ("202607_add_message_reactions_table", add_message_reactions_table),
     ("202608_add_messages_mentions_column", add_messages_mentions_column),
     ("202609_add_messages_fts5", add_messages_fts5),
+    ("202610_add_comments_parent_id", add_comments_parent_id),
 ]
 
 

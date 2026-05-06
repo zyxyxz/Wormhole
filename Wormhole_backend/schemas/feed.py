@@ -18,6 +18,7 @@ class CommentResponse(BaseModel):
     alias: Optional[str] = None
     avatar_url: Optional[str] = None
     content: str
+    parent_id: Optional[int] = None
     created_at: datetime
     created_at_ts: Optional[int] = None
 
@@ -26,6 +27,7 @@ class CommentCreate(BaseModel):
     post_id: int
     user_id: str
     content: str
+    parent_id: Optional[int] = None
 
 
 class CommentsListResponse(BaseModel):

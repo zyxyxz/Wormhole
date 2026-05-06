@@ -27,7 +27,24 @@ async def add_comment(payload: CommentCreate, request: Request, db: AsyncSession
     if not post or post.deleted_at:
         raise HTTPException(status_code=404, detail="动态不存在")
     await require_space_member(db, post.space_id, actor_user_id)
-    c = Comment(post_id=payload.post_id, user_id=payload.user_id, content=payload.content)
+    # 楼中楼: 二级嵌套上限. 父评论必须存在、未删除、属于同一动态、且自身是顶层评论 (parent_id IS NULL)
+    parent_id = payload.parent_id
+    if parent_id is not None:
+        parent = (await db.execute(
+            select(Comment).where(Comment.id == parent_id, Comment.deleted_at.is_(None))
+        )).scalar_one_or_none()
+        if not parent:
+            raise HTTPException(status_code=404, detail="父评论不存在")
+        if parent.parent_id is not None:
+            raise HTTPException(status_code=400, detail="不支持三级嵌套")
+        if parent.post_id != payload.post_id:
+            raise HTTPException(status_code=400, detail="父评论与动态不匹配")
+    c = Comment(
+        post_id=payload.post_id,
+        user_id=payload.user_id,
+        content=payload.content,
+        parent_id=parent_id,
+    )
     db.add(c)
     await db.commit()
     await db.refresh(c)
@@ -43,7 +60,7 @@ async def add_comment(payload: CommentCreate, request: Request, db: AsyncSession
         user_id=c.user_id,
         action="feed_comment",
         space_id=post.space_id,
-        detail={"comment_id": c.id, "post_id": c.post_id},
+        detail={"comment_id": c.id, "post_id": c.post_id, "parent_id": c.parent_id},
         ip=(request.client.host if request.client else None),
         user_agent=request.headers.get("user-agent")
     )
@@ -54,6 +71,7 @@ async def add_comment(payload: CommentCreate, request: Request, db: AsyncSession
         alias=alias,
         avatar_url=process_avatar_url(avatar_url),
         content=c.content,
+        parent_id=c.parent_id,
         created_at=c.created_at,
         created_at_ts=int(c.created_at.timestamp() * 1000) if c.created_at else None,
     )
@@ -82,6 +100,7 @@ async def list_comments(post_id: int, request: Request, db: AsyncSession = Depen
             alias=(alias_map.get(c.user_id).alias if alias_map.get(c.user_id) else None),
             avatar_url=process_avatar_url(alias_map.get(c.user_id).avatar_url if alias_map.get(c.user_id) else None),
             content=c.content,
+            parent_id=c.parent_id,
             created_at=c.created_at,
             created_at_ts=int(c.created_at.timestamp() * 1000) if c.created_at else None,
         ) for c in comments

@@ -287,17 +287,46 @@ Page({
     }
   },
 
-  decoratePost(post) {
-    const initial = (post.alias || post.user_id || '匿').charAt(0);
-    const canDelete = this.data.isOwner || post.user_id === this.data.myUserId;
-    const comments = (post.comments || []).map(comment => ({
+  decorateComment(comment, postId) {
+    return {
       ...comment,
-      postId: post.id,
+      postId,
       avatar: comment.avatar_url || '',
       initial: (comment.alias || comment.user_id || '匿').charAt(0),
       canDelete: this.data.isOwner || comment.user_id === this.data.myUserId,
       displayTime: this.formatFriendlyTime(comment.created_at, comment.created_at_ts)
+    };
+  },
+
+  // Group flat comment list into a 2-level tree: top-level comments with
+  // children grouped under their parent_id. Replies whose parent has been
+  // deleted (or that for any reason point at a non-top-level parent) fall
+  // back to the top level so nothing is silently dropped.
+  buildCommentTree(comments, postId) {
+    const decorated = (comments || []).map(c => this.decorateComment(c, postId));
+    const byId = {};
+    decorated.forEach(c => { byId[c.id] = c; });
+    const childrenByParent = {};
+    const topLevel = [];
+    decorated.forEach(c => {
+      const parentId = c.parent_id;
+      if (parentId && byId[parentId] && !byId[parentId].parent_id) {
+        if (!childrenByParent[parentId]) childrenByParent[parentId] = [];
+        childrenByParent[parentId].push(c);
+      } else {
+        topLevel.push(c);
+      }
+    });
+    return topLevel.map(c => ({
+      ...c,
+      children: childrenByParent[c.id] || []
     }));
+  },
+
+  decoratePost(post) {
+    const initial = (post.alias || post.user_id || '匿').charAt(0);
+    const canDelete = this.data.isOwner || post.user_id === this.data.myUserId;
+    const comments = this.buildCommentTree(post.comments || [], post.id);
     const likes = (post.likes || []).map(like => ({
       ...like,
       avatar: like.avatar_url || '',
@@ -339,14 +368,18 @@ Page({
       return;
     }
     const reply = this.data.replyTargets[id];
-    let payloadContent = content.trim();
-    if (reply && reply.userId && reply.userId !== this.data.myUserId) {
-      payloadContent = `回复 ${reply.alias || reply.userId}: ${payloadContent}`;
+    const payloadContent = content.trim();
+    const requestData = { post_id: id, user_id: userId, content: payloadContent };
+    // Task 31: real nested replies via parent_id (max 2 levels). The backend
+    // rejects parent_id that points at a reply, so we only ever set it to
+    // the *top-level* commentId — replyTargets carry that as parentCommentId.
+    if (reply && reply.parentCommentId) {
+      requestData.parent_id = reply.parentCommentId;
     }
     wx.request({
       url: `${BASE_URL}/api/feed/comment`,
       method: 'POST',
-      data: { post_id: id, user_id: userId, content: payloadContent },
+      data: requestData,
       success: (res) => {
         if (res.statusCode !== 200) {
           wx.showToast({ title: res.data?.detail || '评论失败', icon: 'none' });
@@ -365,15 +398,20 @@ Page({
           if (targetIndex >= 0) {
             const post = { ...posts[targetIndex] };
             const comments = Array.isArray(post.comments) ? [...post.comments] : [];
-            const decorated = {
-              ...comment,
-              postId: id,
-              avatar: comment.avatar_url || '',
-              initial: (comment.alias || comment.user_id || '匿').charAt(0),
-              canDelete: this.data.isOwner || comment.user_id === this.data.myUserId,
-              displayTime: this.formatFriendlyTime(comment.created_at, comment.created_at_ts)
-            };
-            comments.push(decorated);
+            const decorated = this.decorateComment(comment, id);
+            if (comment.parent_id) {
+              // Append to the matching top-level branch's children list.
+              const branchIndex = comments.findIndex(c => c.id === comment.parent_id);
+              if (branchIndex >= 0) {
+                const branch = { ...comments[branchIndex] };
+                branch.children = [...(branch.children || []), decorated];
+                comments[branchIndex] = branch;
+              } else {
+                comments.push({ ...decorated, children: [] });
+              }
+            } else {
+              comments.push({ ...decorated, children: [] });
+            }
             post.comments = comments;
             posts[targetIndex] = post;
             this.setData({ posts });
@@ -497,9 +535,15 @@ Page({
             wx.showToast({ title: '已删除', icon: 'none' });
             const posts = [...this.data.posts];
             posts.forEach((post) => {
-              if (Array.isArray(post.comments)) {
-                post.comments = post.comments.filter(c => c.id !== commentId);
-              }
+              if (!Array.isArray(post.comments)) return;
+              // Drop the matching top-level branch *and* prune the same id
+              // out of any branch's children. This keeps the tree consistent
+              // whether the deleted row was a parent or a reply.
+              post.comments = post.comments
+                .filter(c => c.id !== commentId)
+                .map(c => Array.isArray(c.children) && c.children.length
+                  ? { ...c, children: c.children.filter(child => child.id !== commentId) }
+                  : c);
             });
             this.setData({ posts });
           },
@@ -584,10 +628,15 @@ Page({
     const postId = e.currentTarget.dataset.postid;
     const alias = e.currentTarget.dataset.alias;
     const userId = e.currentTarget.dataset.userid;
+    const commentId = e.currentTarget.dataset.commentid;
+    // parentCommentId is the *top-level* comment id under which the reply
+    // is grouped. For taps on a child row, the wxml passes the branch root,
+    // so the 2-level cap on the server is never tripped from this code path.
+    const parentCommentId = e.currentTarget.dataset.parentid || commentId;
     if (!postId || !userId || userId === this.data.myUserId) return;
     this.setData({
       [`commentPlaceholders.${postId}`]: `回复 ${alias || '匿名'}...`,
-      [`replyTargets.${postId}`]: { userId, alias },
+      [`replyTargets.${postId}`]: { userId, alias, parentCommentId },
       activeCommentInput: postId,
       [`commentInputs.${postId}`]: this.data.commentInputs[postId] || ''
     });

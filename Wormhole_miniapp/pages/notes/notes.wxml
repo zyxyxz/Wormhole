@@ -55,22 +55,42 @@
         </view>
 
         <view class="comments" wx:if="{{!reviewMode && item.comments && item.comments.length}}">
-          <view class="comment" wx:for="{{item.comments}}" wx:key="id" data-postid="{{item.postId || item.post_id}}" data-alias="{{item.alias || item.user_id || '匿名'}}" data-userid="{{item.user_id}}" bindtap="replyComment">
+          <view class="comment" wx:for="{{item.comments}}" wx:for-item="topComment" wx:key="id" data-postid="{{topComment.postId || topComment.post_id}}" data-alias="{{topComment.alias || topComment.user_id || '匿名'}}" data-userid="{{topComment.user_id}}" data-commentid="{{topComment.id}}" data-parentid="{{topComment.id}}" bindtap="replyComment">
             <view class="comment-avatar">
               <view class="avatar mini">
-                <image wx:if="{{item.avatar}}" src="{{item.avatar}}" mode="aspectFill"></image>
-                <text wx:else>{{item.initial}}</text>
+                <image wx:if="{{topComment.avatar}}" src="{{topComment.avatar}}" mode="aspectFill"></image>
+                <text wx:else>{{topComment.initial}}</text>
               </view>
             </view>
             <view class="comment-body">
               <view class="comment-header">
-                <text class="comment-name">{{item.alias || item.user_id || '匿名'}}</text>
+                <text class="comment-name">{{topComment.alias || topComment.user_id || '匿名'}}</text>
                 <view class="comment-meta">
-                  <text class="comment-time muted">{{item.displayTime}}</text>
-                  <button class="link-button" size="mini" wx:if="{{item.canDelete}}" data-id="{{item.id}}" catchtap="deleteComment">删除</button>
+                  <text class="comment-time muted">{{topComment.displayTime}}</text>
+                  <button class="link-button" size="mini" wx:if="{{topComment.canDelete}}" data-id="{{topComment.id}}" catchtap="deleteComment">删除</button>
                 </view>
               </view>
-              <emoji-text text="{{item.content}}" size="22" mode="block" customClass="comment-content" />
+              <emoji-text text="{{topComment.content}}" size="22" mode="block" customClass="comment-content" />
+              <view wx:if="{{topComment.children && topComment.children.length}}" class="comment-children">
+                <view class="comment child" wx:for="{{topComment.children}}" wx:for-item="childComment" wx:key="id" data-postid="{{childComment.postId || childComment.post_id}}" data-alias="{{childComment.alias || childComment.user_id || '匿名'}}" data-userid="{{childComment.user_id}}" data-commentid="{{childComment.id}}" data-parentid="{{topComment.id}}" catchtap="replyComment">
+                  <view class="comment-avatar">
+                    <view class="avatar mini">
+                      <image wx:if="{{childComment.avatar}}" src="{{childComment.avatar}}" mode="aspectFill"></image>
+                      <text wx:else>{{childComment.initial}}</text>
+                    </view>
+                  </view>
+                  <view class="comment-body">
+                    <view class="comment-header">
+                      <text class="comment-name">{{childComment.alias || childComment.user_id || '匿名'}}</text>
+                      <view class="comment-meta">
+                        <text class="comment-time muted">{{childComment.displayTime}}</text>
+                        <button class="link-button" size="mini" wx:if="{{childComment.canDelete}}" data-id="{{childComment.id}}" catchtap="deleteComment">删除</button>
+                      </view>
+                    </view>
+                    <emoji-text text="{{childComment.content}}" size="22" mode="block" customClass="comment-content" />
+                  </view>
+                </view>
+              </view>
             </view>
           </view>
         </view>

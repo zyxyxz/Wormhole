@@ -26,12 +26,14 @@ class Comment(Base):
     __table_args__ = (
         Index("ix_comments_post_id_id", "post_id", "id"),
         Index("ix_comments_post_deleted", "post_id", "deleted_at"),
+        Index("ix_comments_parent_id", "parent_id"),
     )
 
     id = Column(Integer, primary_key=True, index=True)
     post_id = Column(Integer, ForeignKey("posts.id"), index=True)
     user_id = Column(String, index=True)
     content = Column(Text)
+    parent_id = Column(Integer, ForeignKey("comments.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     deleted_at = Column(DateTime(timezone=True), nullable=True)
 
