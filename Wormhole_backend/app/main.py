@@ -3,6 +3,7 @@ import json
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from app.api import space, chat, notes, wallet, settings
+from app.config import settings as app_settings
 from app.api import feed as feed_api
 from app.api import upload as upload_api
 from app.api import user as user_api
@@ -37,12 +38,13 @@ ALLOWED_MESSAGE_TYPES = {"text", "image", "video", "audio", "live", "system", "s
 app = FastAPI(title="虫洞私密共享空间")
 
 # 配置CORS
+allowed = [o.strip() for o in app_settings.ALLOWED_ORIGINS.split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=allowed,
+    allow_credentials=False,  # 小程序不携带 cookie
+    allow_methods=["GET", "POST"],
+    allow_headers=["Authorization", "X-Auth-Token", "X-User-Id", "X-Openid", "Content-Type"],
 )
 
 # 注册路由

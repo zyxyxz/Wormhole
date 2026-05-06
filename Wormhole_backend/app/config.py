@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     AUTH_JWT_ALGORITHM: str = "HS256"
     AUTH_TOKEN_EXPIRE_DAYS: int = 30
     AUTH_ALLOW_DEV_LOGIN_FALLBACK: bool = False
+    ALLOWED_ORIGINS: str = "https://servicewechat.com"  # 逗号分隔
     VAULT_MAX_FILE_BYTES: int = 10 * 1024 * 1024
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
