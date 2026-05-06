@@ -41,7 +41,10 @@
 }
 
 /* Combined back+home pill (or single icon button when only one is enabled).
- * Vertically centered inside the navbar; min-width 44px per icon ≥ Apple HIG. */
+ * The parent .weui-navigation-bar__left has width ≈ (windowWidth - capsule.left)
+ * ≈ 100px on iOS minus 16px left-padding ≈ 84px usable. Pill is 76px so
+ * both icons fit with margin to spare. Hit area on each btn is 36×32 visual
+ * + the negative-margin trick below extends it to ≥ 44×44 transparent. */
 .navbar-actions {
   display: inline-flex;
   flex-direction: row;
@@ -50,17 +53,40 @@
   border-radius: 999px;
   background: rgba(15, 118, 110, 0.10);
   box-shadow: inset 0 0 0 1px rgba(20, 184, 166, 0.32);
-  overflow: hidden;
 }
 
 .navbar-actions__btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 44px;
+  width: 36px;
   height: 100%;
-  padding: 0 12px;
+  position: relative;
   transition: background-color 120ms ease;
+}
+
+/* Extend tap target above/below the pill without enlarging the visual pill. */
+.navbar-actions__btn::after {
+  content: '';
+  position: absolute;
+  inset: -8px -4px;
+}
+
+/* Round the active highlight to match the pill ends; middle btn stays square. */
+.navbar-actions--combo .navbar-actions__btn:first-child.navbar-actions__btn--active {
+  border-top-left-radius: 999px;
+  border-bottom-left-radius: 999px;
+}
+.navbar-actions--combo .navbar-actions__btn:last-child.navbar-actions__btn--active {
+  border-top-right-radius: 999px;
+  border-bottom-right-radius: 999px;
+}
+.navbar-actions--single .navbar-actions__btn--active {
+  border-radius: 999px;
+}
+
+.navbar-actions__btn--active {
+  background-color: rgba(15, 118, 110, 0.18);
 }
 
 .navbar-actions__btn--active {
