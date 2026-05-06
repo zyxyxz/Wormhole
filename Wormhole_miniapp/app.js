@@ -1,11 +1,11 @@
 // app.js
-const { BASE_URL, WS_URL } = require('./utils/config.js');
-const { SPACE_ROUTES } = require('./utils/routes.js');
+const { WS_URL } = require('./utils/config.js');
 const auth = require('./utils/auth.js');
 const theme = require('./utils/theme.js');
 const badge = require('./utils/badge.js');
 const lock = require('./utils/lock.js');
 const activity = require('./utils/activity.js');
+const appLogger = require('./utils/app-logger.js');
 const { THEME_PRESETS } = theme;
 
 activity.installPageWrapper();
@@ -33,38 +33,6 @@ App(Object.assign({
     themeTabText: THEME_PRESETS.light.tabText,
     themeTabSelected: THEME_PRESETS.light.tabSelected,
     themeTabBorderStyle: THEME_PRESETS.light.tabBorderStyle
-  },
-
-  logOperation(payload = {}) {
-    const userId = payload.user_id || wx.getStorageSync('openid') || '';
-    if (!userId || !payload.action) return;
-    wx.request({
-      url: `${BASE_URL}/api/logs/track`,
-      method: 'POST',
-      data: {
-        user_id: userId,
-        action: payload.action,
-        page: payload.page || '',
-        detail: payload.detail || '',
-        space_id: payload.space_id || null
-      }
-    });
-  },
-
-  logPageView(route, options = {}) {
-    const spaceId = SPACE_ROUTES.has(route) ? (wx.getStorageSync('currentSpaceId') || null) : null;
-    let detail = '';
-    try {
-      if (options && Object.keys(options).length) {
-        detail = JSON.stringify(options);
-      }
-    } catch (e) {}
-    this.logOperation({
-      action: 'page_view',
-      page: route,
-      detail,
-      space_id: spaceId
-    });
   },
 
   // Global event_manager listener. Connects to /ws/space/{space_id} so
@@ -197,31 +165,4 @@ App(Object.assign({
     this.globalData.shouldReturnToIndex = this.getAutoLockOnHide();
     this.globalData.lastHideTimestamp = now;
   }
-  ,
-
-  loadSystemFlags() {
-    wx.request({
-      url: `${BASE_URL}/api/settings/system`,
-      success: (res) => {
-        const review = !!res.data?.review_mode;
-        this.applyReviewMode(review);
-      },
-      fail: () => {
-        const cached = !!wx.getStorageSync('reviewMode');
-        this.applyReviewMode(cached);
-      }
-    });
-  },
-
-  applyReviewMode(flag) {
-    this.globalData.reviewMode = !!flag;
-    try { wx.setStorageSync('reviewMode', !!flag); } catch (e) {}
-    try {
-      if (flag) {
-        wx.hideTabBar({ animation: false });
-      } else {
-        wx.showTabBar({ animation: false });
-      }
-    } catch (e) {}
-  }
-}, auth.methods, theme.methods, badge.methods, lock.methods, activity.methods))
+}, auth.methods, theme.methods, badge.methods, lock.methods, activity.methods, appLogger.methods));
