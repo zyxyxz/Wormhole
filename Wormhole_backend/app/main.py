@@ -1,4 +1,5 @@
 import logging
+import time
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -22,6 +23,7 @@ from app.database import create_tables
 from app.security import require_jwt_secret_configured
 from app.services.log_service import start_log_worker, stop_log_worker
 from app.utils.limiter import limiter
+from app.utils.logging import configure_logging
 
 app_logger = logging.getLogger("wormhole.app")
 
@@ -29,6 +31,7 @@ app_logger = logging.getLogger("wormhole.app")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
+    configure_logging()
     require_jwt_secret_configured()
     await create_tables()
     # 静态资源（媒体文件）
@@ -83,3 +86,9 @@ app.include_router(ws_space_events.router)
 @app.get("/")
 async def root():
     return {"message": "欢迎使用虫洞私密共享空间"}
+
+
+@app.get("/healthz")
+async def healthz():
+    """Liveness/readiness probe. No DB hit — must stay cheap."""
+    return {"ok": True, "ts": int(time.time())}
