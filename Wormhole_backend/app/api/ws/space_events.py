@@ -69,11 +69,21 @@ async def space_events_ws_endpoint(websocket: WebSocket, space_id: int):
         while True:
             try:
                 await websocket.receive_text()
+            except WebSocketDisconnect:
+                # Client closed (or CDN/FRP tore down the upstream). Exit the
+                # loop so the finally block can clean up. Without this break
+                # the loop would tight-spin at 100% CPU because the broad
+                # `except Exception: pass` below would swallow the disconnect
+                # and immediately call receive_text() again on a dead socket.
+                break
+            except RuntimeError:
+                # uvicorn raises RuntimeError when receive() is called after
+                # disconnect; treat the same as WebSocketDisconnect.
+                break
             except Exception:
-                # 忽略非文本帧或无意义数据
-                pass
-    except WebSocketDisconnect:
-        pass
+                # Transient framing issue (e.g. non-text frame). Sleep briefly
+                # so we don't hot-loop while uvicorn surfaces the next frame.
+                await asyncio.sleep(0.5)
     finally:
         hb_task.cancel()
         try:
