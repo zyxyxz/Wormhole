@@ -59,3 +59,16 @@ class VaultFilesResponse(BaseModel):
 class VaultDownloadResponse(BaseModel):
     url: str
     file: VaultFileResponse
+
+
+class VaultResetRequest(BaseModel):
+    space_id: int
+    user_id: str
+    # Client must echo this exact string to acknowledge the destructive intent.
+    # Any other value (or missing) returns 400 without touching anything.
+    confirm: str = Field(..., description="必须等于 '重置' 才会执行")
+
+
+class VaultResetResponse(BaseModel):
+    success: bool
+    deleted_files: int

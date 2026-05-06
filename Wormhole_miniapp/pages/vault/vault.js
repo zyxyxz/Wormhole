@@ -257,6 +257,77 @@ Page({
     });
   },
 
+  onForgotPassphrase() {
+    if (!this.data.initialized || this.data.unlocking) return;
+    // Two-stage confirmation: a warning modal first, then a typed-text gate.
+    // Both stages must pass before we even talk to the server. The server
+    // also independently checks `confirm == '重置'` so a stray POST can't
+    // bypass the UI guard.
+    wx.showModal({
+      title: '永久重置保密柜',
+      content: '保密柜采用端到端加密，忘记口令时服务端无法解出内容。继续将永久删除当前空间所有保密文件，且无法恢复。是否继续？',
+      cancelText: '取消',
+      confirmText: '继续',
+      confirmColor: '#dc2626',
+      success: (res) => {
+        if (!res || !res.confirm) return;
+        wx.showModal({
+          title: '请输入「重置」以确认',
+          editable: true,
+          placeholderText: '重置',
+          cancelText: '取消',
+          confirmText: '永久重置',
+          confirmColor: '#dc2626',
+          success: (res2) => {
+            if (!res2 || !res2.confirm) return;
+            const typed = (res2.content || '').trim();
+            if (typed !== '重置') {
+              wx.showToast({ title: '确认文本不正确', icon: 'none' });
+              return;
+            }
+            this.resetVault();
+          }
+        });
+      }
+    });
+  },
+
+  resetVault() {
+    const userId = this.data.userId || wx.getStorageSync('openid') || '';
+    this.setData({ unlocking: true });
+    wx.showLoading({ title: '正在重置', mask: true });
+    this.request({
+      url: `${BASE_URL}/api/vault/reset`,
+      method: 'POST',
+      data: {
+        space_id: this.data.spaceId,
+        user_id: userId,
+        confirm: '重置'
+      }
+    }).then((data) => {
+      // Wipe local in-memory state so the page re-enters "create vault" mode.
+      this._vaultKey = null;
+      this._status = null;
+      this.cleanupPlainTemps();
+      this.setData({
+        initialized: false,
+        unlocked: false,
+        passphrase: '',
+        files: []
+      });
+      const removed = (data && data.deleted_files) || 0;
+      wx.showToast({
+        title: removed > 0 ? `已重置（清理 ${removed} 文件）` : '已重置',
+        icon: 'success'
+      });
+    }).catch((err) => {
+      wx.showToast({ title: err.message || '重置失败', icon: 'none' });
+    }).finally(() => {
+      wx.hideLoading();
+      this.setData({ unlocking: false });
+    });
+  },
+
   unlockVault(passphrase) {
     this.setData({ unlocking: true });
     wx.showLoading({ title: '正在解锁' });

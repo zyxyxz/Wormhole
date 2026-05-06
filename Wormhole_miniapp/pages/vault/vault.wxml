@@ -30,6 +30,9 @@
       <button class="primary-btn" loading="{{unlocking}}" bindtap="unlockOrCreate">
         {{initialized ? '解锁保密柜' : '创建并解锁'}}
       </button>
+      <view wx:if="{{initialized}}" class="forgot-link" bindtap="onForgotPassphrase">
+        忘记密码？
+      </view>
     </view>
 
     <view wx:if="{{unlocked}}" class="vault-toolbar">

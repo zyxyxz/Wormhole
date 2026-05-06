@@ -105,6 +105,20 @@ page {
   font-weight: 700;
 }
 
+/* Subtle link, intentionally low-contrast — destructive action shouldn't compete
+ * for attention with the primary unlock button. */
+.forgot-link {
+  margin-top: 18rpx;
+  text-align: center;
+  font-size: 22rpx;
+  color: var(--muted, #94a3b8);
+  letter-spacing: 1rpx;
+  padding: 12rpx 0;
+}
+.forgot-link:active {
+  color: var(--text, #475569);
+}
+
 .vault-toolbar {
   margin-top: 22rpx;
   display: flex;

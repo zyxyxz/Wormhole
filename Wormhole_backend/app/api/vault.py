@@ -16,6 +16,8 @@ from schemas.vault import (
     VaultFileResponse,
     VaultFilesResponse,
     VaultInitRequest,
+    VaultResetRequest,
+    VaultResetResponse,
     VaultStatusResponse,
 )
 
@@ -242,6 +244,70 @@ async def get_vault_download(
     if not url:
         raise HTTPException(status_code=500, detail="下载链接生成失败")
     return VaultDownloadResponse(url=url, file=_build_file_response(item))
+
+
+@router.post("/reset", response_model=VaultResetResponse)
+@limiter.limit("3/minute")
+async def reset_vault(payload: VaultResetRequest, request: Request, db: AsyncSession = Depends(get_db)):
+    """Permanently wipe the vault for this space.
+
+    Use case: a member who has forgotten the shared passphrase. Since the
+    vault is end-to-end encrypted with a key derived from the passphrase, the
+    server has no way to recover the contents — the only way out is to drop
+    everything and let the space initialise a fresh vault with a new
+    passphrase.
+
+    Caller must:
+      - be a member of the space (require_space_member)
+      - send `confirm == '重置'` in the body so a stray POST can't wipe the vault
+
+    Effect:
+      - Soft-delete (deleted_at) every VaultFile row in the space + best-effort
+        delete of the OSS object so the ciphertext is actually gone.
+      - Delete the VaultSpace row (the salt + check ciphertext) so the next
+        /status call returns initialized=False and the page falls into
+        "create vault" mode.
+    """
+    actor_user_id = verify_request_user(request, payload.user_id)
+    await require_space_member(db, payload.space_id, actor_user_id)
+    if (payload.confirm or "").strip() != "重置":
+        raise HTTPException(status_code=400, detail="确认文本不正确")
+    vault = (
+        await db.execute(select(VaultSpace).where(VaultSpace.space_id == payload.space_id))
+    ).scalar_one_or_none()
+    if not vault:
+        # Already empty — return success rather than 404 so the UI can move
+        # on to "set new passphrase" without spurious error toasts.
+        return VaultResetResponse(success=True, deleted_files=0)
+    files = (
+        await db.execute(
+            select(VaultFile).where(
+                VaultFile.space_id == payload.space_id,
+                VaultFile.deleted_at.is_(None),
+            )
+        )
+    ).scalars().all()
+    bucket = get_bucket()
+    now = datetime.utcnow()
+    for item in files:
+        item.deleted_at = now
+        if bucket and item.object_key:
+            try:
+                bucket.delete_object(item.object_key)
+            except Exception:
+                pass
+    await db.delete(vault)
+    add_operation_log(
+        db,
+        user_id=actor_user_id,
+        action="vault_reset",
+        space_id=payload.space_id,
+        detail={"deleted_files": len(files)},
+        ip=(request.client.host if request.client else None),
+        user_agent=request.headers.get("user-agent"),
+    )
+    await db.commit()
+    return VaultResetResponse(success=True, deleted_files=len(files))
 
 
 @router.delete("/files/{file_id}")
