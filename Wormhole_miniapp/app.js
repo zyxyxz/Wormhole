@@ -4,6 +4,7 @@ const { SPACE_ROUTES } = require('./utils/routes.js');
 const auth = require('./utils/auth.js');
 const theme = require('./utils/theme.js');
 const badge = require('./utils/badge.js');
+const lock = require('./utils/lock.js');
 const { THEME_PRESETS } = theme;
 
 const originalPage = Page;
@@ -118,71 +119,6 @@ App(Object.assign({
     themeTabText: THEME_PRESETS.light.tabText,
     themeTabSelected: THEME_PRESETS.light.tabSelected,
     themeTabBorderStyle: THEME_PRESETS.light.tabBorderStyle
-  },
-
-  enterForegroundHold(ms = 60000) {
-    const now = Date.now();
-    const target = now + ms;
-    this.globalData.holdUntil = Math.max(this.globalData.holdUntil || 0, target);
-    this.globalData.skipNextHideRedirect = true;
-    this.globalData.shouldReturnToIndex = false;
-    this.clearHideTimer();
-    this.globalData.lastHideTimestamp = now;
-  },
-
-  leaveForegroundHold() {
-    this.globalData.holdUntil = 0;
-    this.globalData.skipNextHideRedirect = false;
-    this.globalData.shouldReturnToIndex = false;
-    this.clearHideTimer();
-  },
-
-  // 向下兼容旧方法
-  markTemporaryForegroundAllowed() {
-    this.enterForegroundHold(60000);
-  },
-
-  clearTemporaryForegroundFlag() {
-    this.leaveForegroundHold();
-  },
-
-  clearHideTimer() {
-    if (this.globalData.hideTimer) {
-      clearTimeout(this.globalData.hideTimer);
-      this.globalData.hideTimer = null;
-    }
-  },
-
-  // SECURITY: defaults to 1 hour (3600s). Reducing this default requires security review.
-  getAutoLockSeconds() {
-    const stored = wx.getStorageSync('autoLockSeconds');
-    if (stored === undefined || stored === null || stored === '') {
-      return this.globalData.autoLockSeconds || 0;
-    }
-    return Number(stored) || 0;
-  },
-
-  startInactivityTimer() {
-    this.stopInactivityTimer();
-    const seconds = this.getAutoLockSeconds();
-    if (!seconds || seconds <= 0) return;
-    this.globalData.inactivityTimer = setTimeout(() => {
-      this.globalData.inactivityTimer = null;
-      const pages = getCurrentPages();
-      const currentPage = pages[pages.length - 1];
-      if (!currentPage || currentPage.route !== 'pages/index/index') {
-        wx.reLaunch({ url: '/pages/index/index' });
-      } else if (typeof currentPage.resetSpaceCode === 'function') {
-        currentPage.resetSpaceCode(true);
-      }
-    }, seconds * 1000);
-  },
-
-  stopInactivityTimer() {
-    if (this.globalData.inactivityTimer) {
-      clearTimeout(this.globalData.inactivityTimer);
-      this.globalData.inactivityTimer = null;
-    }
   },
 
   recordUserActivity() {
@@ -352,14 +288,6 @@ App(Object.assign({
     this.globalData.lastHideTimestamp = now;
   }
   ,
-  // SECURITY: defaults to true. Privacy is core to this app — do not change without security review.
-  getAutoLockOnHide() {
-    const stored = wx.getStorageSync('autoLockOnHide');
-    if (stored === undefined || stored === null || stored === '') {
-      return true;
-    }
-    return !!stored;
-  },
 
   loadSystemFlags() {
     wx.request({
@@ -386,4 +314,4 @@ App(Object.assign({
       }
     } catch (e) {}
   }
-}, auth.methods, theme.methods, badge.methods))
+}, auth.methods, theme.methods, badge.methods, lock.methods))
