@@ -1,5 +1,7 @@
+import asyncio
 import json
 import logging
+import time
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -88,6 +90,53 @@ async def root():
     return {"message": "欢迎使用虫洞私密共享空间"}
 
 
+# --- WS 心跳 / idle kick ----------------------------------------------------
+# CDN 通常对 WSS 上游设有 ~900s 空闲断连。服务端每 60s 主动发一帧 server_ping
+# 保活 TCP；同时若 180s 内未收到客户端任何帧（3 次心跳间隔无回应），主动以
+# code=4408（Request Timeout）关闭，避免服务端 hang 在 receive 上、客户端却
+# 以为连接还活着。客户端 handleWsEvent 已忽略未知 event，无需改造。
+WS_HEARTBEAT_INTERVAL_S = 60
+WS_IDLE_KICK_THRESHOLD_S = 180
+
+
+async def _ws_chat_heartbeat(websocket: WebSocket, manager) -> None:
+    """每 60s 发 server_ping；若 180s 无客户端活动则关闭 (code=4408)。"""
+    while True:
+        try:
+            await asyncio.sleep(WS_HEARTBEAT_INTERVAL_S)
+        except asyncio.CancelledError:
+            return
+        if manager.is_idle(websocket, WS_IDLE_KICK_THRESHOLD_S):
+            try:
+                await websocket.close(code=4408)
+            except Exception:
+                pass
+            return
+        try:
+            await websocket.send_json({
+                "event": "server_ping",
+                "ts": int(time.time()),
+            })
+        except Exception:
+            return
+
+
+async def _ws_space_heartbeat(websocket: WebSocket) -> None:
+    """事件通道无活动追踪，仅做 60s 保活。"""
+    while True:
+        try:
+            await asyncio.sleep(WS_HEARTBEAT_INTERVAL_S)
+        except asyncio.CancelledError:
+            return
+        try:
+            await websocket.send_json({
+                "event": "server_ping",
+                "ts": int(time.time()),
+            })
+        except Exception:
+            return
+
+
 @app.websocket("/ws/chat/{space_id}")
 async def websocket_endpoint(websocket: WebSocket, space_id: int):
     ws_user_id = get_ws_user_id(websocket)
@@ -117,6 +166,8 @@ async def websocket_endpoint(websocket: WebSocket, space_id: int):
     await chat_manager.send_presence_to(websocket, space_id)
     # 再向全房广播，通知其他成员有人加入
     await chat_manager.broadcast_presence(space_id)
+    # 启动服务端心跳（CDN 900s 保活 + 180s idle kick）
+    hb_task = asyncio.create_task(_ws_chat_heartbeat(websocket, chat_manager))
     try:
         while True:
             try:
@@ -129,6 +180,8 @@ async def websocket_endpoint(websocket: WebSocket, space_id: int):
                 continue
             if packet.get("type") == "websocket.disconnect":
                 break
+            # 每收到一帧（含 ping/typing/read/普通消息）都视为活动
+            chat_manager.touch(websocket)
             raw = packet.get("text")
             if raw is None:
                 raw_bytes = packet.get("bytes")
@@ -324,6 +377,11 @@ async def websocket_endpoint(websocket: WebSocket, space_id: int):
                 })
                 await chat_manager.broadcast(space_id, payload)
     finally:
+        hb_task.cancel()
+        try:
+            await hb_task
+        except (asyncio.CancelledError, Exception):
+            pass
         user_id = chat_manager.disconnect(space_id, websocket)
         if user_id:
             await chat_manager.broadcast(space_id, {
@@ -358,6 +416,7 @@ async def websocket_space_events(websocket: WebSocket, space_id: int):
         "WS_CONNECT space space=%s user=%s query=%s",
         space_id, ws_user_id, dict(websocket.query_params),
     )
+    hb_task = asyncio.create_task(_ws_space_heartbeat(websocket))
     try:
         while True:
             try:
@@ -366,4 +425,11 @@ async def websocket_space_events(websocket: WebSocket, space_id: int):
                 # 忽略非文本帧或无意义数据
                 pass
     except WebSocketDisconnect:
+        pass
+    finally:
+        hb_task.cancel()
+        try:
+            await hb_task
+        except (asyncio.CancelledError, Exception):
+            pass
         event_manager.disconnect(space_id, websocket)

@@ -1,3 +1,4 @@
+import time
 from typing import Dict, Set, Optional
 from fastapi import WebSocket
 
@@ -30,8 +31,25 @@ class ChatStateManager(ConnectionManager):
         self.ws_user: Dict[WebSocket, str] = {}
         self.user_counts: Dict[int, Dict[str, int]] = {}
         self.typing_users: Dict[int, Set[str]] = {}
+        self.last_seen: Dict[WebSocket, float] = {}
+
+    def touch(self, websocket: WebSocket) -> None:
+        """Record that we just received activity on this socket."""
+        self.last_seen[websocket] = time.time()
+
+    def is_idle(self, websocket: WebSocket, threshold_s: float) -> bool:
+        """Return True if the socket has been silent longer than threshold_s.
+
+        An unknown socket (never touched) is treated as idle so a stale
+        connection that somehow bypassed register_user is still kicked.
+        """
+        last = self.last_seen.get(websocket, 0.0)
+        return (time.time() - last) > threshold_s
 
     def register_user(self, space_id: int, websocket: WebSocket, user_id: str):
+        # Any presence/register call counts as activity — touch first so the
+        # idle timer resets even when the early-return path below fires.
+        self.touch(websocket)
         if not user_id:
             return
         current = self.ws_user.get(websocket)
@@ -69,6 +87,7 @@ class ChatStateManager(ConnectionManager):
         return list(self.typing_users.get(space_id, set()))
 
     def disconnect(self, space_id: int, websocket: WebSocket) -> Optional[str]:
+        self.last_seen.pop(websocket, None)
         user_id = self.ws_user.pop(websocket, None)
         if user_id:
             self._decrement(space_id, user_id)
