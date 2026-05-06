@@ -132,6 +132,29 @@ async def chat_ws_endpoint(websocket: WebSocket, space_id: int):
                         "user_id": user_id,
                         "typing": typing
                     })
+                elif event == "edit":
+                    # Task 27: text-only message edit within a 5min window.
+                    # Service handles permission/window/type checks; we
+                    # silently drop invalid frames per WS conventions.
+                    msg_id_raw = data.get("message_id")
+                    try:
+                        msg_id = int(msg_id_raw)
+                    except (TypeError, ValueError):
+                        continue
+                    new_content = data.get("content", "")
+                    chat_manager.register_user(space_id, websocket, user_id)
+                    async with AsyncSessionLocal() as session:
+                        try:
+                            _msg, edit_payload = await chat_service.edit_message(
+                                session,
+                                message_id=msg_id,
+                                user_id=user_id,
+                                new_content=new_content,
+                            )
+                        except chat_service.ChatEditError:
+                            continue
+                    if edit_payload:
+                        await chat_manager.broadcast(space_id, edit_payload)
                 elif event == "read":
                     last_read_message_id = data.get("last_read_message_id")
                     try:

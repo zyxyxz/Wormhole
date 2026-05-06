@@ -744,6 +744,33 @@ exports.methods = {
     return true;
   },
 
+  // Task 27: apply a server-confirmed edit. Looks up the bubble by id,
+  // rewrites content + edited_at, and re-runs decorations so any read/
+  // unread chrome stays in sync. Also patches the raw cache so reload
+  // shows the edited content immediately.
+  applyMessageEdit(messageId, content, editedAt) {
+    if (!messageId) return;
+    const messages = this.data.messages || [];
+    const idx = messages.findIndex((m) => Number(m.id) === Number(messageId));
+    if (idx < 0) return;
+    const next = [...messages];
+    next[idx] = {
+      ...next[idx],
+      content: content == null ? '' : String(content),
+      edited: true,
+      editedAt: editedAt || next[idx].editedAt || '',
+    };
+    this.setData({ messages: this.applyDecorations(next) });
+    const raw = Array.isArray(this._rawMessages) ? this._rawMessages : [];
+    let mutated = false;
+    this._rawMessages = raw.map((m) => {
+      if (Number(m.id) !== Number(messageId)) return m;
+      mutated = true;
+      return { ...m, content, edited_at: editedAt || m.edited_at || null };
+    });
+    if (mutated) this.saveCachedMessages();
+  },
+
   removeMessageById(messageId) {
     if (!messageId) return;
     const messages = (this.data.messages || []).filter(m => m.id !== messageId);
@@ -873,6 +900,11 @@ exports.methods = {
       pending: !!message.pending,
       status: message.status || (message.pending ? 'sending' : 'delivered'),
       created_at_ts: message.created_at_ts || null,
+      // Task 27: surface edit state to the UI. `edited`/`editedAt` drive
+      // the "(已编辑)" indicator; `createdAtTs` is dataset for the
+      // long-press menu's 5-min window check.
+      edited: !!message.edited_at || !!message.edited,
+      editedAt: message.edited_at || message.editedAt || '',
       reply,
       readStatus: '',
       showUnreadDivider: false

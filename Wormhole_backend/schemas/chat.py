@@ -38,6 +38,7 @@ class MessageResponse(MessageBase):
     reply_to_alias: Optional[str] = None
     reply_to_avatar_url: Optional[str] = None
     created_at: datetime
+    edited_at: Optional[datetime] = None
     
     class Config:
         from_attributes = True

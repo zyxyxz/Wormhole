@@ -145,6 +145,7 @@ async def get_chat_history(
                 reply_to_alias=(alias_map.get(m.reply_to_user_id).alias if alias_map.get(m.reply_to_user_id) else None),
                 reply_to_avatar_url=process_avatar_url(alias_map.get(m.reply_to_user_id).avatar_url if alias_map.get(m.reply_to_user_id) else None),
                 created_at=m.created_at,
+                edited_at=m.edited_at,
             )
         )
 

@@ -160,6 +160,15 @@ exports.methods = {
       }
       return;
     }
+    if (event === 'message_edited') {
+      // Task 27: in-place rewrite the matching bubble. The server is
+      // authoritative — even our own optimistic edit is reconciled here
+      // so transcript stays consistent across tabs/devices.
+      if (message.message_id) {
+        this.applyMessageEdit(message.message_id, message.content, message.edited_at);
+      }
+      return;
+    }
   },
 
   sendWsEvent(payload, fallback) {

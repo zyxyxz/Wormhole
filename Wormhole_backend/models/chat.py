@@ -20,5 +20,7 @@ class Message(Base):
     reply_to_user_id = Column(String, nullable=True, index=True)
     reply_to_content = Column(Text, nullable=True)
     reply_to_type = Column(String, nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now()) 
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
     deleted_at = Column(DateTime(timezone=True), nullable=True)
+    edited_at = Column(DateTime(timezone=True), nullable=True)
+    edit_history = Column(Text, nullable=True)  # JSON list of prior versions

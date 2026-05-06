@@ -1,5 +1,21 @@
 const { BASE_URL } = require('../../utils/config.js');
 
+// Task 27: edit window mirrors the backend EDIT_WINDOW_MINUTES constant.
+// Computed client-side just to gate the long-press "编辑" affordance —
+// the server is authoritative; out-of-window edits are rejected silently.
+const EDIT_WINDOW_MS = 5 * 60 * 1000;
+
+function canEditMessage(dataset, myId) {
+  if (!dataset || dataset.userId !== myId) return false;
+  const messageType = String(dataset.messageType || 'text').toLowerCase();
+  if (messageType !== 'text') return false;
+  const messageId = Number(dataset.id || 0);
+  if (!messageId || messageId < 0) return false;
+  const ts = Number(dataset.createdAtTs || 0);
+  if (!ts) return false;
+  return Date.now() - ts <= EDIT_WINDOW_MS;
+}
+
 exports.methods = {
   openMessageActions(e) {
     const dataset = e.currentTarget.dataset || {};
@@ -7,7 +23,9 @@ exports.methods = {
     const canDelete = dataset.userId === myId;
     const messageType = String(dataset.messageType || 'text').toLowerCase();
     const canCollectSticker = ['sticker', 'image'].includes(messageType) && !!String(dataset.mediaUrl || '').trim();
+    const canEdit = canEditMessage(dataset, myId);
     const actions = ['回复', '复制'];
+    if (canEdit) actions.push('编辑');
     if (canCollectSticker) actions.push('添加到表情包');
     if (canDelete) actions.push('撤回并删除');
     wx.showActionSheet({
@@ -16,6 +34,10 @@ exports.methods = {
         const action = actions[res.tapIndex];
         if (action === '回复') {
           this.setReplyFromDataset(dataset);
+          return;
+        }
+        if (action === '编辑') {
+          this.beginEditFromDataset(dataset);
           return;
         }
         if (action === '复制') {
@@ -120,6 +142,39 @@ exports.methods = {
 
   cancelReply() {
     this.setData({ replyingTo: null }, () => {
+      this.updateBottomPadding({ forceMeasure: true });
+    });
+  },
+
+  // Task 27: enter edit-mode for a long-pressed text bubble. Reuses the
+  // main input area with `editingMessage` set so the existing send button
+  // routes through `sendEdit` instead of creating a new message.
+  beginEditFromDataset(dataset) {
+    const messageId = Number(dataset.id || 0);
+    if (!messageId) return;
+    const original = (dataset.content || '').toString();
+    this.setData({
+      editingMessage: {
+        id: messageId,
+        content: original,
+        userId: dataset.userId || '',
+      },
+      inputMessage: original,
+      inputMode: 'text',
+      replyingTo: null,
+      emojiPanelVisible: false,
+      plusPanelVisible: false,
+    }, () => {
+      this.updateBottomPadding({ forceMeasure: true });
+    });
+  },
+
+  cancelEdit() {
+    if (!this.data.editingMessage) return;
+    this.setData({
+      editingMessage: null,
+      inputMessage: '',
+    }, () => {
       this.updateBottomPadding({ forceMeasure: true });
     });
   },

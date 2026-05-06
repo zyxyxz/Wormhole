@@ -6,7 +6,8 @@ operation log, fires the notification dispatcher, resolves aliases, and
 returns the structured broadcast payload that callers should publish through
 `chat_manager.broadcast`.
 """
-from datetime import datetime
+import json
+from datetime import datetime, timedelta
 from typing import Optional, Tuple
 
 from sqlalchemy import select
@@ -28,12 +29,30 @@ from models.user import UserAlias
 
 ALLOWED_MESSAGE_TYPES = {"text", "image", "video", "audio", "live", "system", "sticker"}
 
+# Task 27: only the original sender can edit, only within this window.
+# 5 minutes mirrors WeChat / Telegram semantics — long enough for typo
+# fixes, short enough that history readers see a stable transcript.
+EDIT_WINDOW_MINUTES = 5
+
 
 class ChatSendError(Exception):
     """Validation failure when preparing a chat message.
 
     Carries an HTTP-style ``status_code`` so HTTP callers can re-raise as
     ``HTTPException`` while WS callers can drop the frame silently.
+    """
+
+    def __init__(self, status_code: int, detail: str):
+        self.status_code = status_code
+        self.detail = detail
+        super().__init__(detail)
+
+
+class ChatEditError(Exception):
+    """Validation/permission failure when editing a chat message.
+
+    Same status_code convention as ``ChatSendError`` so HTTP callers can
+    re-raise as ``HTTPException`` while WS callers drop the frame silently.
     """
 
     def __init__(self, status_code: int, detail: str):
@@ -207,3 +226,88 @@ async def send_message(
         pass
 
     return db_message, payload
+
+
+async def edit_message(
+    db: AsyncSession,
+    *,
+    message_id: int,
+    user_id: str,
+    new_content: str,
+) -> Tuple[Message, dict]:
+    """Edit own text message within ``EDIT_WINDOW_MINUTES``.
+
+    Constraints (Task 27):
+      * Only the original sender can edit.
+      * Only TEXT messages are editable (not images / voice / live / sticker).
+      * Must be within the 5-minute window from ``created_at``.
+      * Empty content is rejected; unchanged content is a no-op.
+
+    Returns ``(msg, payload)`` where ``payload`` is the broadcast frame the
+    caller should publish via ``chat_manager.broadcast``. If the new content
+    matches the existing content, ``payload`` is ``{}`` and no DB write
+    occurs — the WS handler treats this as a silent no-op.
+
+    Raises ``ChatEditError`` on validation/permission failure.
+    """
+    cleaned = (new_content or "").strip()
+    if not cleaned:
+        raise ChatEditError(400, "消息内容不能为空")
+
+    msg = (
+        await db.execute(
+            select(Message).where(
+                Message.id == message_id,
+                Message.deleted_at.is_(None),
+            )
+        )
+    ).scalar_one_or_none()
+    if not msg:
+        raise ChatEditError(404, "消息不存在")
+    if msg.user_id != user_id:
+        raise ChatEditError(403, "只能编辑自己的消息")
+    if (msg.message_type or "text").lower() != "text":
+        raise ChatEditError(400, "仅可编辑文本消息")
+    if not msg.created_at:
+        raise ChatEditError(400, "消息无时间戳")
+
+    # created_at may be tz-aware (Postgres) or naive (SQLite); normalise
+    # both sides to naive UTC for the window comparison.
+    created_naive = msg.created_at.replace(tzinfo=None) if msg.created_at.tzinfo else msg.created_at
+    age = datetime.utcnow() - created_naive
+    if age > timedelta(minutes=EDIT_WINDOW_MINUTES):
+        raise ChatEditError(403, f"超过 {EDIT_WINDOW_MINUTES} 分钟编辑窗口")
+
+    if cleaned == (msg.content or ""):
+        # No-op edit: skip the write and skip the broadcast.
+        return msg, {}
+
+    # Append the previous version to edit_history. The latest content
+    # always lives in messages.content so we never store it in history.
+    history: list = []
+    if msg.edit_history:
+        try:
+            parsed = json.loads(msg.edit_history)
+            if isinstance(parsed, list):
+                history = parsed
+        except Exception:
+            history = []
+    prev_edited_at = msg.edited_at or msg.created_at
+    history.append({
+        "content": msg.content or "",
+        "edited_at": prev_edited_at.isoformat() if prev_edited_at else None,
+    })
+
+    msg.content = cleaned
+    msg.edited_at = datetime.utcnow()
+    msg.edit_history = json.dumps(history, ensure_ascii=False)
+    await db.commit()
+    await db.refresh(msg)
+
+    payload = {
+        "event": "message_edited",
+        "message_id": msg.id,
+        "content": msg.content,
+        "edited_at": msg.edited_at.isoformat() if msg.edited_at else None,
+    }
+    return msg, payload

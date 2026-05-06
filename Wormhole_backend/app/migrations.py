@@ -165,6 +165,13 @@ async def add_space_member_read_columns(conn):
         await conn.execute(text("ALTER TABLE space_members ADD COLUMN last_read_at DATETIME"))
 
 
+async def add_messages_edit_columns(conn):
+    if not await column_exists(conn, "messages", "edited_at"):
+        await conn.execute(text("ALTER TABLE messages ADD COLUMN edited_at DATETIME"))
+    if not await column_exists(conn, "messages", "edit_history"):
+        await conn.execute(text("ALTER TABLE messages ADD COLUMN edit_history TEXT"))
+
+
 async def add_message_reply_columns(conn):
     if not await column_exists(conn, "messages", "reply_to_id"):
         await conn.execute(text("ALTER TABLE messages ADD COLUMN reply_to_id INTEGER"))
@@ -312,6 +319,7 @@ MIGRATIONS = [
     ("202603_add_chat_stickers", add_chat_stickers),
     ("202604_add_vault_tables", add_vault_tables),
     ("202605_add_hot_path_composite_indexes", add_hot_path_composite_indexes),
+    ("202606_add_messages_edit_columns", add_messages_edit_columns),
 ]
 
 

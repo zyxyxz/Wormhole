@@ -41,6 +41,9 @@ Page(Object.assign({
     lastReadId: 0,
     unreadDividerId: null,
     replyingTo: null,
+    // Task 27: when set, the input area is in edit-mode and the send
+    // button submits an edit frame instead of a new message.
+    editingMessage: null,
     emojiPanelVisible: false,
     emojiList: EMOJI_DISPLAY_LIST,
     emojiScrollTop: 0,

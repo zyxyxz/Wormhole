@@ -354,12 +354,42 @@ exports.methods = {
   },
 
   sendMessage() {
+    // Task 27: edit-mode short-circuits the normal send path so the same
+    // 发送 button submits an edit frame instead of a new message.
+    if (this.data.editingMessage) {
+      this.sendEdit();
+      return;
+    }
     const text = this.data.inputMessage.trim();
     if (!text) return;
     this.sendPayload({
       content: text,
       message_type: 'text'
     });
+  },
+
+  // Task 27: dispatch an `edit` WS frame for the currently-editing message.
+  // No-ops when content is empty or unchanged (server would reject anyway).
+  sendEdit() {
+    const editing = this.data.editingMessage;
+    if (!editing) return;
+    const content = (this.data.inputMessage || '').trim();
+    if (!content) {
+      wx.showToast({ title: '内容不能为空', icon: 'none' });
+      return;
+    }
+    if (content === (editing.content || '')) {
+      this.cancelEdit();
+      return;
+    }
+    this.sendWsEvent({
+      event: 'edit',
+      message_id: editing.id,
+      content,
+    }, () => {
+      wx.showToast({ title: '网络异常', icon: 'none' });
+    });
+    this.cancelEdit();
   },
 
   sendPayload(payload) {
