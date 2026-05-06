@@ -1,5 +1,6 @@
 const { BASE_URL, WS_URL } = require('../../utils/config.js');
 const { getOpenIdCached } = require('../../utils/auth.js');
+const outbox = require('../../utils/chat-outbox.js');
 
 exports.methods = {
   cleanupWebSocket({ allowReconnect = false } = {}) {
@@ -220,26 +221,40 @@ exports.methods = {
     });
   },
 
+  // Task 26: outbox-backed. queuePendingSend ensures the payload is recorded
+  // in the persistent outbox so it survives page reloads. flushPendingSends
+  // walks the outbox on WS open and re-attempts sends.
   queuePendingSend(wsPayload) {
-    if (!this._pendingSends) this._pendingSends = [];
-    this._pendingSends.push(wsPayload);
+    if (!wsPayload || !wsPayload.client_id) return;
+    const sid = this.data.spaceId;
+    if (!sid) return;
+    outbox.enqueue(sid, wsPayload);
   },
 
   flushPendingSends() {
-    if (!this._pendingSends || !this._pendingSends.length) return;
-    if (!this.ws || !this._wsReady) return;
-    const pending = this._pendingSends.splice(0);
-    for (const payload of pending) {
+    const sid = this.data.spaceId;
+    if (!sid || !this.ws || !this._wsReady) return;
+    const pending = outbox.listPending(sid);
+    if (!pending.length) return;
+    pending.forEach((entry) => {
+      // Failed entries require user-initiated retry.
+      if (entry.status === 'failed') return;
       try {
         this.ws.send({
-          data: JSON.stringify(payload),
+          data: JSON.stringify(entry.payload),
           fail: () => {
-            this._pendingSends.push(payload);
-          }
+            const status = outbox.markAttempt(sid, entry.client_id);
+            if (status === 'failed' && typeof this.updateMessageStatus === 'function') {
+              this.updateMessageStatus(entry.client_id, 'failed');
+            }
+          },
         });
       } catch (e) {
-        this._pendingSends.push(payload);
+        const status = outbox.markAttempt(sid, entry.client_id);
+        if (status === 'failed' && typeof this.updateMessageStatus === 'function') {
+          this.updateMessageStatus(entry.client_id, 'failed');
+        }
       }
-    }
+    });
   },
 };

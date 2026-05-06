@@ -128,6 +128,18 @@ page { overflow: hidden; }
   border-top-color: transparent;
   animation: spin 0.9s linear infinite;
 }
+.status-failed {
+  width: 26rpx;
+  height: 26rpx;
+  border-radius: 50%;
+  background: #e54d42;
+  color: #fff;
+  font-size: 20rpx;
+  line-height: 26rpx;
+  text-align: center;
+  font-weight: 700;
+}
+.status-failed text { display: block; }
 
 @keyframes spin {
   from { transform: rotate(0deg); }

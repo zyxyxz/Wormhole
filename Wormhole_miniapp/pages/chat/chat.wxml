@@ -78,7 +78,10 @@
           </block>
           <view class="message-meta">
             <view class="message-time">{{item.displayTime}}</view>
-            <view wx:if="{{item.isSelf && item.sending}}" class="sending-spinner"></view>
+            <view wx:if="{{item.isSelf && item.status === 'sending'}}" class="sending-spinner"></view>
+            <view wx:elif="{{item.isSelf && item.status === 'failed'}}" class="status-failed" catchtap="onRetryFailed" data-client-id="{{item.client_id}}">
+              <text>!</text>
+            </view>
             <view wx:if="{{item.isSelf && item.readStatus}}" class="read-state" bindtap="openReadList" data-id="{{item.id}}">
               <text>{{item.readStatus}}</text>
             </view>

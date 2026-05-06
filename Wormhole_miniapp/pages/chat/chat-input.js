@@ -1,5 +1,6 @@
 const { BASE_URL } = require('../../utils/config.js');
 const { getOpenIdCached } = require('../../utils/auth.js');
+const outbox = require('../../utils/chat-outbox.js');
 
 const MISS_YOU_SUFFIX = '在想你';
 
@@ -402,20 +403,26 @@ exports.methods = {
     this.addPendingMessage(message);
     const wsPayload = { ...message };
     delete wsPayload.space_id;
-    // Task 10: WS-only sends. If the socket isn't ready, queue and flush on
-    // next onOpen. Optimistic UI cleanup happens immediately either way so
-    // the input doesn't feel stuck while we wait for the socket.
+    // Task 26: persistent outbox. Every outgoing message is recorded in
+    // wx storage keyed by space_id so it survives reloads. Server echoes
+    // matching the same client_id will remove the entry; otherwise the
+    // next WS onOpen flushes the queue. Optimistic UI cleanup still
+    // happens immediately so the input doesn't feel stuck.
+    outbox.enqueue(this.data.spaceId, wsPayload);
     this.afterSendUiCleanup(message);
     if (this.ws && this._wsReady) {
       this.ws.send({
         data: JSON.stringify(wsPayload),
         fail: () => {
-          this.queuePendingSend(wsPayload);
+          const status = outbox.markAttempt(this.data.spaceId, clientId);
+          if (status === 'failed' && typeof this.updateMessageStatus === 'function') {
+            this.updateMessageStatus(clientId, 'failed');
+          }
         }
       });
-    } else {
-      this.queuePendingSend(wsPayload);
     }
+    // If WS not ready, the entry stays as 'sending' and flushPendingSends
+    // will pick it up on the next onOpen.
   },
 
   afterSendUiCleanup(message) {

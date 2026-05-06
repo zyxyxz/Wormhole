@@ -1,4 +1,5 @@
 const { BASE_URL } = require('../../utils/config.js');
+const outbox = require('../../utils/chat-outbox.js');
 
 const CHAT_CACHE_LIMIT = 50;
 const MISS_YOU_SUFFIX = '在想你';
@@ -597,10 +598,11 @@ exports.methods = {
     });
   },
 
-  addPendingMessage(message) {
+  addPendingMessage(message, status) {
     const myId = message.user_id;
     const profile = this.getMyProfile();
     const tempId = -Math.floor(Date.now() + Math.random() * 1000);
+    const initialStatus = status || 'sending';
     const pendingRaw = {
       ...message,
       id: tempId,
@@ -609,7 +611,8 @@ exports.methods = {
       created_at: new Date().toISOString(),
       created_at_ts: Date.now(),
       pending: true,
-      sending: true
+      sending: initialStatus === 'sending',
+      status: initialStatus
     };
     const displayed = this.decorateMessage(pendingRaw, myId);
     const messages = [...(this.data.messages || []), displayed];
@@ -620,6 +623,52 @@ exports.methods = {
       scrollTargetId: `msg-${pendingRaw.id}`,
       isAtBottom: true
     });
+  },
+
+  // Task 26: update the on-screen status indicator for a pending bubble.
+  // Looks up the bubble by client_id and rewrites its `status`/`sending` flags.
+  updateMessageStatus(clientId, status) {
+    if (!clientId || !status) return;
+    const messages = this.data.messages || [];
+    const idx = messages.findIndex((m) => m.client_id === clientId);
+    if (idx === -1) return;
+    const next = [...messages];
+    next[idx] = {
+      ...next[idx],
+      status,
+      sending: status === 'sending',
+      pending: status !== 'delivered',
+    };
+    this.setData({ messages: this.applyDecorations(next) });
+  },
+
+  // Task 26: hydrate previously-queued outbox entries on page load so
+  // unsent messages stay visible across page reloads.
+  hydratePendingFromOutbox() {
+    const sid = this.data.spaceId;
+    if (!sid) return;
+    const pending = outbox.listPending(sid);
+    if (!pending.length) return;
+    pending.forEach((entry) => {
+      const payload = entry.payload || {};
+      const message = { ...payload, space_id: sid };
+      this.addPendingMessage(message, entry.status || 'sending');
+    });
+  },
+
+  // Task 26: retry a failed outbox entry. Resets attempts, marks the bubble
+  // back to 'sending', and triggers a flush.
+  onRetryFailed(e) {
+    const clientId = e && e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.clientId;
+    if (!clientId) return;
+    const sid = this.data.spaceId;
+    if (!sid) return;
+    const entry = outbox.retry(sid, clientId);
+    if (!entry) return;
+    this.updateMessageStatus(clientId, 'sending');
+    if (typeof this.flushPendingSends === 'function') {
+      this.flushPendingSends();
+    }
   },
 
   confirmPendingSent(clientId) {
@@ -679,8 +728,16 @@ exports.methods = {
     if (idx === -1) return false;
     const myId = this._currentUserId || wx.getStorageSync('openid');
     const decorated = this.decorateMessage(serverMessage, myId);
+    // Server echoed the message → it is now delivered.
+    decorated.status = 'delivered';
+    decorated.sending = false;
+    decorated.pending = false;
     messages[idx] = decorated;
     this.mergeRawMessage(serverMessage);
+    // Task 26: drop the matching entry from the persistent outbox.
+    if (serverMessage.client_id && this.data.spaceId) {
+      outbox.removeByClientId(this.data.spaceId, serverMessage.client_id);
+    }
     const updated = this.applyDecorations(messages);
     const scrollTargetId = this.data.isAtBottom ? `msg-${decorated.id}` : this.data.scrollTargetId;
     this.setData({ messages: updated, scrollTargetId, lastMessageId: `msg-${decorated.id}` });
@@ -814,6 +871,7 @@ exports.methods = {
       client_id: message.client_id || '',
       sending: !!message.sending || !!message.pending,
       pending: !!message.pending,
+      status: message.status || (message.pending ? 'sending' : 'delivered'),
       created_at_ts: message.created_at_ts || null,
       reply,
       readStatus: '',

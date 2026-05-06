@@ -119,10 +119,9 @@ Page(Object.assign({
     this._pageActive = true;
     this._wsKeepAlive = true;
     this._wsRetryCount = 0;
-    // Task 10: WS-only sends. If the socket isn't ready when the user hits send,
-    // payloads queue here in-memory and flush on the next onOpen. Task 26 will
-    // promote this into a persistent outbox.
-    this._pendingSends = [];
+    // Task 26: outgoing messages are persisted via utils/chat-outbox.js
+    // (storage key chat_outbox_<spaceId>) and survive page reloads. The
+    // legacy in-memory _pendingSends array is gone.
     this.initWebSocket();
     // 网络状态监听：离线 → 在线 时立刻重连
     this._netListener = (res) => {
@@ -145,6 +144,10 @@ Page(Object.assign({
     } else {
       this.getHistoryMessages({ reset: true });
     }
+
+    // Task 26: re-hydrate any unsent messages persisted in the outbox so
+    // the user sees them as still-sending bubbles after a reload.
+    this.hydratePendingFromOutbox();
 
     if (wx.getRecorderManager) {
       this.recorder = wx.getRecorderManager();
@@ -224,7 +227,6 @@ Page(Object.assign({
   onUnload() {
     this.sendTyping(false);
     this._wsKeepAlive = false;
-    this._pendingSends = [];
     this.cleanupWebSocket({ allowReconnect: false });
     if (this._netListener) {
       if (wx.offNetworkStatusChange) {
