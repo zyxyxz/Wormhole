@@ -1,7 +1,60 @@
 // utils/auth.js — extracted from app.js by Task 20.
 // Each function below expects to be invoked with `this` bound to the
 // App instance (achieved via Object.assign into the App({...}) config).
+//
+// Task 22: module-private memory cache for openid/accessToken so hot paths
+// (every wx.request via patchNetworkSecurity, every chat send) don't pay
+// the synchronous IO cost of wx.getStorageSync on every call.
 const { BASE_URL } = require('./config.js');
+
+let _openid = '';
+let _accessToken = '';
+
+function _readOpenIdFromStorage() {
+  try {
+    return wx.getStorageSync('openid') || '';
+  } catch (e) {
+    return '';
+  }
+}
+
+function _readAccessTokenFromStorage() {
+  try {
+    return wx.getStorageSync('accessToken') || '';
+  } catch (e) {
+    return '';
+  }
+}
+
+function getOpenIdCached() {
+  if (_openid) return _openid;
+  _openid = _readOpenIdFromStorage();
+  return _openid;
+}
+
+function getAccessTokenCached() {
+  if (_accessToken) return _accessToken;
+  _accessToken = _readAccessTokenFromStorage();
+  return _accessToken;
+}
+
+function setAuthCache(openid, accessToken) {
+  if (openid !== undefined) {
+    _openid = openid || '';
+    try { wx.setStorageSync('openid', _openid); } catch (e) {}
+  }
+  if (accessToken !== undefined) {
+    _accessToken = accessToken || '';
+    try { wx.setStorageSync('accessToken', _accessToken); } catch (e) {}
+  }
+}
+
+function clearAuthCache() {
+  _openid = '';
+  _accessToken = '';
+  try { wx.removeStorageSync('openid'); } catch (e) {}
+  try { wx.removeStorageSync('accessToken'); } catch (e) {}
+}
 
 exports.methods = {
   // DEPRECATED: will be removed when Task 22 lands in-memory openid cache
@@ -38,11 +91,7 @@ exports.methods = {
   },
 
   getCachedAccessToken() {
-    try {
-      return wx.getStorageSync('accessToken') || '';
-    } catch (e) {
-      return '';
-    }
+    return getAccessTokenCached();
   },
 
   appendAuthTokenToUrl(url = '', token = '') {
@@ -71,10 +120,7 @@ exports.methods = {
   },
 
   getRequestUserId(requestOptions = null) {
-    let openid = '';
-    try {
-      openid = wx.getStorageSync('openid') || '';
-    } catch (e) {}
+    const openid = getOpenIdCached();
     if (openid) return openid;
     if (!requestOptions) return '';
     return this.pickUserIdFromPayload(requestOptions.data)
@@ -84,12 +130,8 @@ exports.methods = {
 
   getAuthHeaders(extra = {}, requestOptions = null) {
     const headers = Object.assign({}, extra || {});
-    let openid = '';
-    let accessToken = '';
-    try {
-      openid = wx.getStorageSync('openid') || '';
-      accessToken = wx.getStorageSync('accessToken') || '';
-    } catch (e) {}
+    let openid = getOpenIdCached();
+    const accessToken = getAccessTokenCached();
     if (!openid && requestOptions) {
       openid = this.pickUserIdFromPayload(requestOptions.data)
         || this.pickUserIdFromPayload(requestOptions.formData)
@@ -149,12 +191,8 @@ exports.methods = {
   },
 
   ensureOpenId(forceRefresh = false) {
-    let existing = '';
-    let existingToken = '';
-    try {
-      existing = wx.getStorageSync('openid') || '';
-      existingToken = wx.getStorageSync('accessToken') || '';
-    } catch (e) {}
+    const existing = getOpenIdCached();
+    const existingToken = getAccessTokenCached();
     if (existing && existingToken && !forceRefresh) {
       return Promise.resolve(existing);
     }
@@ -176,12 +214,10 @@ exports.methods = {
             success: (resp) => {
               const openid = resp.data?.openid || resp.data?.data?.openid || '';
               const accessToken = resp.data?.access_token || resp.data?.data?.access_token || '';
-              if (openid) {
-                try { wx.setStorageSync('openid', openid); } catch (e) {}
-              }
-              if (accessToken) {
-                try { wx.setStorageSync('accessToken', accessToken); } catch (e) {}
-              }
+              setAuthCache(
+                openid ? openid : undefined,
+                accessToken ? accessToken : undefined
+              );
               resolve(openid || '');
             },
             fail: () => resolve('')
@@ -195,3 +231,8 @@ exports.methods = {
     return this._openidPromise;
   }
 };
+
+exports.getOpenIdCached = getOpenIdCached;
+exports.getAccessTokenCached = getAccessTokenCached;
+exports.setAuthCache = setAuthCache;
+exports.clearAuthCache = clearAuthCache;

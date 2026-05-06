@@ -1,4 +1,5 @@
 const { BASE_URL, WS_URL } = require('../../utils/config.js');
+const { getOpenIdCached } = require('../../utils/auth.js');
 
 exports.methods = {
   cleanupWebSocket({ allowReconnect = false } = {}) {
@@ -34,7 +35,7 @@ exports.methods = {
     this._wsShouldReconnect = true;
     this._wsSpaceId = this.data.spaceId;
     this._wsConnecting = true;
-    const userId = this._currentUserId || wx.getStorageSync('openid') || '';
+    const userId = this._currentUserId || getOpenIdCached() || '';
     const url = userId
       ? `${WS_URL}/ws/chat/${this.data.spaceId}?user_id=${encodeURIComponent(userId)}`
       : `${WS_URL}/ws/chat/${this.data.spaceId}`;
@@ -73,7 +74,7 @@ exports.methods = {
       try {
         const pages = getCurrentPages();
         const currentRoute = pages[pages.length - 1]?.route || '';
-        const myId = this._currentUserId || wx.getStorageSync('openid');
+        const myId = this._currentUserId || getOpenIdCached();
         if (currentRoute !== 'pages/chat/chat' && message?.user_id && message.user_id !== myId) {
           const app = typeof getApp === 'function' ? getApp() : null;
           if (app && typeof app.bumpChatBadge === 'function') {
@@ -84,7 +85,7 @@ exports.methods = {
       const resolved = this.resolvePendingMessage(message);
       if (!resolved) {
         this.mergeRawMessage(message);
-        const displayed = this.decorateMessage(message, wx.getStorageSync('openid'));
+        const displayed = this.decorateMessage(message, getOpenIdCached());
         this.addMessage(displayed);
       }
     });
@@ -174,7 +175,7 @@ exports.methods = {
   },
 
   sendPresence() {
-    const userId = this._currentUserId || wx.getStorageSync('openid');
+    const userId = this._currentUserId || getOpenIdCached();
     if (!userId) return;
     this.sendWsEvent({ event: 'presence', user_id: userId });
   },
@@ -193,13 +194,13 @@ exports.methods = {
   },
 
   sendWsHeartbeat() {
-    const userId = this._currentUserId || wx.getStorageSync('openid');
+    const userId = this._currentUserId || getOpenIdCached();
     if (!userId || !this._wsReady) return;
     this.sendWsEvent({ event: 'ping', user_id: userId });
   },
 
   sendTyping(typing) {
-    const userId = this._currentUserId || wx.getStorageSync('openid');
+    const userId = this._currentUserId || getOpenIdCached();
     if (!userId) return;
     if (this._typingState === typing) return;
     this._typingState = typing;
@@ -207,7 +208,7 @@ exports.methods = {
   },
 
   sendReadState(lastReadId) {
-    const userId = this._currentUserId || wx.getStorageSync('openid');
+    const userId = this._currentUserId || getOpenIdCached();
     if (!userId || !lastReadId) return;
     const payload = { event: 'read', user_id: userId, last_read_message_id: lastReadId };
     this.sendWsEvent(payload, () => {

@@ -1,4 +1,5 @@
 const { BASE_URL } = require('../../utils/config.js');
+const { getOpenIdCached } = require('../../utils/auth.js');
 
 const MISS_YOU_SUFFIX = '在想你';
 
@@ -119,7 +120,7 @@ exports.methods = {
   },
 
   sendMissYou() {
-    const userId = this._currentUserId || wx.getStorageSync('openid') || '';
+    const userId = this._currentUserId || getOpenIdCached() || '';
     const profile = this.getMyProfile();
     const displayName = (profile.alias || userId || '有人').trim().slice(0, 20);
     this._lastMissYouByMeAt = Date.now();
@@ -264,7 +265,7 @@ exports.methods = {
 
   uploadMediaFile(filePath, messageType) {
     if (!filePath) return Promise.resolve('');
-    const userId = this._currentUserId || wx.getStorageSync('openid') || '';
+    const userId = this._currentUserId || getOpenIdCached() || '';
     if (!userId) {
       return this.ensureIdentity().then((uid) => {
         if (!uid) return '';
@@ -341,7 +342,7 @@ exports.methods = {
   },
 
   sendPayload(payload) {
-    const currentUserId = this._currentUserId || wx.getStorageSync('openid') || '';
+    const currentUserId = this._currentUserId || getOpenIdCached() || '';
     if (!currentUserId) {
       this.ensureIdentity().then((uid) => {
         if (!uid) {
