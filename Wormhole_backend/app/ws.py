@@ -84,6 +84,23 @@ class ChatStateManager(ConnectionManager):
             "online_count": len(online_users),
         })
 
+    async def send_presence_to(self, websocket: WebSocket, space_id: int):
+        """Send the current presence snapshot to a single connected socket.
+
+        Used right after a client connects so they see the room's online
+        state even if they miss the broadcast that fires immediately on
+        register (frame ordering / client handler attachment races).
+        """
+        online_users = self.get_online_users(space_id)
+        try:
+            await websocket.send_json({
+                "event": "presence",
+                "online_user_ids": online_users,
+                "online_count": len(online_users),
+            })
+        except Exception:
+            pass
+
 
 chat_manager = ChatStateManager()
 event_manager = ConnectionManager()

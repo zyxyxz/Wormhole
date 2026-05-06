@@ -1,4 +1,5 @@
 import json
+import logging
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -37,6 +38,8 @@ from sqlalchemy import select
 from datetime import datetime
 
 ALLOWED_MESSAGE_TYPES = {"text", "image", "video", "audio", "live", "system", "sticker"}
+
+logger = logging.getLogger("wormhole.ws")
 
 app = FastAPI(title="虫洞私密共享空间")
 
@@ -104,8 +107,15 @@ async def websocket_endpoint(websocket: WebSocket, space_id: int):
                 await websocket.close(code=4403)
                 return
     await chat_manager.connect(space_id, websocket)
+    logger.info(
+        "WS_CONNECT chat space=%s user=%s query=%s",
+        space_id, ws_user_id, dict(websocket.query_params),
+    )
     # 连接建立后立即登记在线，避免依赖客户端额外发送 presence 事件
     chat_manager.register_user(space_id, websocket, ws_user_id)
+    # 直接给本人单播一次 presence —— 防止客户端在 onOpen 之前错过广播帧
+    await chat_manager.send_presence_to(websocket, space_id)
+    # 再向全房广播，通知其他成员有人加入
     await chat_manager.broadcast_presence(space_id)
     try:
         while True:
@@ -344,6 +354,10 @@ async def websocket_space_events(websocket: WebSocket, space_id: int):
                 return
     # 仅用于事件广播（钱包、别名等），客户端可选择发送心跳，服务端忽略内容
     await event_manager.connect(space_id, websocket)
+    logger.info(
+        "WS_CONNECT space space=%s user=%s query=%s",
+        space_id, ws_user_id, dict(websocket.query_params),
+    )
     try:
         while True:
             try:
