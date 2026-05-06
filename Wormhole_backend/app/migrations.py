@@ -172,6 +172,32 @@ async def add_messages_edit_columns(conn):
         await conn.execute(text("ALTER TABLE messages ADD COLUMN edit_history TEXT"))
 
 
+async def add_message_reactions_table(conn):
+    """Task 28: emoji reactions on messages.
+
+    Unique constraint on (message_id, user_id, emoji) prevents duplicate
+    reactions; the index on message_id supports the batch fetch used by
+    GET /api/chat/history.
+    """
+    if not await table_exists(conn, "message_reactions"):
+        await conn.execute(text(
+            """
+            CREATE TABLE message_reactions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                message_id INTEGER NOT NULL,
+                user_id TEXT NOT NULL,
+                emoji TEXT NOT NULL,
+                created_at DATETIME DEFAULT (datetime('now')),
+                UNIQUE (message_id, user_id, emoji),
+                FOREIGN KEY (message_id) REFERENCES messages(id)
+            )
+            """
+        ))
+    await conn.execute(text(
+        "CREATE INDEX IF NOT EXISTS ix_message_reactions_message_id ON message_reactions(message_id)"
+    ))
+
+
 async def add_message_reply_columns(conn):
     if not await column_exists(conn, "messages", "reply_to_id"):
         await conn.execute(text("ALTER TABLE messages ADD COLUMN reply_to_id INTEGER"))
@@ -320,6 +346,7 @@ MIGRATIONS = [
     ("202604_add_vault_tables", add_vault_tables),
     ("202605_add_hot_path_composite_indexes", add_hot_path_composite_indexes),
     ("202606_add_messages_edit_columns", add_messages_edit_columns),
+    ("202607_add_message_reactions_table", add_message_reactions_table),
 ]
 
 

@@ -19,6 +19,12 @@ class MessageCreate(MessageBase):
     reply_to_type: Optional[str] = None
     client_id: Optional[str] = None
 
+class ReactionGroup(BaseModel):
+    """Task 28: aggregated reaction users for one (message, emoji) pair."""
+    emoji: str
+    user_ids: List[str] = Field(default_factory=list)
+
+
 class MessageResponse(MessageBase):
     id: int
     user_id: str
@@ -39,7 +45,8 @@ class MessageResponse(MessageBase):
     reply_to_avatar_url: Optional[str] = None
     created_at: datetime
     edited_at: Optional[datetime] = None
-    
+    reactions: List[ReactionGroup] = Field(default_factory=list)
+
     class Config:
         from_attributes = True
 

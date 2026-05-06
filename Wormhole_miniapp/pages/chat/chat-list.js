@@ -905,9 +905,119 @@ exports.methods = {
       // long-press menu's 5-min window check.
       edited: !!message.edited_at || !!message.edited,
       editedAt: message.edited_at || message.editedAt || '',
+      // Task 28: reactions array; each entry is { emoji, user_ids: [...] }.
+      // hasMine is precomputed for the WXML so we can highlight pills the
+      // current user already reacted with without recomputing per render.
+      reactions: this.buildReactionPills(message.reactions || [], myId),
       reply,
       readStatus: '',
       showUnreadDivider: false
     };
+  },
+
+  // Task 28: shape the reactions payload from server into a UI-friendly
+  // form (pre-counted, pre-flagged for "is mine") so WXML stays dumb.
+  buildReactionPills(rawReactions, myId) {
+    if (!Array.isArray(rawReactions)) return [];
+    return rawReactions.map((g) => {
+      const userIds = Array.isArray(g.user_ids) ? g.user_ids.slice() : [];
+      return {
+        emoji: g.emoji,
+        user_ids: userIds,
+        count: userIds.length,
+        hasMine: !!myId && userIds.indexOf(myId) >= 0,
+      };
+    }).filter((g) => g.count > 0);
+  },
+
+  // Task 28: in-place reconciliation when a `reaction_add` / `reaction_remove`
+  // frame arrives over WS. Mirrors the optimistic-then-server-authoritative
+  // pattern used by edit/delete handlers.
+  applyReactionUpdate(payload) {
+    if (!payload) return;
+    const messageId = Number(payload.message_id);
+    const userId = payload.user_id;
+    const emoji = payload.emoji;
+    const event = payload.event;
+    if (!messageId || !userId || !emoji) return;
+    const messages = this.data.messages || [];
+    const idx = messages.findIndex((m) => Number(m.id) === messageId);
+    if (idx < 0) return;
+    const myId = this._currentUserId || wx.getStorageSync('openid');
+    const current = messages[idx].reactions || [];
+    const next = current.map((g) => ({
+      emoji: g.emoji,
+      user_ids: (g.user_ids || []).slice(),
+      count: g.count || 0,
+      hasMine: !!g.hasMine,
+    }));
+    let group = next.find((g) => g.emoji === emoji);
+    if (event === 'reaction_add') {
+      if (!group) {
+        group = { emoji, user_ids: [userId], count: 1, hasMine: userId === myId };
+        next.push(group);
+      } else if (group.user_ids.indexOf(userId) < 0) {
+        group.user_ids.push(userId);
+        group.count = group.user_ids.length;
+        if (userId === myId) group.hasMine = true;
+      }
+    } else if (event === 'reaction_remove') {
+      if (group) {
+        group.user_ids = group.user_ids.filter((u) => u !== userId);
+        group.count = group.user_ids.length;
+        if (userId === myId) group.hasMine = false;
+      }
+    }
+    const filtered = next.filter((g) => g.count > 0);
+    const updatedMessages = [...messages];
+    updatedMessages[idx] = { ...messages[idx], reactions: filtered };
+    this.setData({ messages: updatedMessages });
+    // Patch the raw cache so a reload picks up the latest state.
+    const raw = Array.isArray(this._rawMessages) ? this._rawMessages : [];
+    let mutated = false;
+    this._rawMessages = raw.map((m) => {
+      if (Number(m.id) !== messageId) return m;
+      mutated = true;
+      const rawReactions = Array.isArray(m.reactions) ? m.reactions.map((g) => ({
+        emoji: g.emoji,
+        user_ids: Array.isArray(g.user_ids) ? g.user_ids.slice() : [],
+      })) : [];
+      let rawGroup = rawReactions.find((g) => g.emoji === emoji);
+      if (event === 'reaction_add') {
+        if (!rawGroup) rawReactions.push({ emoji, user_ids: [userId] });
+        else if (rawGroup.user_ids.indexOf(userId) < 0) rawGroup.user_ids.push(userId);
+      } else if (event === 'reaction_remove' && rawGroup) {
+        rawGroup.user_ids = rawGroup.user_ids.filter((u) => u !== userId);
+      }
+      return { ...m, reactions: rawReactions.filter((g) => g.user_ids.length > 0) };
+    });
+    if (mutated) this.saveCachedMessages();
+  },
+
+  // Task 28: tapping an existing pill toggles the current user's reaction.
+  // The decision happens client-side (so we know whether to send add/remove);
+  // the server is still authoritative — its broadcast frame reconciles.
+  onToggleReaction(e) {
+    const dataset = (e && e.currentTarget && e.currentTarget.dataset) || {};
+    const messageId = Number(dataset.messageId || 0);
+    const emoji = dataset.emoji || '';
+    if (!messageId || !emoji) return;
+    const myId = this._currentUserId || wx.getStorageSync('openid');
+    if (!myId) {
+      wx.showToast({ title: '未登录', icon: 'none' });
+      return;
+    }
+    const messages = this.data.messages || [];
+    const msg = messages.find((m) => Number(m.id) === messageId);
+    if (!msg) return;
+    const group = (msg.reactions || []).find((g) => g.emoji === emoji);
+    const alreadyReacted = !!(group && group.hasMine);
+    if (typeof this.sendWsEvent !== 'function') return;
+    this.sendWsEvent({
+      event: alreadyReacted ? 'reaction_remove' : 'reaction_add',
+      user_id: myId,
+      message_id: messageId,
+      emoji,
+    });
   },
 };

@@ -155,6 +155,38 @@ async def chat_ws_endpoint(websocket: WebSocket, space_id: int):
                             continue
                     if edit_payload:
                         await chat_manager.broadcast(space_id, edit_payload)
+                elif event in ("reaction_add", "reaction_remove"):
+                    # Task 28: add/remove emoji reaction. Service rejects
+                    # unknown emojis or soft-deleted messages with
+                    # ChatSendError; we silently drop the frame on error
+                    # to mirror the existing WS conventions.
+                    msg_id_raw = data.get("message_id")
+                    try:
+                        msg_id = int(msg_id_raw)
+                    except (TypeError, ValueError):
+                        continue
+                    emoji_val = data.get("emoji", "") or ""
+                    chat_manager.register_user(space_id, websocket, user_id)
+                    async with AsyncSessionLocal() as session:
+                        try:
+                            if event == "reaction_add":
+                                rx_payload = await chat_service.add_reaction(
+                                    session,
+                                    message_id=msg_id,
+                                    user_id=user_id,
+                                    emoji=emoji_val,
+                                )
+                            else:
+                                rx_payload = await chat_service.remove_reaction(
+                                    session,
+                                    message_id=msg_id,
+                                    user_id=user_id,
+                                    emoji=emoji_val,
+                                )
+                        except chat_service.ChatSendError:
+                            continue
+                    if rx_payload and not rx_payload.get("noop"):
+                        await chat_manager.broadcast(space_id, rx_payload)
                 elif event == "read":
                     last_read_message_id = data.get("last_read_message_id")
                     try:

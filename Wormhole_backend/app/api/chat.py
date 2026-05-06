@@ -9,6 +9,7 @@ from models.user import UserAlias
 from schemas.chat import (
     ChatHistoryResponse,
     MessageResponse,
+    ReactionGroup,
     ReadUpdateRequest,
     ChatReadStatusResponse,
     ReaderStatus,
@@ -18,6 +19,7 @@ from schemas.chat import (
     ChatStickerListResponse,
     ChatStickerResponse,
 )
+from app.services import chat_service
 from app.ws import chat_manager
 from app.utils.media import (
     process_avatar_url,
@@ -116,6 +118,11 @@ async def get_chat_history(
     alias_rows = await db.execute(select(UserAlias).where(UserAlias.space_id == space_id))
     alias_map = {r.user_id: r for r in alias_rows.scalars().all()}
 
+    # Task 28: batch-fetch reactions for the visible window in one round-trip.
+    reactions_by_msg = await chat_service.get_reactions_for_messages(
+        db, message_ids=[m.id for m in messages]
+    )
+
     resp_msgs = []
     for m in messages:
         msg_type = (m.message_type or "text").lower()
@@ -146,6 +153,10 @@ async def get_chat_history(
                 reply_to_avatar_url=process_avatar_url(alias_map.get(m.reply_to_user_id).avatar_url if alias_map.get(m.reply_to_user_id) else None),
                 created_at=m.created_at,
                 edited_at=m.edited_at,
+                reactions=[
+                    ReactionGroup(emoji=g["emoji"], user_ids=g["user_ids"])
+                    for g in reactions_by_msg.get(m.id, [])
+                ],
             )
         )
 

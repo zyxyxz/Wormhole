@@ -77,6 +77,12 @@
               <text wx:if="{{audioPlayingId === item.audioPlayId}}" class="playing">播放中</text>
             </view>
           </block>
+          <view wx:if="{{item.reactions && item.reactions.length}}" class="reactions-row">
+            <view wx:for="{{item.reactions}}" wx:for-item="r" wx:key="emoji" class="reaction-pill {{r.hasMine ? 'is-mine' : ''}}" catchtap="onToggleReaction" data-message-id="{{item.id}}" data-emoji="{{r.emoji}}">
+              <text>{{r.emoji}}</text>
+              <text class="reaction-count">{{r.count}}</text>
+            </view>
+          </view>
           <view class="message-meta">
             <view class="message-time">{{item.displayTime}}</view>
             <view wx:if="{{item.edited}}" class="edited-tag">已编辑</view>

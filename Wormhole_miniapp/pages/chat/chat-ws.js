@@ -169,6 +169,14 @@ exports.methods = {
       }
       return;
     }
+    if (event === 'reaction_add' || event === 'reaction_remove') {
+      // Task 28: server-authoritative reaction toggle. applyReactionUpdate
+      // patches both the on-screen messages array and the raw cache.
+      if (typeof this.applyReactionUpdate === 'function') {
+        this.applyReactionUpdate(message);
+      }
+      return;
+    }
   },
 
   sendWsEvent(payload, fallback) {

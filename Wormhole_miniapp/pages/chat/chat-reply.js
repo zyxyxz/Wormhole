@@ -5,6 +5,11 @@ const { BASE_URL } = require('../../utils/config.js');
 // the server is authoritative; out-of-window edits are rejected silently.
 const EDIT_WINDOW_MS = 5 * 60 * 1000;
 
+// Task 28: quick-reaction bar surfaced in the long-press action sheet.
+// The full set on the server is wider; these six are the most common
+// "tap, don't search" reactions (mirrors WeChat / Slack quick rows).
+const QUICK_REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🔥'];
+
 function canEditMessage(dataset, myId) {
   if (!dataset || dataset.userId !== myId) return false;
   const messageType = String(dataset.messageType || 'text').toLowerCase();
@@ -24,7 +29,13 @@ exports.methods = {
     const messageType = String(dataset.messageType || 'text').toLowerCase();
     const canCollectSticker = ['sticker', 'image'].includes(messageType) && !!String(dataset.mediaUrl || '').trim();
     const canEdit = canEditMessage(dataset, myId);
-    const actions = ['回复', '复制'];
+    const messageId = Number(dataset.id || 0);
+    // Task 28: 'system' messages can't carry reactions; everything else
+    // (including pending bubbles with negative ids) is excluded too.
+    const canReact = messageType !== 'system' && messageId > 0;
+    const actions = [];
+    if (canReact) actions.push('回应');
+    actions.push('回复', '复制');
     if (canEdit) actions.push('编辑');
     if (canCollectSticker) actions.push('添加到表情包');
     if (canDelete) actions.push('撤回并删除');
@@ -32,6 +43,10 @@ exports.methods = {
       itemList: actions,
       success: (res) => {
         const action = actions[res.tapIndex];
+        if (action === '回应') {
+          this.showQuickReactionBar(messageId);
+          return;
+        }
         if (action === '回复') {
           this.setReplyFromDataset(dataset);
           return;
@@ -64,6 +79,41 @@ exports.methods = {
           this.confirmDeleteMessage(dataset);
         }
       }
+    });
+  },
+
+  // Task 28: surface a 6-emoji picker via wx.showActionSheet. We avoid a
+  // custom popover here because the WX action sheet is keyboard-aware
+  // and respects safe-area insets out-of-the-box. Tapping a row sends
+  // a `reaction_add` frame; the server broadcasts back so the bubble
+  // updates uniformly across tabs.
+  showQuickReactionBar(messageId) {
+    if (!messageId || messageId <= 0) return;
+    const myId = this._currentUserId || wx.getStorageSync('openid');
+    if (!myId) {
+      wx.showToast({ title: '未登录', icon: 'none' });
+      return;
+    }
+    const emojis = QUICK_REACTION_EMOJIS.slice();
+    wx.showActionSheet({
+      itemList: emojis,
+      success: (res) => {
+        const emoji = emojis[res.tapIndex];
+        if (!emoji || typeof this.sendWsEvent !== 'function') return;
+        // Toggle: if the user already reacted with this emoji, remove it;
+        // otherwise add. The pill tap path goes through onToggleReaction
+        // for the same toggle semantics.
+        const messages = this.data.messages || [];
+        const msg = messages.find((m) => Number(m.id) === Number(messageId));
+        const group = msg && (msg.reactions || []).find((g) => g.emoji === emoji);
+        const alreadyReacted = !!(group && group.hasMine);
+        this.sendWsEvent({
+          event: alreadyReacted ? 'reaction_remove' : 'reaction_add',
+          user_id: myId,
+          message_id: messageId,
+          emoji,
+        });
+      },
     });
   },
 

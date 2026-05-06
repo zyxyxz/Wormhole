@@ -34,6 +34,11 @@ ALLOWED_MESSAGE_TYPES = {"text", "image", "video", "audio", "live", "system", "s
 # fixes, short enough that history readers see a stable transcript.
 EDIT_WINDOW_MINUTES = 5
 
+# Task 28: curated reaction emojis. Restricting to a known set keeps the UI
+# tidy (server can render counts predictably) and rejects junk payloads
+# without per-codepoint validation.
+ALLOWED_REACTION_EMOJIS = {"👍", "❤️", "😂", "😮", "😢", "🔥", "🎉", "👏", "🙏", "😡"}
+
 
 class ChatSendError(Exception):
     """Validation failure when preparing a chat message.
@@ -311,3 +316,148 @@ async def edit_message(
         "edited_at": msg.edited_at.isoformat() if msg.edited_at else None,
     }
     return msg, payload
+
+
+# --- Task 28: emoji reactions ----------------------------------------------
+# Reactions live in their own table (`message_reactions`). The unique
+# constraint on (message_id, user_id, emoji) makes duplicate adds a no-op
+# — we detect the duplicate before committing so we can return a quiet
+# `noop=True` payload and avoid spamming WS subscribers.
+
+
+async def add_reaction(
+    db: AsyncSession,
+    *,
+    message_id: int,
+    user_id: str,
+    emoji: str,
+) -> dict:
+    """Add (or no-op) an emoji reaction. Returns the broadcast payload.
+
+    Raises ``ChatSendError`` for unknown emoji or missing/deleted message.
+    Caller is responsible for dispatching the payload via ``chat_manager.broadcast``.
+    """
+    if emoji not in ALLOWED_REACTION_EMOJIS:
+        raise ChatSendError(400, "不支持的 emoji")
+
+    msg = (
+        await db.execute(
+            select(Message).where(
+                Message.id == message_id,
+                Message.deleted_at.is_(None),
+            )
+        )
+    ).scalar_one_or_none()
+    if not msg:
+        raise ChatSendError(404, "消息不存在")
+
+    # Local import keeps the model registered with Base.metadata only when
+    # this code path runs (mirrors the rest of chat_service which imports
+    # auxiliary models lazily).
+    from models.message_reaction import MessageReaction
+
+    existing = (
+        await db.execute(
+            select(MessageReaction).where(
+                MessageReaction.message_id == message_id,
+                MessageReaction.user_id == user_id,
+                MessageReaction.emoji == emoji,
+            )
+        )
+    ).scalar_one_or_none()
+    if existing:
+        return {
+            "event": "reaction_add",
+            "message_id": message_id,
+            "user_id": user_id,
+            "emoji": emoji,
+            "space_id": msg.space_id,
+            "noop": True,
+        }
+
+    reaction = MessageReaction(message_id=message_id, user_id=user_id, emoji=emoji)
+    db.add(reaction)
+    await db.commit()
+
+    return {
+        "event": "reaction_add",
+        "message_id": message_id,
+        "user_id": user_id,
+        "emoji": emoji,
+        "space_id": msg.space_id,
+    }
+
+
+async def remove_reaction(
+    db: AsyncSession,
+    *,
+    message_id: int,
+    user_id: str,
+    emoji: str,
+) -> dict:
+    """Remove an emoji reaction. Missing reaction is a no-op (still broadcast)."""
+    msg = (
+        await db.execute(
+            select(Message).where(
+                Message.id == message_id,
+                Message.deleted_at.is_(None),
+            )
+        )
+    ).scalar_one_or_none()
+    if not msg:
+        raise ChatSendError(404, "消息不存在")
+
+    from models.message_reaction import MessageReaction
+
+    existing = (
+        await db.execute(
+            select(MessageReaction).where(
+                MessageReaction.message_id == message_id,
+                MessageReaction.user_id == user_id,
+                MessageReaction.emoji == emoji,
+            )
+        )
+    ).scalar_one_or_none()
+    if existing:
+        await db.delete(existing)
+        await db.commit()
+
+    return {
+        "event": "reaction_remove",
+        "message_id": message_id,
+        "user_id": user_id,
+        "emoji": emoji,
+        "space_id": msg.space_id,
+    }
+
+
+async def get_reactions_for_messages(
+    db: AsyncSession,
+    *,
+    message_ids: list[int],
+) -> dict[int, list[dict]]:
+    """Batch-fetch reactions for a list of message ids.
+
+    Returns ``{message_id: [{emoji, user_ids: [...]}, ...]}``. Used by the
+    chat history endpoint to attach reactions to each message in a single
+    round-trip.
+    """
+    if not message_ids:
+        return {}
+    from models.message_reaction import MessageReaction
+
+    rows = (
+        await db.execute(
+            select(MessageReaction).where(MessageReaction.message_id.in_(message_ids))
+        )
+    ).scalars().all()
+
+    result: dict[int, dict[str, list[str]]] = {}
+    for r in rows:
+        per_msg = result.setdefault(r.message_id, {})
+        per_msg.setdefault(r.emoji, []).append(r.user_id)
+
+    return {
+        msg_id: [{"emoji": emoji, "user_ids": users} for emoji, users in emojis.items()]
+        for msg_id, emojis in result.items()
+    }
