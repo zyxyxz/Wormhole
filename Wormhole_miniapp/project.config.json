@@ -7,10 +7,6 @@
     "include": [
       {
         "type": "folder",
-        "value": "pages/discover/"
-      },
-      {
-        "type": "folder",
         "value": "pages/explore/"
       },
       {
