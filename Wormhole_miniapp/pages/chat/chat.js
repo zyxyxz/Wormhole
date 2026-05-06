@@ -152,6 +152,10 @@ Page({
     this._pageActive = true;
     this._wsKeepAlive = true;
     this._wsRetryCount = 0;
+    // Task 10: WS-only sends. If the socket isn't ready when the user hits send,
+    // payloads queue here in-memory and flush on the next onOpen. Task 26 will
+    // promote this into a persistent outbox.
+    this._pendingSends = [];
     this.initWebSocket();
     // 网络状态监听：离线 → 在线 时立刻重连
     this._netListener = (res) => {
@@ -305,6 +309,7 @@ Page({
       this.startWsHeartbeat();
       this.sendPresence();
       this.syncLatestMessages();
+      this.flushPendingSends();
     });
 
     ws.onMessage((res) => {
@@ -1584,78 +1589,63 @@ Page({
     this.addPendingMessage(message);
     const wsPayload = { ...message };
     delete wsPayload.space_id;
-    if (this.ws) {
+    // Task 10: WS-only sends. If the socket isn't ready, queue and flush on
+    // next onOpen. Optimistic UI cleanup happens immediately either way so
+    // the input doesn't feel stuck while we wait for the socket.
+    this.afterSendUiCleanup(message);
+    if (this.ws && this._wsReady) {
       this.ws.send({
         data: JSON.stringify(wsPayload),
-        success: () => {
-          if (message.message_type === 'text') {
-            this.setData({ inputMessage: '' });
-          }
-          if (this.data.replyingTo) {
-            this.setData({ replyingTo: null }, () => {
-              this.updateBottomPadding({ forceMeasure: true });
-            });
-          }
-          this.sendTyping(false);
-          if (this.data.emojiPanelVisible) {
-            this.setData({ emojiPanelVisible: false });
-            this.updateBottomPadding();
-          }
-          if (this.data.plusPanelVisible) {
-            this.setData({ plusPanelVisible: false });
-            this.updateBottomPadding();
-          }
-        },
         fail: () => {
-          this.sendViaHttp(message, clientId);
+          this.queuePendingSend(wsPayload);
         }
       });
     } else {
-      this.sendViaHttp(message, clientId);
+      this.queuePendingSend(wsPayload);
     }
   },
 
-  sendViaHttp(message, clientId) {
-    wx.request({
-      url: `${BASE_URL}/api/chat/send`,
-      method: 'POST',
-      data: message,
-      success: (res) => {
-        if (res.statusCode !== 200 || res.data?.success === false) {
-          if (clientId) {
-            this.removePendingByClientId(clientId);
+  afterSendUiCleanup(message) {
+    if (message.message_type === 'text') {
+      this.setData({ inputMessage: '' });
+    }
+    if (this.data.replyingTo) {
+      this.setData({ replyingTo: null }, () => {
+        this.updateBottomPadding({ forceMeasure: true });
+      });
+    }
+    this.sendTyping(false);
+    if (this.data.emojiPanelVisible) {
+      this.setData({ emojiPanelVisible: false });
+      this.updateBottomPadding();
+    }
+    if (this.data.plusPanelVisible) {
+      this.setData({ plusPanelVisible: false });
+      this.updateBottomPadding();
+    }
+  },
+
+  queuePendingSend(wsPayload) {
+    if (!this._pendingSends) this._pendingSends = [];
+    this._pendingSends.push(wsPayload);
+  },
+
+  flushPendingSends() {
+    if (!this._pendingSends || !this._pendingSends.length) return;
+    if (!this.ws || !this._wsReady) return;
+    const pending = this._pendingSends.splice(0);
+    for (const payload of pending) {
+      try {
+        this.ws.send({
+          data: JSON.stringify(payload),
+          fail: () => {
+            this._pendingSends.push(payload);
           }
-          wx.showToast({ title: res.data?.detail || '发送失败', icon: 'none' });
-          return;
-        }
-        if (message.message_type === 'text') {
-          this.setData({ inputMessage: '' });
-        }
-        if (this.data.replyingTo) {
-          this.setData({ replyingTo: null }, () => {
-            this.updateBottomPadding({ forceMeasure: true });
-          });
-        }
-        this.sendTyping(false);
-        if (this.data.emojiPanelVisible) {
-          this.setData({ emojiPanelVisible: false });
-          this.updateBottomPadding();
-        }
-        if (this.data.plusPanelVisible) {
-          this.setData({ plusPanelVisible: false });
-          this.updateBottomPadding();
-        }
-        if (clientId) {
-          this.confirmPendingSent(clientId);
-        }
-      },
-      fail: () => {
-        if (clientId) {
-          this.removePendingByClientId(clientId);
-        }
-        wx.showToast({ title: '发送失败', icon: 'none' });
+        });
+      } catch (e) {
+        this._pendingSends.push(payload);
       }
-    });
+    }
   },
 
   createClientId() {
@@ -2029,6 +2019,7 @@ Page({
   onUnload() {
     this.sendTyping(false);
     this._wsKeepAlive = false;
+    this._pendingSends = [];
     this.cleanupWebSocket({ allowReconnect: false });
     if (this._netListener) {
       if (wx.offNetworkStatusChange) {

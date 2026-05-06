@@ -17,6 +17,10 @@
 - 对象存储：阿里云OSS
 - API文档：Swagger UI
 
+## 聊天消息接口
+
+聊天消息发送统一走 WebSocket `/ws/chat/{space_id}`。HTTP `POST /api/chat/send` 自 Task 10 起返回 410 Gone（在 OpenAPI 中保留为 `deprecated`），客户端必须改用 WS。详见根目录 README 的「WebSocket 协议」一节。
+
 ## 快速开始
 
 1. 克隆项目 

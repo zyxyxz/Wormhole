@@ -105,9 +105,9 @@
   - `GET /api/space/info?space_id`、`GET /api/space/members?space_id`、`GET /api/space/blocks?space_id`
   - `POST /api/space/remove-member|block-member|unblock-member|delete`
 - 聊天
-  - `GET /api/chat/history?space_id`、`POST /api/chat/send`
-    - 请求体支持 `message_type`（text/image/audio）、`media_url`、`media_duration`
-  - `WS /ws/chat/{space_id}`
+  - `GET /api/chat/history?space_id`
+  - `WS /ws/chat/{space_id}` —— 消息发送统一走 WS（Task 10 起，HTTP `POST /api/chat/send` 返回 410 Gone）
+  - 详见下文 [WebSocket 协议](#websocket-协议)
 - 动态（feed）
   - `POST /api/feed/create`（space_id, user_id, content, media_type, media_urls[]）
   - `GET /api/feed/list?space_id&user_id`（user_id 可选，返回 liked_by_me 与点赞头像列表）
@@ -122,6 +122,43 @@
 - 用户/认证
   - `POST /api/auth/login`（小程序 code 换 openid；开发模式返回 dev_openid）
   - `GET /api/user/alias`、`POST /api/user/set-alias`（alias + avatar_url 可选）
+
+## WebSocket 协议
+
+聊天消息发送统一走 WebSocket `/ws/chat/{space_id}`，HTTP `POST /api/chat/send` 自 Task 10 起返回 410 Gone（保留在 OpenAPI 中标记 `deprecated`，不再处理业务）。
+
+**鉴权**：URL query `?user_id=<openid>`（CDN 会剥离 WS 自定义 header，因此走 query；HTTP 路由仍然要求 Bearer/Header 鉴权，参见上文“安全策略”）。
+
+**客户端发送格式**（`event` 字段缺省/为空时视为聊天消息）：
+```json
+{
+  "message_type": "text",
+  "content": "hello",
+  "media_url": null,
+  "media_duration": null,
+  "reply_to_id": null,
+  "reply_to_user_id": null,
+  "reply_to_content": null,
+  "reply_to_type": null,
+  "live_cover_url": null,
+  "live_video_url": null,
+  "client_id": "uuid"
+}
+```
+
+服务端持久化后会向房间广播一条带 `id` 的完整 `MessageResponse`，客户端通过 `client_id` 把乐观 UI 的“pending”消息升级为已确认状态。
+
+**服务端事件**（`event` 字段非空时为系统事件）：
+- `presence`：`{event: "presence", online_user_ids, online_count}` —— 在线列表与人数（连接 / 断开时各推一次）
+- `typing`：`{event: "typing", user_id, typing}` —— 正在输入指示
+- `read_update`：`{event: "read_update", user_id, last_read_message_id}` —— 已读位点变化
+- `message_deleted`：`{event: "message_deleted", message_id}` —— 消息被作者或房主删除
+- `server_ping`：`{event: "server_ping", ts}` —— 服务端心跳，客户端忽略即可
+- `pong`：客户端 `ping` 后的回包
+
+**心跳与超时**：服务端每 60 秒推一次 `server_ping`；客户端不活跃超过 180 秒会被服务端 `close(4408)`（CDN 900s 安全阈值内）。客户端断开后按指数退避（1s, 2s, 4s … 最多 30s）重连，并监听网络状态恢复时立刻重连。
+
+**离线发送**：当 WS 未就绪时，客户端会把消息排入内存队列，下次 `onOpen` 时 flush。Task 26 将把该队列升级为跨页面重启持久化的 outbox。
 
 ## 许可
 本项目未附加开源许可协议，默认保留所有权利。如需开放许可或选择具体 License，可在 README 中更新并添加 LICENSE 文件。

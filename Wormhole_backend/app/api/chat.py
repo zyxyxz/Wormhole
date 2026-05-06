@@ -7,7 +7,6 @@ from models.chat_sticker import ChatSticker
 from models.space import Space, SpaceMember
 from models.user import UserAlias
 from schemas.chat import (
-    MessageCreate,
     ChatHistoryResponse,
     MessageResponse,
     ReadUpdateRequest,
@@ -28,7 +27,6 @@ from app.utils.media import (
 )
 from app.utils.operation_log import add_operation_log
 from app.security import verify_request_user, require_space_member
-from app.services import chat_service
 from datetime import datetime
 
 router = APIRouter()
@@ -157,37 +155,18 @@ async def get_chat_history(
         next_before_id=resp_msgs[0].id if has_more and resp_msgs else None
     )
 
-@router.post("/send")
-async def send_message(
-    message: MessageCreate,
-    request: Request,
-    db: AsyncSession = Depends(get_db)
-):
-    actor_user_id = verify_request_user(request, message.user_id)
-    await require_space_member(db, message.space_id, actor_user_id)
-    try:
-        _msg, payload = await chat_service.send_message(
-            db,
-            space_id=message.space_id,
-            user_id=message.user_id,
-            content=message.content,
-            message_type=message.message_type,
-            media_url=message.media_url,
-            media_duration=message.media_duration,
-            reply_to_id=message.reply_to_id,
-            reply_to_user_id=message.reply_to_user_id,
-            reply_to_content=message.reply_to_content,
-            reply_to_type=message.reply_to_type,
-            live_cover_url=message.live_cover_url,
-            live_video_url=message.live_video_url,
-            client_id=message.client_id,
-            ip=(request.client.host if request.client else None),
-            user_agent=request.headers.get("user-agent"),
-        )
-    except chat_service.ChatSendError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
-    await chat_manager.broadcast(message.space_id, payload)
-    return {"success": True, "message": "发送成功"}
+@router.post("/send", deprecated=True)
+async def send_message_deprecated():
+    """Deprecated. Use WebSocket ``/ws/chat/{space_id}`` for sending messages.
+
+    Retired in Task 10 in favor of WS-only sends. The route stays in OpenAPI as
+    ``deprecated=True`` for at least one release cycle so clients see the 410
+    rather than a silent 404.
+    """
+    raise HTTPException(
+        status_code=410,
+        detail="Use WebSocket /ws/chat/{space_id} for chat sends. HTTP /api/chat/send is retired.",
+    )
 
 
 @router.get("/readers", response_model=ChatReadStatusResponse)
