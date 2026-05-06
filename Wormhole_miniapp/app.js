@@ -193,6 +193,7 @@ App({
     themeTabBorderStyle: THEME_PRESETS.light.tabBorderStyle
   },
 
+  // DEPRECATED: will be removed when Task 22 lands in-memory openid cache
   parseUserIdFromUrl(url = '') {
     const text = String(url || '');
     if (!text) return '';
@@ -205,6 +206,7 @@ App({
     }
   },
 
+  // DEPRECATED: will be removed when Task 22 lands in-memory openid cache
   pickUserIdFromPayload(payload) {
     if (!payload) return '';
     if (typeof payload === 'string') {
@@ -243,6 +245,8 @@ App({
     return `${base}${sep}access_token=${encodeURIComponent(token)}${hash}`;
   },
 
+  // WS-only: WeChat MiniProgram WebSocket cannot reliably attach custom headers
+  // (CDN strips them). HTTP requests must NOT use this — auth goes via headers.
   appendUserIdToUrl(url = '', userId = '') {
     const source = String(url || '');
     const uid = String(userId || '').trim();
@@ -264,7 +268,6 @@ App({
     if (!requestOptions) return '';
     return this.pickUserIdFromPayload(requestOptions.data)
       || this.pickUserIdFromPayload(requestOptions.formData)
-      || this.parseUserIdFromUrl(requestOptions.url || '')
       || '';
   },
 
@@ -279,7 +282,6 @@ App({
     if (!openid && requestOptions) {
       openid = this.pickUserIdFromPayload(requestOptions.data)
         || this.pickUserIdFromPayload(requestOptions.formData)
-        || this.parseUserIdFromUrl(requestOptions.url)
         || '';
     }
     if (accessToken) {

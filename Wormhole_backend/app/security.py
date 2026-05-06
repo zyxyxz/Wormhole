@@ -135,7 +135,15 @@ def _extract_query_user_id(request: Request) -> str | None:
     return None
 
 
-def _extract_auth_token(request: Request) -> str | None:
+def _extract_auth_token(request: Request, *, allow_query: bool = False) -> str | None:
+    """Extract a bearer token from the request.
+
+    By default ONLY headers (`Authorization` / `X-Auth-Token`) are consulted.
+    The query-string fallback (`?token=...` / `?access_token=...`) is gated
+    behind `allow_query=True` and is intended for the WebSocket handshake
+    path only — query params leak into proxy/CDN/server access logs and are
+    easy to forge, so they must not assert a bearer credential on HTTP.
+    """
     if not request:
         return None
     headers = getattr(request, "headers", None)
@@ -157,7 +165,7 @@ def _extract_auth_token(request: Request) -> str | None:
             token = raw
             if token:
                 break
-    if not token:
+    if not token and allow_query:
         query = getattr(request, "query_params", None)
         if query:
             token = query.get("token") or query.get("access_token")
@@ -218,7 +226,9 @@ def get_ws_user_id(request: Request) -> str | None:
     them), so the query fallback is the only universally working channel
     for WS authentication. This MUST NOT be used for HTTP routes.
     """
-    token_user_id = _decode_token_user_id(_extract_auth_token(request), strict=False, request=request)
+    token_user_id = _decode_token_user_id(
+        _extract_auth_token(request, allow_query=True), strict=False, request=request
+    )
     declared_user_id = _extract_declared_user_id(request)
     query_user_id = _extract_query_user_id(request)
     if token_user_id and declared_user_id and token_user_id != declared_user_id:

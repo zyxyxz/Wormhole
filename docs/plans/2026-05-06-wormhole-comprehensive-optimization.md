@@ -110,7 +110,7 @@ async def test_query_user_id_no_longer_authenticates(client):
 **Step 2: 运行预期失败**
 
 **Step 3: 实现**
-- `_extract_query_user_id` 仅 WebSocket 端点使用（小程序 WS 无法发自定义 header），HTTP 路径完全忽略。把 `verify_request_user` 与 `get_header_user_id` 拆为 `verify_http_user` / `verify_ws_user`，前者不再读 query。
+- `_extract_query_user_id` 仅 WebSocket 端点使用（小程序 WS 无法发自定义 header），HTTP 路径完全忽略。识别函数拆分为 `get_http_user_id`（HTTP，不读 query）/ `get_ws_user_id`（WS，保留 query 回退）；`verify_request_user` 行为上是 HTTP-only（不读 query），保留原名未改。
 - 前端 `patchNetworkSecurity` 移除 `wx.request` / `wx.uploadFile` 的 `appendUserIdToUrl`；保留 `wx.connectSocket` 的 query 注入。
 
 **Step 4: 全量回归**

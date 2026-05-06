@@ -94,3 +94,26 @@ def test_verify_request_user_accepts_header_identity():
 def test_verify_request_user_optional_returns_none_without_identity():
     req = _make_request(query={"user_id": "oeEEE"})
     assert security.verify_request_user(req, required=False) is None
+
+
+def test_http_route_via_real_request_rejects_query_user_id():
+    """Sanity: a real Starlette Request (case-insensitive Headers, real QueryParams) behaves the same."""
+    from fastapi import FastAPI, Request
+    from fastapi.testclient import TestClient
+
+    app = FastAPI()
+
+    @app.get("/probe")
+    def probe(request: Request):
+        return {"identity": security.get_http_user_id(request)}
+
+    client = TestClient(app)
+    # Query-only: must NOT authenticate
+    r = client.get("/probe", params={"user_id": "oeQUERY"})
+    assert r.json()["identity"] is None
+    # Header: must authenticate
+    r = client.get("/probe", headers={"X-User-Id": "oeHEADER"})
+    assert r.json()["identity"] == "oeHEADER"
+    # Both header AND query: header wins, query is ignored
+    r = client.get("/probe", params={"user_id": "oeQUERY"}, headers={"X-User-Id": "oeHEADER"})
+    assert r.json()["identity"] == "oeHEADER"
