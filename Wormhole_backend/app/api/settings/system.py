@@ -54,7 +54,17 @@ def verify_admin(user_id: str, room_code: str):
 
 @router.get("/system")
 async def public_system_flags(db: AsyncSession = Depends(get_db)):
-    return {"review_mode": await _get_review_mode(db)}
+    from app.config import settings
+    return {
+        "review_mode": await _get_review_mode(db),
+        # Task 33: surface subscribe-message template IDs so the client can
+        # call wx.requestSubscribeMessage on first send. Empty strings mean
+        # ops hasn't configured templates and the client should no-op.
+        "subscribe_templates": {
+            "chat_message": settings.NOTIFY_TEMPLATE_CHAT,
+            "feed_post": settings.NOTIFY_TEMPLATE_FEED_POST,
+        },
+    }
 
 
 @router.post("/admin/system/review-mode")

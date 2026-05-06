@@ -197,6 +197,17 @@ Page({
           return;
         }
         wx.showToast({ title: '已发布' });
+        // Task 33: ask user to subscribe to feed-post notifications once
+        // per device after the first successful publish. Empty templateId
+        // is handled by subscribe.requestOnce as a no-op.
+        try {
+          const subscribe = require('../../utils/subscribe.js');
+          const app = getApp();
+          const tmpl = app && app.globalData && app.globalData.subscribeTemplates;
+          if (tmpl && tmpl.feed_post) {
+            subscribe.requestOnce('feed_post_first', tmpl.feed_post);
+          }
+        } catch (e) {}
         setTimeout(() => wx.navigateBack(), 300);
       },
       fail: () => {

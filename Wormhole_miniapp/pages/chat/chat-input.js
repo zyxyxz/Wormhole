@@ -526,6 +526,22 @@ exports.methods = {
     }
     // If WS not ready, the entry stays as 'sending' and flushPendingSends
     // will pick it up on the next onOpen.
+    // Task 33: trigger subscribe-message ask once per device after the
+    // first send in this session. Defer via setTimeout so the UI stays
+    // responsive — the modal must never block enqueue/UI cleanup.
+    if (!this._hasSentInSession) {
+      this._hasSentInSession = true;
+      setTimeout(() => {
+        try {
+          const subscribe = require('../../utils/subscribe.js');
+          const app = getApp();
+          const tmpl = app && app.globalData && app.globalData.subscribeTemplates;
+          if (tmpl && tmpl.chat_message) {
+            subscribe.requestOnce('chat_message_first', tmpl.chat_message);
+          }
+        } catch (e) {}
+      }, 800);
+    }
   },
 
   afterSendUiCleanup(message) {

@@ -32,7 +32,12 @@ App(Object.assign({
     themeTabBg: THEME_PRESETS.light.tabBg,
     themeTabText: THEME_PRESETS.light.tabText,
     themeTabSelected: THEME_PRESETS.light.tabSelected,
-    themeTabBorderStyle: THEME_PRESETS.light.tabBorderStyle
+    themeTabBorderStyle: THEME_PRESETS.light.tabBorderStyle,
+    // Task 33: WeChat subscribe-message template IDs, populated by
+    // loadSystemFlags() from /api/settings/system. Initialized empty so
+    // first-send hooks can read it before the request returns without
+    // crashing.
+    subscribeTemplates: {}
   },
 
   onLaunch() {

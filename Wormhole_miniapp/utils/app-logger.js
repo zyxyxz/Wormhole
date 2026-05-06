@@ -85,6 +85,14 @@ exports.methods = {
       success: (res) => {
         const review = !!res.data?.review_mode;
         this.applyReviewMode(review);
+        // Task 33: cache subscribe-message template IDs so first-send
+        // hooks can call wx.requestSubscribeMessage without an extra
+        // round trip.
+        const tmpl = (res.data && res.data.subscribe_templates) || {};
+        this.globalData.subscribeTemplates = {
+          chat_message: tmpl.chat_message || '',
+          feed_post: tmpl.feed_post || '',
+        };
       },
       fail: () => {
         const cached = !!wx.getStorageSync('reviewMode');

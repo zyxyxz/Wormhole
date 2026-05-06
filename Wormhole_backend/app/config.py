@@ -35,6 +35,10 @@ class Settings(BaseSettings):
     AUTH_ALLOW_DEV_LOGIN_FALLBACK: bool = False
     ALLOWED_ORIGINS: str = "https://servicewechat.com"  # 逗号分隔
     VAULT_MAX_FILE_BYTES: int = 10 * 1024 * 1024
+    # Task 33: WeChat subscribe-message template IDs. Empty by default so the
+    # client treats the feature as disabled until ops fills in real IDs.
+    NOTIFY_TEMPLATE_CHAT: str = ""
+    NOTIFY_TEMPLATE_FEED_POST: str = ""
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
