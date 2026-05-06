@@ -358,6 +358,31 @@ async def add_comments_parent_id(conn):
     ))
 
 
+async def add_chat_reads_table(conn):
+    """Task 32: per-device chat read tracking.
+
+    Composite PK ``(space_id, user_id, device_id)`` is the natural identity:
+    one row per device session, so unread counts can take MIN across a
+    user's devices instead of collapsing to a single per-user pointer.
+    """
+    if not await table_exists(conn, "chat_reads"):
+        await conn.execute(text(
+            """
+            CREATE TABLE chat_reads (
+                space_id INTEGER NOT NULL,
+                user_id TEXT NOT NULL,
+                device_id TEXT NOT NULL,
+                last_read_message_id INTEGER DEFAULT 0,
+                last_read_at DATETIME,
+                PRIMARY KEY (space_id, user_id, device_id)
+            )
+            """
+        ))
+    await conn.execute(text(
+        "CREATE INDEX IF NOT EXISTS ix_chat_reads_space_user ON chat_reads(space_id, user_id)"
+    ))
+
+
 async def add_vault_tables(conn):
     if not await table_exists(conn, "vault_spaces"):
         await conn.execute(text(
@@ -430,6 +455,7 @@ MIGRATIONS = [
     ("202608_add_messages_mentions_column", add_messages_mentions_column),
     ("202609_add_messages_fts5", add_messages_fts5),
     ("202610_add_comments_parent_id", add_comments_parent_id),
+    ("202611_add_chat_reads_table", add_chat_reads_table),
 ]
 
 

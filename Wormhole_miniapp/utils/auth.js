@@ -9,6 +9,27 @@ const { BASE_URL } = require('./config.js');
 
 let _openid = '';
 let _accessToken = '';
+let _deviceId = '';
+
+// Task 32: per-device chat read tracking. The id is opaque to the server —
+// it's only used to differentiate a user's devices when computing unread
+// (server takes MIN(last_read) across devices). Generated once and persisted
+// in storage so the same device keeps its identity across cold launches.
+function getOrCreateDeviceId() {
+  if (_deviceId) return _deviceId;
+  try {
+    const cached = wx.getStorageSync('device_id');
+    if (cached) {
+      _deviceId = cached;
+      return _deviceId;
+    }
+  } catch (e) {}
+  const rand = Math.random().toString(36).slice(2, 10);
+  const ts = Date.now().toString(36);
+  _deviceId = `dev_${rand}_${ts}`;
+  try { wx.setStorageSync('device_id', _deviceId); } catch (e) {}
+  return _deviceId;
+}
 
 function _readOpenIdFromStorage() {
   try {
@@ -236,3 +257,4 @@ exports.getOpenIdCached = getOpenIdCached;
 exports.getAccessTokenCached = getAccessTokenCached;
 exports.setAuthCache = setAuthCache;
 exports.clearAuthCache = clearAuthCache;
+exports.getOrCreateDeviceId = getOrCreateDeviceId;

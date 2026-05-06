@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from app.database import get_db
 from models.chat import Message
+from models.chat_read import ChatRead
 from models.chat_sticker import ChatSticker
 from models.space import Space, SpaceMember
 from models.user import UserAlias
@@ -224,22 +225,59 @@ async def update_chat_read_state(payload: ReadUpdateRequest, request: Request, d
         last_id = int(payload.last_read_message_id or 0)
     except Exception:
         last_id = 0
+    device_id = (payload.device_id or "").strip()
+    now = datetime.utcnow()
+    # Task 32: when a device_id is provided, upsert per-device ChatRead and
+    # rebase the legacy SpaceMember pointer to MAX across this user's
+    # devices. Otherwise stay on the pre-Task-32 SpaceMember-only path so
+    # older clients continue to work unchanged.
+    if device_id:
+        existing = (await db.execute(
+            select(ChatRead).where(
+                ChatRead.space_id == payload.space_id,
+                ChatRead.user_id == payload.user_id,
+                ChatRead.device_id == device_id,
+            )
+        )).scalar_one_or_none()
+        if not existing:
+            db.add(ChatRead(
+                space_id=payload.space_id,
+                user_id=payload.user_id,
+                device_id=device_id,
+                last_read_message_id=last_id,
+                last_read_at=now,
+            ))
+        else:
+            if existing.last_read_message_id is None or last_id > existing.last_read_message_id:
+                existing.last_read_message_id = last_id
+            existing.last_read_at = now
+        await db.flush()
+        max_read = (await db.execute(
+            select(func.max(ChatRead.last_read_message_id)).where(
+                ChatRead.space_id == payload.space_id,
+                ChatRead.user_id == payload.user_id,
+            )
+        )).scalar() or 0
+    else:
+        max_read = last_id
     mem_res = await db.execute(select(SpaceMember).where(SpaceMember.space_id == payload.space_id, SpaceMember.user_id == payload.user_id))
     mem = mem_res.scalar_one_or_none()
-    now = datetime.utcnow()
     if not mem:
-        mem = SpaceMember(space_id=payload.space_id, user_id=payload.user_id, last_read_message_id=last_id, last_read_at=now)
+        mem = SpaceMember(space_id=payload.space_id, user_id=payload.user_id, last_read_message_id=max_read, last_read_at=now)
         db.add(mem)
     else:
-        if mem.last_read_message_id is None or last_id > mem.last_read_message_id:
-            mem.last_read_message_id = last_id
+        if mem.last_read_message_id is None or max_read > mem.last_read_message_id:
+            mem.last_read_message_id = max_read
         mem.last_read_at = now
     await db.commit()
-    await chat_manager.broadcast(payload.space_id, {
+    broadcast_payload = {
         "event": "read_update",
         "user_id": payload.user_id,
-        "last_read_message_id": mem.last_read_message_id,
-    })
+        "last_read_message_id": last_id,
+    }
+    if device_id:
+        broadcast_payload["device_id"] = device_id
+    await chat_manager.broadcast(payload.space_id, broadcast_payload)
     return {"success": True}
 
 
@@ -279,9 +317,21 @@ async def unread_count(space_id: int, user_id: str, request: Request, db: AsyncS
         raise HTTPException(status_code=400, detail="缺少用户ID")
     verify_request_user(request, user_id, required=False)
     await require_space_member(db, space_id, user_id)
-    mem_res = await db.execute(select(SpaceMember).where(SpaceMember.space_id == space_id, SpaceMember.user_id == user_id))
-    mem = mem_res.scalar_one_or_none()
-    last_read_id = mem.last_read_message_id if mem and mem.last_read_message_id else 0
+    # Task 32: unread = MIN(last_read_message_id) across the user's devices,
+    # so a desktop "read all" doesn't clear a phone's badge before the phone
+    # actually opens the chat. Falls back to legacy SpaceMember pointer when
+    # no per-device row exists yet (clients that haven't migrated).
+    min_read_row = await db.execute(
+        select(func.min(ChatRead.last_read_message_id)).where(
+            ChatRead.space_id == space_id,
+            ChatRead.user_id == user_id,
+        )
+    )
+    last_read_id = min_read_row.scalar()
+    if last_read_id is None:
+        mem_res = await db.execute(select(SpaceMember).where(SpaceMember.space_id == space_id, SpaceMember.user_id == user_id))
+        mem = mem_res.scalar_one_or_none()
+        last_read_id = mem.last_read_message_id if mem and mem.last_read_message_id else 0
     count_row = await db.execute(
         select(func.count(Message.id)).where(
             Message.space_id == space_id,

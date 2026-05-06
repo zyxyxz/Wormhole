@@ -62,6 +62,10 @@ class ReadUpdateRequest(BaseModel):
     space_id: int
     user_id: str
     last_read_message_id: int
+    # Task 32: optional per-device id; when present the server upserts a
+    # ChatRead row and rebases SpaceMember.last_read_message_id to MAX
+    # across the user's devices. Legacy clients omit this field.
+    device_id: Optional[str] = None
 
 
 class ReaderStatus(BaseModel):

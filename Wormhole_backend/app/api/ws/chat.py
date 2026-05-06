@@ -5,12 +5,13 @@ import time
 from datetime import datetime
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.database import AsyncSessionLocal
 from app.security import get_ws_user_id
 from app.services import chat_service
 from app.ws import chat_manager
+from models.chat_read import ChatRead
 from models.space import Space, SpaceMember
 
 logger = logging.getLogger("wormhole.ws")
@@ -189,6 +190,8 @@ async def chat_ws_endpoint(websocket: WebSocket, space_id: int):
                         await chat_manager.broadcast(space_id, rx_payload)
                 elif event == "read":
                     last_read_message_id = data.get("last_read_message_id")
+                    device_id_raw = data.get("device_id")
+                    device_id = str(device_id_raw or "").strip()
                     try:
                         last_read_message_id = int(last_read_message_id or 0)
                     except Exception:
@@ -198,24 +201,74 @@ async def chat_ws_endpoint(websocket: WebSocket, space_id: int):
                         async with AsyncSessionLocal() as session:
                             space = (await session.execute(select(Space).where(Space.id == space_id, Space.deleted_at.is_(None)))).scalar_one_or_none()
                             if space:
+                                now = datetime.utcnow()
+                                # Task 32: per-device tracking. We only persist a
+                                # ChatRead row when the client supplied a
+                                # device_id; legacy clients that don't yet send
+                                # one fall through to SpaceMember-only updates,
+                                # preserving previous semantics until they
+                                # upgrade.
+                                if device_id:
+                                    existing = (await session.execute(
+                                        select(ChatRead).where(
+                                            ChatRead.space_id == space_id,
+                                            ChatRead.user_id == user_id,
+                                            ChatRead.device_id == device_id,
+                                        )
+                                    )).scalar_one_or_none()
+                                    if not existing:
+                                        session.add(ChatRead(
+                                            space_id=space_id,
+                                            user_id=user_id,
+                                            device_id=device_id,
+                                            last_read_message_id=last_read_message_id,
+                                            last_read_at=now,
+                                        ))
+                                    else:
+                                        if existing.last_read_message_id is None or last_read_message_id > existing.last_read_message_id:
+                                            existing.last_read_message_id = last_read_message_id
+                                        existing.last_read_at = now
+                                # Keep legacy SpaceMember pointer in sync as the
+                                # MAX across devices: any UI that still reads
+                                # from SpaceMember sees the same "best read"
+                                # high-water-mark it always saw.
                                 mem_res = await session.execute(
                                     select(SpaceMember).where(SpaceMember.space_id == space_id, SpaceMember.user_id == user_id)
                                 )
                                 mem = mem_res.scalar_one_or_none()
-                                now = datetime.utcnow()
+                                if device_id:
+                                    # Flush the new ChatRead row so the MAX
+                                    # subquery sees it without a fresh round-trip.
+                                    await session.flush()
+                                    max_read = (await session.execute(
+                                        select(func.max(ChatRead.last_read_message_id)).where(
+                                            ChatRead.space_id == space_id,
+                                            ChatRead.user_id == user_id,
+                                        )
+                                    )).scalar() or 0
+                                else:
+                                    max_read = last_read_message_id
                                 if not mem:
-                                    mem = SpaceMember(space_id=space_id, user_id=user_id, last_read_message_id=last_read_message_id, last_read_at=now)
+                                    mem = SpaceMember(
+                                        space_id=space_id,
+                                        user_id=user_id,
+                                        last_read_message_id=max_read,
+                                        last_read_at=now,
+                                    )
                                     session.add(mem)
                                 else:
-                                    if mem.last_read_message_id is None or last_read_message_id > mem.last_read_message_id:
-                                        mem.last_read_message_id = last_read_message_id
+                                    if mem.last_read_message_id is None or max_read > mem.last_read_message_id:
+                                        mem.last_read_message_id = max_read
                                     mem.last_read_at = now
                                 await session.commit()
-                                await chat_manager.broadcast(space_id, {
+                                broadcast_payload = {
                                     "event": "read_update",
                                     "user_id": user_id,
-                                    "last_read_message_id": mem.last_read_message_id,
-                                })
+                                    "last_read_message_id": last_read_message_id,
+                                }
+                                if device_id:
+                                    broadcast_payload["device_id"] = device_id
+                                await chat_manager.broadcast(space_id, broadcast_payload)
                 continue
             user_id = ws_user_id
             chat_manager.register_user(space_id, websocket, user_id)

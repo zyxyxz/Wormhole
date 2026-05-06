@@ -1,5 +1,5 @@
 const { BASE_URL, WS_URL } = require('../../utils/config.js');
-const { getOpenIdCached } = require('../../utils/auth.js');
+const { getOpenIdCached, getOrCreateDeviceId } = require('../../utils/auth.js');
 const outbox = require('../../utils/chat-outbox.js');
 
 exports.methods = {
@@ -228,12 +228,16 @@ exports.methods = {
   sendReadState(lastReadId) {
     const userId = this._currentUserId || getOpenIdCached();
     if (!userId || !lastReadId) return;
-    const payload = { event: 'read', user_id: userId, last_read_message_id: lastReadId };
+    // Task 32: tag the read with this device's id so the server can keep a
+    // per-device read pointer. Unread count = MIN across devices, so a
+    // desktop read no longer prematurely clears a phone's badge.
+    const deviceId = getOrCreateDeviceId();
+    const payload = { event: 'read', user_id: userId, last_read_message_id: lastReadId, device_id: deviceId };
     this.sendWsEvent(payload, () => {
       wx.request({
         url: `${BASE_URL}/api/chat/read`,
         method: 'POST',
-        data: { space_id: this.data.spaceId, user_id: userId, last_read_message_id: lastReadId }
+        data: { space_id: this.data.spaceId, user_id: userId, last_read_message_id: lastReadId, device_id: deviceId }
       });
     });
   },
