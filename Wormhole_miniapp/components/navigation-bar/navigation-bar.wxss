@@ -35,48 +35,82 @@
   padding-left: var(--left);
   display: flex;
   flex-direction: row;
-  align-items: flex-start;
+  align-items: center;
   height: 100%;
   box-sizing: border-box;
 }
 
-.weui-navigation-bar__btn_goback_wrapper {
-  padding: 11px 18px 11px 16px;
-  margin: -11px -18px -11px -16px;
-}
-
-.weui-navigation-bar__btn_goback_wrapper.weui-active {
-  opacity: 0.5;
-}
-
-.weui-navigation-bar__btn_goback {
-  font-size: 12px;
-  width: 12px;
-  height: 24px;
-  -webkit-mask: url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='24' viewBox='0 0 12 24'%3E  %3Cpath fill-opacity='.9' fill-rule='evenodd' d='M10 19.438L8.955 20.5l-7.666-7.79a1.02 1.02 0 0 1 0-1.42L8.955 3.5 10 4.563 2.682 12 10 19.438z'/%3E%3C/svg%3E") no-repeat 50% 50%;
-  mask: url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='24' viewBox='0 0 12 24'%3E  %3Cpath fill-opacity='.9' fill-rule='evenodd' d='M10 19.438L8.955 20.5l-7.666-7.79a1.02 1.02 0 0 1 0-1.42L8.955 3.5 10 4.563 2.682 12 10 19.438z'/%3E%3C/svg%3E") no-repeat 50% 50%;
-  -webkit-mask-size: cover;
-  mask-size: cover;
-  background-color: var(--weui-FG-0);
-}
-
-.weui-navigation-bar__buttons_home {
-  padding: 8px 0;
-}
-
-.weui-navigation-bar__btn_home_wrapper {
-  margin-left: 8px;
-}
-
-.weui-navigation-bar__btn_home {
-  padding: 0 16px;
-  height: 30px;
-  line-height: 30px;
+/* Combined back+home pill (or single icon button when only one is enabled).
+ * Vertically centered inside the navbar; min-width 44px per icon ≥ Apple HIG. */
+.navbar-actions {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  height: 32px;
   border-radius: 999px;
-  background: rgba(15, 118, 110, 0.12);
-  color: #0F766E;
-  font-size: 14px;
-  box-shadow: inset 0 0 0 1px rgba(20, 184, 166, 0.4);
+  background: rgba(15, 118, 110, 0.10);
+  box-shadow: inset 0 0 0 1px rgba(20, 184, 166, 0.32);
+  overflow: hidden;
+}
+
+.navbar-actions__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  height: 100%;
+  padding: 0 12px;
+  transition: background-color 120ms ease;
+}
+
+.navbar-actions__btn--active {
+  background-color: rgba(15, 118, 110, 0.18);
+}
+
+.navbar-actions__divider {
+  width: 1px;
+  height: 16px;
+  background-color: rgba(15, 118, 110, 0.28);
+  flex: none;
+}
+
+.navbar-actions__icon {
+  background-color: #0F766E;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: 50% 50%;
+  mask-position: 50% 50%;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+}
+
+.navbar-actions__icon--back {
+  width: 10px;
+  height: 18px;
+  -webkit-mask-image: url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='24' viewBox='0 0 12 24'%3E%3Cpath fill='%23000' fill-rule='evenodd' d='M10 19.438L8.955 20.5l-7.666-7.79a1.02 1.02 0 0 1 0-1.42L8.955 3.5 10 4.563 2.682 12 10 19.438z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='24' viewBox='0 0 12 24'%3E%3Cpath fill='%23000' fill-rule='evenodd' d='M10 19.438L8.955 20.5l-7.666-7.79a1.02 1.02 0 0 1 0-1.42L8.955 3.5 10 4.563 2.682 12 10 19.438z'/%3E%3C/svg%3E");
+}
+
+.navbar-actions__icon--home {
+  width: 18px;
+  height: 18px;
+  -webkit-mask-image: url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath fill='%23000' d='M12 3.172 2.5 11.25l1.3 1.5L5 11.7V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-8.3l1.2 1.05 1.3-1.5L12 3.172z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath fill='%23000' d='M12 3.172 2.5 11.25l1.3 1.5L5 11.7V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-8.3l1.2 1.05 1.3-1.5L12 3.172z'/%3E%3C/svg%3E");
+}
+
+/* Dark-theme variant: brighter teal so the pill still reads on dark navbar bg. */
+.theme-dark .navbar-actions {
+  background: rgba(94, 234, 212, 0.14);
+  box-shadow: inset 0 0 0 1px rgba(94, 234, 212, 0.32);
+}
+.theme-dark .navbar-actions__btn--active {
+  background-color: rgba(94, 234, 212, 0.22);
+}
+.theme-dark .navbar-actions__divider {
+  background-color: rgba(94, 234, 212, 0.32);
+}
+.theme-dark .navbar-actions__icon {
+  background-color: #5EEAD4;
 }
 
 .weui-navigation-bar__center {
