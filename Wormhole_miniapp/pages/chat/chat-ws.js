@@ -105,12 +105,25 @@ exports.methods = {
     ws.onClose((res = {}) => {
       const code = res.code !== undefined ? res.code : '';
       const reason = res.reason || '';
+      // If this onClose is firing for a socket that is no longer the active
+      // one (cleanupWebSocket replaced it before the close handshake landed),
+      // we MUST NOT schedule a reconnect — the new socket is already alive,
+      // and queueing one here would tear it back down. This was the root of
+      // the "every 900ms reconnect" loop the user was seeing: cleanup sets
+      // _wsShouldReconnect=false then initWebSocket sets it true again
+      // synchronously, and by the time the stale onClose fires the flag has
+      // been overwritten.
+      const isActiveSocket = (this.ws === ws);
+      if (!isActiveSocket) {
+        console.log('忽略陈旧 onClose（连接已被 cleanup 替换）');
+        return;
+      }
       this._wsConnecting = false;
       this._wsReady = false;
       this._wsLastDisconnectedAt = Date.now();
       this.setData({ wsConnected: false });
       this.stopWsHeartbeat();
-      if (this.ws === ws) this.ws = null;
+      this.ws = null;
       if (!this._wsKeepAlive || this._wsClosing) {
         console.log('退出房间，WebSocket 已关闭');
         return;
@@ -128,12 +141,15 @@ exports.methods = {
     });
 
     ws.onError((res = {}) => {
+      // Same stale-socket guard as onClose — only react if this is still the
+      // active connection.
+      if (this.ws !== ws) return;
       if (!this._wsKeepAlive || this._wsClosing) return;
       console.log('WebSocket 连接错误', res && res.errMsg ? res.errMsg : '');
       this._wsConnecting = false;
       this._wsReady = false;
       this.stopWsHeartbeat();
-      if (this.ws === ws) this.ws = null;
+      this.ws = null;
     });
 
     this.ws = ws;
