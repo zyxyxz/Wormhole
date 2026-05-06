@@ -30,6 +30,7 @@ Page(Object.assign({
     memberCount: 0,
     onlineUserIds: [],
     onlineCount: 0,
+    wsConnected: true,  // false → header shows a small red dot indicator
     onlineMembers: [],
     typingUsers: [],
     typingDisplay: [],
@@ -204,17 +205,20 @@ Page(Object.assign({
     if (app && typeof app.clearChatBadge === 'function') {
       app.clearChatBadge();
     }
-    // 若昵称更新，刷新历史以展示新昵称
+    // Alias edits trigger a full history reload so existing bubbles re-render
+    // with the updated nickname/avatar. Otherwise we trust the WS push channel
+    // and skip the catch-up sync — chat-ws.js's onOpen handler will run
+    // syncLatestMessages itself if the disconnect was long enough to miss
+    // broadcasts. Fetching members / read state / stickers on every onShow
+    // turned the chat page into a polling loop; those are now refreshed only
+    // on initial onLoad and via WS-pushed events.
     const updated = wx.getStorageSync('aliasUpdatedAt');
     if (updated) {
       this.getHistoryMessages({ reset: true });
-    } else {
-      this.syncLatestMessages({ force: true });
+      try { wx.removeStorageSync('aliasUpdatedAt'); } catch (e) {}
     }
-    this.fetchMembers();
-    this.fetchReadState();
-    this.fetchCustomStickers();
-    // 冷启/前后台切换后立即尝试重连
+    // Cold-start / foreground transition: reconnect WS if we lost it while
+    // backgrounded. The reconnect's onOpen will catch up missed messages.
     if (!this._wsReady && this._wsKeepAlive) {
       this.initWebSocket({ force: true });
     }

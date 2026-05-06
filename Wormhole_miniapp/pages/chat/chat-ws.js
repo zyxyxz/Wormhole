@@ -52,12 +52,23 @@ exports.methods = {
       this._wsConnecting = false;
       this._wsReady = true;
       this._wsRetryCount = 0;
+      this.setData({ wsConnected: true });
       if (userId) {
         this.updateOnlineUsers([userId], 1);
       }
       this.startWsHeartbeat();
       this.sendPresence();
-      this.syncLatestMessages();
+      // Catch-up sync: only fire if WS was disconnected for ≥ 5s (a real
+      // gap during which broadcast events were missed). Skip on the very
+      // first connect (onLoad already loaded history) and on rapid bounces
+      // from transient drops, which would otherwise look like polling.
+      const now = Date.now();
+      const lastDisconnectedAt = this._wsLastDisconnectedAt || 0;
+      const disconnectedFor = lastDisconnectedAt ? now - lastDisconnectedAt : 0;
+      if (disconnectedFor >= 5000) {
+        this.syncLatestMessages();
+      }
+      this._wsLastConnectedAt = now;
       this.flushPendingSends();
     });
 
@@ -96,6 +107,8 @@ exports.methods = {
       const reason = res.reason || '';
       this._wsConnecting = false;
       this._wsReady = false;
+      this._wsLastDisconnectedAt = Date.now();
+      this.setData({ wsConnected: false });
       this.stopWsHeartbeat();
       if (this.ws === ws) this.ws = null;
       if (!this._wsKeepAlive || this._wsClosing) {
@@ -200,9 +213,12 @@ exports.methods = {
 
   startWsHeartbeat() {
     this.stopWsHeartbeat();
+    // Server pings every 60s and idle-kicks at 180s (Task 7). One client
+    // ping per 60s is enough to keep the channel marked active without
+    // looking like polling. Previously fired every 15s — too noisy.
     this._wsHeartbeatTimer = setInterval(() => {
       this.sendWsHeartbeat();
-    }, 15000);
+    }, 60000);
   },
 
   stopWsHeartbeat() {

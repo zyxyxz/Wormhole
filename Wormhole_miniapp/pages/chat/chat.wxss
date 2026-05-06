@@ -11,7 +11,19 @@ page { overflow: hidden; }
 }
 .nav-chips { display: flex; align-items: center; gap: 12rpx; }
 .nav-chip { padding: 8rpx 14rpx; border-radius: 999rpx; background: var(--chip); color: var(--text); font-size: 22rpx; }
-.nav-chip.online { background: rgba(20, 184, 166, 0.2); color: var(--primary-strong); }
+.nav-chip.online { background: rgba(20, 184, 166, 0.2); color: var(--primary-strong); display: inline-flex; align-items: center; gap: 6rpx; }
+.nav-chip .ws-dot {
+  width: 12rpx;
+  height: 12rpx;
+  border-radius: 50%;
+  background: #EF4444;
+  box-shadow: 0 0 0 2rpx rgba(239, 68, 68, 0.25);
+  animation: ws-dot-pulse 1.4s ease-in-out infinite;
+}
+@keyframes ws-dot-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.55; transform: scale(0.85); }
+}
 .heart-burst-layer { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: 9999; }
 .heart-burst-item {
   position: absolute;
