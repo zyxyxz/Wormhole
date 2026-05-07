@@ -158,7 +158,25 @@ exports.methods = {
       initial: name ? name.charAt(0) : '匿'
       };
     });
-    this.setData({ typingDisplay: display });
+    const wasEmpty = !(this.data.typingDisplay && this.data.typingDisplay.length);
+    const nowVisible = display.length > 0;
+    this.setData({ typingDisplay: display }, () => {
+      // The typing-row sits below the last message inside the scroll-view.
+      // When it transitions from hidden -> visible, scrollTargetId is still
+      // 'msg-<lastId>' which scrolls to the top of the last message and
+      // leaves the typing-row clipped below the viewport. Force a scroll to
+      // the bottom-anchor sentinel placed AFTER the typing-row so the user
+      // sees it immediately. Skip when the user has scrolled up to read
+      // history — we don't want to yank them back down.
+      if (wasEmpty && nowVisible && this.data.isAtBottom) {
+        // Empty-then-set forces scroll-into-view to retrigger even when
+        // bottom-anchor was already the last target (would otherwise be a
+        // no-op since the id didn't change).
+        this.setData({ scrollTargetId: '' }, () => {
+          this.setData({ scrollTargetId: 'bottom-anchor' });
+        });
+      }
+    });
   },
 
   updateReadUser(userId, lastReadId) {

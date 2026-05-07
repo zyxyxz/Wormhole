@@ -109,6 +109,10 @@
       </view>
       <text class="typing-text">正在输入...</text>
     </view>
+    <!-- Sentinel view at the very bottom of scroll content. We scroll-into-view
+         this anchor (instead of msg-<lastId>) when the typing indicator
+         appears, so the row doesn't get clipped below the viewport. -->
+    <view id="bottom-anchor" class="bottom-anchor"></view>
   </scroll-view>
 
   <view class="input-area" style="bottom: {{keyboardHeight}}px;" catchtap="noop">
