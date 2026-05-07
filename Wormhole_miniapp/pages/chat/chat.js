@@ -205,6 +205,13 @@ Page(Object.assign({
     if (app && typeof app.clearChatBadge === 'function') {
       app.clearChatBadge();
     }
+    // 2026-05-07 unread redesign: entering the chat page is the user's
+    // intent to acknowledge whatever they see, so push the server's
+    // last_read_message_id up to the latest visible message immediately
+    // (no longer waiting for them to manually scroll to the bottom).
+    // markReadLatest is a no-op when messages are empty or already up to
+    // date, so it's safe to call unconditionally on every onShow.
+    this.markReadLatest();
     // Alias edits trigger a full history reload so existing bubbles re-render
     // with the updated nickname/avatar. Otherwise we trust the WS push channel
     // and skip the catch-up sync — chat-ws.js's onOpen handler will run

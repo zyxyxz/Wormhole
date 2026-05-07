@@ -209,7 +209,12 @@ Page({
         }
         const app = getApp && getApp();
         if (app && typeof app.markNotesRead === 'function') {
-          app.markNotesRead(this.data.spaceId);
+          // 2026-05-07 unread redesign: pass the highest post id we just
+          // received so markNotesRead can advance the server-side
+          // SpaceMember.last_read_post_id. Posts come back ordered by
+          // created_at desc so the first one is the most recent.
+          const latestPostId = (rawPosts && rawPosts.length) ? (rawPosts[0]?.id || 0) : 0;
+          app.markNotesRead(this.data.spaceId, latestPostId);
         }
       },
       fail: () => { wx.showToast({ title: '加载失败', icon: 'none' }); },

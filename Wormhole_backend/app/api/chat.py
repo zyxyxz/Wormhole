@@ -317,27 +317,27 @@ async def unread_count(space_id: int, user_id: str, request: Request, db: AsyncS
         raise HTTPException(status_code=400, detail="缺少用户ID")
     verify_request_user(request, user_id, required=False)
     await require_space_member(db, space_id, user_id)
-    # Task 32: unread = MIN(last_read_message_id) across the user's devices,
-    # so a desktop "read all" doesn't clear a phone's badge before the phone
-    # actually opens the chat. Falls back to legacy SpaceMember pointer when
-    # no per-device row exists yet (clients that haven't migrated).
-    min_read_row = await db.execute(
-        select(func.min(ChatRead.last_read_message_id)).where(
-            ChatRead.space_id == space_id,
-            ChatRead.user_id == user_id,
+    # 2026-05-07 unread redesign: read directly from SpaceMember (which
+    # `app/api/ws/chat.py read` event already keeps as MAX-over-devices).
+    # The previous MIN-over-ChatRead semantics caused a "red dot rebound"
+    # bug — any stale device id (e.g. a long-unused dev tool session) kept
+    # the floor low and unread > 0 forever. Switching to the SpaceMember
+    # pointer means "global read" — once any device has read up to N, no
+    # other device sees those messages as unread either. ChatRead is still
+    # written by the `read` handler but we no longer query it here.
+    mem_res = await db.execute(
+        select(SpaceMember).where(
+            SpaceMember.space_id == space_id, SpaceMember.user_id == user_id,
         )
     )
-    last_read_id = min_read_row.scalar()
-    if last_read_id is None:
-        mem_res = await db.execute(select(SpaceMember).where(SpaceMember.space_id == space_id, SpaceMember.user_id == user_id))
-        mem = mem_res.scalar_one_or_none()
-        last_read_id = mem.last_read_message_id if mem and mem.last_read_message_id else 0
+    mem = mem_res.scalar_one_or_none()
+    last_read_id = mem.last_read_message_id if mem and mem.last_read_message_id else 0
     count_row = await db.execute(
         select(func.count(Message.id)).where(
             Message.space_id == space_id,
             Message.deleted_at.is_(None),
             Message.id > last_read_id,
-            Message.user_id != user_id
+            Message.user_id != user_id,
         )
     )
     count = count_row.scalar_one() or 0

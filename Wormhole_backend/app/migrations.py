@@ -358,6 +358,34 @@ async def add_comments_parent_id(conn):
     ))
 
 
+async def add_space_member_last_read_post_id(conn):
+    """2026-05-07 unread state machine: track last_read_post_id on SpaceMember.
+
+    Used by /api/feed/unread-count to count posts.id > last_read_post_id, and
+    by /api/feed/mark-read to advance the pointer when a user enters the
+    feed page. Backfills existing rows to MAX(post.id) for the same space so
+    users don't see a 99+ badge on the first deploy after this lands —
+    "everything before the deploy is considered already-seen".
+    """
+    if not await column_exists(conn, "space_members", "last_read_post_id"):
+        await conn.execute(text(
+            "ALTER TABLE space_members ADD COLUMN last_read_post_id INTEGER DEFAULT 0"
+        ))
+        # Backfill: pin every existing membership to the current MAX(post.id)
+        # in their space. New posts created after the deploy will appear as
+        # unread; pre-deploy posts are treated as already seen.
+        await conn.execute(text(
+            """
+            UPDATE space_members
+            SET last_read_post_id = COALESCE(
+                (SELECT MAX(p.id) FROM posts p WHERE p.space_id = space_members.space_id),
+                0
+            )
+            WHERE last_read_post_id IS NULL OR last_read_post_id = 0
+            """
+        ))
+
+
 async def add_chat_reads_table(conn):
     """Task 32: per-device chat read tracking.
 
@@ -456,6 +484,7 @@ MIGRATIONS = [
     ("202609_add_messages_fts5", add_messages_fts5),
     ("202610_add_comments_parent_id", add_comments_parent_id),
     ("202611_add_chat_reads_table", add_chat_reads_table),
+    ("202612_add_space_member_last_read_post_id", add_space_member_last_read_post_id),
 ]
 
 

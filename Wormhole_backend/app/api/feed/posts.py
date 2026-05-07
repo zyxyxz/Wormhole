@@ -6,9 +6,10 @@ import json
 from datetime import datetime
 from app.database import get_db
 from app.security import verify_request_user, require_space_member
+from app.ws import event_manager
 from models.feed import Post, Comment, PostLike
 from models.user import UserAlias
-from models.space import Space
+from models.space import Space, SpaceMember
 from schemas.feed import (
     PostCreate,
     PostResponse,
@@ -85,6 +86,18 @@ async def create_post(payload: PostCreate, request: Request, db: AsyncSession = 
         sender_user_id=post.user_id,
         sender_alias=alias,
     )
+    # 2026-05-07 unread redesign: push a feed_unread_inc event so other
+    # members' tab badges light up immediately, mirroring chat's unread_inc.
+    # Wrapped in try/except so a transport hiccup can't fail an
+    # already-committed post.
+    try:
+        await event_manager.broadcast(post.space_id, {
+            "event": "feed_unread_inc",
+            "from_user_id": post.user_id,
+            "post_id": post.id,
+        })
+    except Exception:
+        pass
     return PostResponse(
         id=post.id,
         space_id=post.space_id,
@@ -348,55 +361,82 @@ async def activity_list(
 
 
 @router.get("/unread-count")
-async def unread_count(space_id: int, request: Request, since_ts: int | None = None, user_id: str | None = None, db: AsyncSession = Depends(get_db)):
+async def unread_count(
+    space_id: int,
+    request: Request,
+    user_id: str | None = None,
+    # since_ts kept for backward compatibility with pre-2026-05-07 clients;
+    # ignored now that we track last_read_post_id server-side.
+    since_ts: int | None = None,
+    db: AsyncSession = Depends(get_db),
+):
+    """Count posts the user hasn't acknowledged yet.
+
+    2026-05-07: rewritten around `SpaceMember.last_read_post_id` instead of
+    a client-supplied `since_ts`. The previous timestamp-based approach was
+    a) client-local (multi-device drift), b) noisy (counted comments AND
+    likes too, blowing past 99+ on busy days). We now count only NEW POSTS
+    from OTHER users with id > last_read_post_id. Comments / likes still
+    surface in the activity feed; they just don't drive the tab badge.
+    """
     actor_user_id = verify_request_user(request, user_id, required=False)
     if not actor_user_id:
         raise HTTPException(status_code=401, detail="缺少用户身份")
     await require_space_member(db, space_id, actor_user_id)
     user_id = user_id or actor_user_id
-    if not since_ts:
-        return {"count": 0}
-    try:
-        since_ts = int(since_ts)
-    except Exception:
-        return {"count": 0}
-    since_dt = datetime.utcfromtimestamp(since_ts / 1000)
-    post_query = select(func.count(Post.id)).where(
-        Post.space_id == space_id,
-        Post.deleted_at.is_(None),
-        Post.created_at > since_dt
-    )
-    if user_id:
-        post_query = post_query.where(Post.user_id != user_id)
-    post_count = (await db.execute(post_query)).scalar_one() or 0
 
-    comment_query = (
-        select(func.count(Comment.id))
-        .select_from(Comment)
-        .join(Post, Comment.post_id == Post.id)
-        .where(
-            Post.space_id == space_id,
-            Post.deleted_at.is_(None),
-            Comment.deleted_at.is_(None),
-            Comment.created_at > since_dt
+    mem_res = await db.execute(
+        select(SpaceMember).where(
+            SpaceMember.space_id == space_id, SpaceMember.user_id == user_id,
         )
     )
-    if user_id:
-        comment_query = comment_query.where(Comment.user_id != user_id)
-    comment_count = (await db.execute(comment_query)).scalar_one() or 0
+    mem = mem_res.scalar_one_or_none()
+    last_read_post_id = mem.last_read_post_id if mem and mem.last_read_post_id else 0
 
-    like_query = (
-        select(func.count(PostLike.id))
-        .select_from(PostLike)
-        .join(Post, PostLike.post_id == Post.id)
-        .where(
+    count_row = await db.execute(
+        select(func.count(Post.id)).where(
             Post.space_id == space_id,
             Post.deleted_at.is_(None),
-            PostLike.created_at > since_dt
+            Post.id > last_read_post_id,
+            Post.user_id != user_id,
         )
     )
-    if user_id:
-        like_query = like_query.where(PostLike.user_id != user_id)
-    like_count = (await db.execute(like_query)).scalar_one() or 0
+    count = count_row.scalar_one() or 0
+    return {"count": count, "last_read_post_id": last_read_post_id}
 
-    return {"count": post_count + comment_count + like_count}
+
+@router.post("/mark-read")
+async def mark_feed_read(
+    payload: dict,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """Advance SpaceMember.last_read_post_id when the user enters the feed.
+
+    Body: { space_id, user_id, last_read_post_id }
+    Pointer is monotonically advanced — never goes backwards even if a
+    client sends a stale value (e.g. cached from before a refresh).
+    """
+    space_id = int(payload.get("space_id") or 0)
+    user_id = str(payload.get("user_id") or "").strip()
+    incoming = int(payload.get("last_read_post_id") or 0)
+    if not space_id or not user_id:
+        raise HTTPException(status_code=400, detail="缺少必要参数")
+    actor_user_id = verify_request_user(request, user_id)
+    await require_space_member(db, space_id, actor_user_id)
+    mem_res = await db.execute(
+        select(SpaceMember).where(
+            SpaceMember.space_id == space_id, SpaceMember.user_id == user_id,
+        )
+    )
+    mem = mem_res.scalar_one_or_none()
+    if not mem:
+        # Shouldn't happen — require_space_member would have 403'd above —
+        # but safe-guard anyway.
+        raise HTTPException(status_code=404, detail="未加入空间")
+    current = mem.last_read_post_id or 0
+    if incoming > current:
+        mem.last_read_post_id = incoming
+        await db.commit()
+        await db.refresh(mem)
+    return {"success": True, "last_read_post_id": mem.last_read_post_id or 0}

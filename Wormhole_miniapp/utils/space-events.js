@@ -39,17 +39,33 @@ exports.methods = {
       let msg = null;
       try { msg = JSON.parse(res.data); } catch (e) { return; }
       if (!msg || typeof msg !== 'object') return;
-      if (msg.event !== 'unread_inc') return;
+      const evt = msg.event;
+      if (evt !== 'unread_inc' && evt !== 'feed_unread_inc') return;
       const currentSid = wx.getStorageSync('currentSpaceId');
       if (!currentSid || String(currentSid) !== String(this._spaceEventSpaceId)) return;
+      // Don't bump for events caused by the user themselves.
       if (msg.from_user_id && msg.from_user_id === this._spaceEventUserId) return;
       const pages = getCurrentPages();
       const route = pages[pages.length - 1]?.route || '';
-      if (route === 'pages/chat/chat') {
-        this.clearChatBadge(currentSid);
-        return;
+      if (evt === 'unread_inc') {
+        // Chat: clear if user is on the chat page (they're reading live);
+        // otherwise increment the chat tab badge.
+        if (route === 'pages/chat/chat') {
+          this.clearChatBadge(currentSid);
+        } else {
+          this.bumpChatBadge(currentSid, 1);
+        }
+      } else {
+        // Feed: only the notes (动态) page lists posts. Explore is a
+        // different tab (发现) and doesn't qualify as "reading the feed".
+        // Clear when the user is actually on /notes; the page itself
+        // calls markNotesRead with the new latest post id when it loads.
+        if (route === 'pages/notes/notes') {
+          this.clearNotesBadge(currentSid);
+        } else {
+          this.bumpNotesBadge(currentSid, 1);
+        }
       }
-      this.bumpChatBadge(currentSid, 1);
     });
     sock.onClose(() => {
       this._spaceEventConnecting = false;

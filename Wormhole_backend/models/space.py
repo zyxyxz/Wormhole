@@ -51,6 +51,12 @@ class SpaceMember(Base):
     joined_at = Column(DateTime(timezone=True), server_default=func.now())
     last_read_message_id = Column(Integer, nullable=True)
     last_read_at = Column(DateTime(timezone=True), nullable=True)
+    # Highest post id this user has acknowledged seeing in the feed for this
+    # space. /api/feed/unread-count reports COUNT(posts.id > this) and
+    # /api/feed/mark-read advances it. Default 0 = "everything is unread";
+    # migration backfills existing rows to MAX(post.id) per space so users
+    # don't see a 99+ badge on the first deploy after this lands.
+    last_read_post_id = Column(Integer, nullable=True, default=0)
 
 class SpaceBlock(Base):
     __tablename__ = "space_blocks"
