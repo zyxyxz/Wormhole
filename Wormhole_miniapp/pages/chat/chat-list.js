@@ -286,6 +286,15 @@ exports.methods = {
   },
 
   markReadLatest() {
+    // Only advance the server-side read pointer when the chat page is
+    // actually visible. The chat WS stays connected while the page is
+    // hidden (it's a tab page), so addMessage() can fire here from a
+    // background-arriving broadcast — without this guard, isAtBottom
+    // (sticky from the user's last visit) would let markReadLatest run
+    // and silently push SpaceMember.last_read_message_id to the latest,
+    // which then makes the next refreshChatBadge return 0 and clears the
+    // unread red dot the user expects to see when on another tab.
+    if (!this._pageActive) return;
     const messages = this.data.messages || [];
     if (!messages.length) return;
     const latestId = messages[messages.length - 1].id;

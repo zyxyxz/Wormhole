@@ -232,6 +232,11 @@ Page(Object.assign({
   },
   onHide() {
     this.sendTyping(false);
+    // _pageActive gates markReadLatest in chat-list.js — leaving it true
+    // here would let background-arriving messages silently advance the
+    // server's last_read pointer, which then makes the chat tab badge
+    // disappear when the user navigates to a sibling tab. Reset on hide.
+    this._pageActive = false;
     // 保持房间内WS连接，便于接收新消息红点
   },
   onBack() {
@@ -240,6 +245,7 @@ Page(Object.assign({
 
   onUnload() {
     this.sendTyping(false);
+    this._pageActive = false;
     this._wsKeepAlive = false;
     this.cleanupWebSocket({ allowReconnect: false });
     if (this._netListener) {
