@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import inspect, text
 
 
@@ -33,9 +33,10 @@ async def has_migration(conn, name: str) -> bool:
 
 
 async def mark_migration(conn, name: str):
+    applied_at = datetime.utcnow().isoformat() if is_sqlite(conn) else datetime.now(timezone.utc)
     await conn.execute(text("INSERT INTO schema_migrations(name, applied_at) VALUES (:name, :applied_at)"), {
         "name": name,
-        "applied_at": datetime.utcnow().isoformat()
+        "applied_at": applied_at
     })
 
 
