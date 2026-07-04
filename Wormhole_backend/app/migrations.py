@@ -1,13 +1,27 @@
 from datetime import datetime
-from sqlalchemy import text
+from sqlalchemy import inspect, text
+
+
+def is_sqlite(conn) -> bool:
+    return conn.dialect.name == "sqlite"
 
 
 async def ensure_migrations_table(conn):
+    if is_sqlite(conn):
+        await conn.execute(text(
+            """
+            CREATE TABLE IF NOT EXISTS schema_migrations (
+                name TEXT PRIMARY KEY,
+                applied_at TEXT DEFAULT (datetime('now'))
+            )
+            """
+        ))
+        return
     await conn.execute(text(
         """
         CREATE TABLE IF NOT EXISTS schema_migrations (
             name TEXT PRIMARY KEY,
-            applied_at TEXT DEFAULT (datetime('now'))
+            applied_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
         )
         """
     ))
@@ -26,6 +40,13 @@ async def mark_migration(conn, name: str):
 
 
 async def column_exists(conn, table: str, column: str) -> bool:
+    if not is_sqlite(conn):
+        def _has_column(sync_conn):
+            inspector = inspect(sync_conn)
+            return any(col.get("name") == column for col in inspector.get_columns(table))
+
+        return await conn.run_sync(_has_column)
+
     result = await conn.execute(text(f"PRAGMA table_info({table})"))
     for row in result.mappings():
         if row.get("name") == column:
@@ -34,6 +55,12 @@ async def column_exists(conn, table: str, column: str) -> bool:
 
 
 async def table_exists(conn, table: str) -> bool:
+    if not is_sqlite(conn):
+        def _has_table(sync_conn):
+            return inspect(sync_conn).has_table(table)
+
+        return await conn.run_sync(_has_table)
+
     result = await conn.execute(
         text("SELECT 1 FROM sqlite_master WHERE type='table' AND name = :name"),
         {"name": table}
@@ -490,6 +517,16 @@ MIGRATIONS = [
 
 async def run_migrations(conn):
     await ensure_migrations_table(conn)
+    if not is_sqlite(conn):
+        # PostgreSQL deployments are initialized from SQLAlchemy metadata.
+        # The legacy migration bodies below are SQLite-specific (PRAGMA,
+        # sqlite_master, FTS5 triggers), so mark them as applied instead of
+        # executing incompatible DDL on Railway Postgres.
+        for name, _handler in MIGRATIONS:
+            if not await has_migration(conn, name):
+                await mark_migration(conn, name)
+        return
+
     for name, handler in MIGRATIONS:
         if await has_migration(conn, name):
             continue

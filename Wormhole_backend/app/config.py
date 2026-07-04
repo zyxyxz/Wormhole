@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     PORT: int = 8098
 
     # Database / Storage
+    DATABASE_URL: str = ""
     DATABASE_PATH: str = "wormhole.db"
     COS_SECRET_ID: str = ""
     COS_SECRET_KEY: str = ""

@@ -2,6 +2,7 @@ fastapi>=0.68.0
 uvicorn>=0.15.0
 sqlalchemy>=1.4.23
 aiosqlite>=0.17.0
+asyncpg>=0.29.0
 pydantic>=2.0.0
 pydantic-settings>=2.0.0
 python-multipart>=0.0.5
@@ -14,4 +15,3 @@ pytest>=7.0
 pytest-asyncio>=0.21
 slowapi==0.1.9
 alembic>=1.13.0
-
