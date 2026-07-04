@@ -1,0 +1,14 @@
+.git
+.omx
+.venv_wormhole
+__pycache__
+*.pyc
+
+.env
+Wormhole_backend/.env
+Wormhole_backend/wormhole.db
+Wormhole_backend/wormhole.db-*
+Wormhole_backend/static/uploads
+
+private.*.key
+Wormhole_miniapp
