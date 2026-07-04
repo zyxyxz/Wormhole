@@ -12,7 +12,7 @@ import asyncio
 import os
 import sqlite3
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -73,7 +73,10 @@ def parse_datetime(value: Any) -> Any:
         if not text:
             return None
         try:
-            return datetime.fromisoformat(text.replace("Z", "+00:00"))
+            parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+            if parsed.tzinfo is None:
+                return parsed.replace(tzinfo=timezone.utc)
+            return parsed
         except ValueError:
             return value
     return value
@@ -83,6 +86,8 @@ def convert_value(value: Any, column) -> Any:
     if isinstance(column.type, Boolean):
         if value is None or isinstance(value, bool):
             return value
+        if isinstance(value, str):
+            return value.strip().lower() in {"1", "true", "t", "yes", "y"}
         return bool(value)
     if isinstance(column.type, DateTime):
         return parse_datetime(value)
