@@ -98,6 +98,33 @@ def convert_value(value: Any, column) -> Any:
     return value
 
 
+def row_value(row: sqlite3.Row, column_name: str) -> Any:
+    if column_name not in row.keys():
+        return None
+    return row[column_name]
+
+
+def row_passes_foreign_keys(
+    row: sqlite3.Row,
+    table,
+    valid_keys: dict[tuple[str, str], set[Any]],
+    source_keys: dict[tuple[str, str], set[Any]],
+) -> bool:
+    for column in table.columns:
+        value = row_value(row, column.name)
+        if value is None:
+            continue
+        for foreign_key in column.foreign_keys:
+            remote = foreign_key.column
+            remote_key = (remote.table.name, remote.name)
+            allowed = valid_keys.get(remote_key)
+            if allowed is None and remote.table.name == table.name:
+                allowed = source_keys.get(remote_key)
+            if allowed is not None and value not in allowed:
+                return False
+    return True
+
+
 async def truncate_tables(pg: asyncpg.Connection, table_names: list[str]) -> None:
     if not table_names:
         return
@@ -105,8 +132,11 @@ async def truncate_tables(pg: asyncpg.Connection, table_names: list[str]) -> Non
     await pg.execute(f"TRUNCATE {joined} RESTART IDENTITY CASCADE")
 
 
-async def reset_sequences(pg: asyncpg.Connection, table_names: list[str]) -> None:
-    for table_name in table_names:
+async def reset_sequences(pg: asyncpg.Connection, tables) -> None:
+    for table in tables:
+        table_name = table.name
+        if "id" not in table.columns:
+            continue
         await pg.execute(
             """
             SELECT setval(
@@ -136,6 +166,7 @@ async def migrate(args: argparse.Namespace) -> None:
 
     ordered_tables = [table for table in Base.metadata.sorted_tables if table.name in tables_in_sqlite]
     table_names = [table.name for table in ordered_tables]
+    valid_keys: dict[tuple[str, str], set[Any]] = {}
 
     pg = await asyncpg.connect(postgres_url_for_asyncpg(database_url))
     try:
@@ -159,8 +190,23 @@ async def migrate(args: argparse.Namespace) -> None:
             if "id" in available_columns:
                 select_sql += " ORDER BY id"
             rows = sqlite_conn.execute(select_sql).fetchall()
+            source_keys = {
+                (table_name, column.name): {row[column.name] for row in rows}
+                for column in table.primary_key.columns
+                if column.name in available_columns
+            }
+            for key in source_keys:
+                valid_keys.setdefault(key, set())
+            filtered_rows = [
+                row for row in rows
+                if row_passes_foreign_keys(row, table, valid_keys, source_keys)
+            ]
+            skipped = len(rows) - len(filtered_rows)
             if not rows:
                 print(f"{table_name}: 0 rows")
+                continue
+            if not filtered_rows:
+                print(f"{table_name}: 0 inserted, skipped={skipped}")
                 continue
 
             insert_sql = (
@@ -174,13 +220,19 @@ async def migrate(args: argparse.Namespace) -> None:
 
             values = [
                 tuple(convert_value(row[column.name], column) for column in columns)
-                for row in rows
+                for row in filtered_rows
             ]
             await pg.executemany(insert_sql, values)
+            for column in table.primary_key.columns:
+                if column.name in available_columns:
+                    valid_keys[(table_name, column.name)] = {
+                        row[column.name] for row in filtered_rows
+                    }
             pg_count = await pg.fetchval(f"SELECT COUNT(*) FROM {quote_ident(table_name)}")
-            print(f"{table_name}: sqlite={len(rows)} postgres={pg_count}")
+            suffix = f" skipped={skipped}" if skipped else ""
+            print(f"{table_name}: sqlite={len(rows)} postgres={pg_count}{suffix}")
 
-        await reset_sequences(pg, table_names)
+        await reset_sequences(pg, ordered_tables)
     finally:
         await pg.close()
         sqlite_conn.close()
